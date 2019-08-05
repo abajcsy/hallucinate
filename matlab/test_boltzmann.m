@@ -17,52 +17,53 @@ x0 = [0;0];
 g = [0;4];
 
 % Set of values beta can take.
-betas = [0, 0.1, 1, 100];
+betas = [1, 10, 100, 1000];
+str_betas = {};
+for i=1:length(betas)
+    str_betas{i} = num2str(betas(i));
+end
 
 % Prior over beta.
-P_b = [0.25,0.25,0.25,0.25];
+P_b = [0.1 ,0.1, 0.1, 0.7];
 
 %% Update prior over \beta given new measurement.
 % Simulate a bunch of "good" actions (UP) and "bad" actions (DOWN).
 P_b_new = P_b;
 
-num_good_us = 100;
-num_bad_us = 100;
+num_good_us = 10;
+num_bad_us = 0;
 
 for i=1:num_good_us
     P_b_new = update_Pb(UP, P_b_new, x0, g, betas);
 end
 
 for i=1:num_bad_us
-    P_b_new = update_Pb(DOWN, P_b_new, x0, g, betas);
+    P_b_new = update_Pb(RIGHT, P_b_new, x0, g, betas);
 end
 
 %% Predict next state distribution given your posterior.
+H = 5; % prediction horizon
+P_x1 = predict(x0, g, H, P_b_new, betas);
 
-% predict forward 1 timestep.
-P_x1 = update_Px(x0, g, betas, P_b_new);
+%% Plotting.
+plot(P_x1, P_b_new, str_betas)
+end
 
-%% Plotting. 
-% Plot the posterior over beta.
-figure(1)
-heatmap(P_b_new, 'ColorLimits',[0 1]);
-ax = gca;
-ax.XData = ["b = 0" "0.1" "1" "10"];
-ax.YData = ["P(b)"];
-
-% Plot state distributions.
-figure(2)
-% Construct 2D version of environment to visualize probabilities.
-grid = zeros(11,7);
-grid(5,4) = P_x1(1);
-grid(6,5) = P_x1(2);
-grid(7,4) = P_x1(3);
-grid(6,3) = P_x1(4);
-heatmap(grid, 'ColorLimits',[0 1], 'Colormap', cool, 'FontSize', 5);
-ax = gca;
-ax.Title = "P(x1|x0)";
-ax.XData = ["x=-3" "-2" "-1" "0" "1" "2" "3"];
-ax.YData = ["y=5" "4" "3" "2" "1" "0" "-1" "-2" "-3" "-4" "-5"];
+%% Predicts the state distribution H steps into the future given x0 
+%  Computes:
+%       P(x1:H | x0) = \prod^H_i=2 P(x_i | x_i-1)*P(x_i-1 | x_i-2)
+%  Given:
+%       x0    -- initial state
+%       g     -- goal location
+%       H     -- prediction horizon
+%       P_b   -- prior over beta
+%       betas -- values that beta can take
+%  Output:
+%       preds -- cell array indexed by 1:H with corresponding state
+%                distributions
+function preds = predict(x0, g, H, P_b, betas)
+    P_x1 = update_Px(x0, g, betas, P_b);
+    for 
 end
 
 %% Update posterior over beta given measured u0
@@ -122,19 +123,23 @@ function prob = Pu_given_x_b(u, x0, g, beta)
     Qx0u3 = 1 + norm(xu3 - g);
     Qx0u4 = 1 + norm(xu4 - g);
 
+    % Normalization trick to improve numerical stability.
+    % See: http://cs231n.github.io/linear-classify/#softmax
+    offset = 0; %max([Qx0u1, Qx0u2, Qx0u3, Qx0u4]);
+    
     % Compute the denominator by summing over all possible actions.
-    normalizer = exp(-beta * Qx0u1) + exp(-beta * Qx0u2) + ...
-                    exp(-beta * Qx0u3) + exp(-beta * Qx0u4);
+    normalizer = exp(-log(beta) * Qx0u1 - offset) + exp(-log(beta) * Qx0u2 - offset) + ...
+                    exp(-log(beta) * Qx0u3 - offset) + exp(-log(beta) * Qx0u4 - offset);
 
     % Compute the numerator by evaluating the likelihood of the given action. 
     if u == UP 
-        prob = exp(-beta * Qx0u1)/normalizer;
+        prob = exp(-log(beta) * Qx0u1 - offset)/normalizer;
     elseif u == RIGHT 
-        prob = exp(-beta * Qx0u2)/normalizer;
+        prob = exp(-log(beta) * Qx0u2 - offset)/normalizer;
     elseif u == DOWN 
-        prob = exp(-beta * Qx0u3)/normalizer;
+        prob = exp(-log(beta) * Qx0u3 - offset)/normalizer;
     elseif u == LEFT 
-        prob = exp(-beta * Qx0u4)/normalizer;
+        prob = exp(-log(beta) * Qx0u4 - offset)/normalizer;
     end
 end
 
@@ -150,4 +155,28 @@ function xnext = dynamics(x0,u)
     elseif u == LEFT
         xnext = [x0(1)-1; x0(2)];
     end
+end
+
+%% Plotting. 
+function plot(P_x1, P_b, str_betas)
+    % Plot the posterior over beta.
+    figure(1)
+    heatmap(P_b, 'ColorLimits',[0 1]);
+    ax = gca;
+    ax.XData = str_betas; 
+    ax.YData = ["P(b)"];
+
+    % Plot state distributions.
+    figure(2)
+    % Construct 2D version of environment to visualize probabilities.
+    grid = zeros(11,7);
+    grid(5,4) = P_x1(1);
+    grid(6,5) = P_x1(2);
+    grid(7,4) = P_x1(3);
+    grid(6,3) = P_x1(4);
+    heatmap(grid, 'ColorLimits',[0 1], 'Colormap', cool, 'FontSize', 5);
+    ax = gca;
+    ax.Title = "P(x1|x0)";
+    ax.XData = ["x=-3" "-2" "-1" "0" "1" "2" "3"];
+    ax.YData = ["y=5" "4" "3" "2" "1" "0" "-1" "-2" "-3" "-4" "-5"];
 end
