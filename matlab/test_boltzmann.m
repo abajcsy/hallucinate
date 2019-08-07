@@ -10,10 +10,16 @@ RIGHT = 2;
 DOWN = 3;
 LEFT = 4;
 
-% Initial (x,y) state of the human.
+% Environment and gridding information.
+realLow = [-3,-5];
+realUp = [3,5];
+resX = 1;
+resY = 1;
+
+% Initial (x,y) state of the human (in meters).
 x0 = [0;0];
 
-% Known goal.
+% Known goal (in meters).
 g = [0;4];
 
 % Set of values beta can take.
@@ -51,7 +57,8 @@ end
 
 %% Predicts the state distribution H steps into the future given x0 
 %  Computes:
-%       P(x1:H | x0) = \prod^H_i=2 P(x_i | x_i-1)*P(x_i-1 | x_i-2)
+%       P(xt | x0) = \sum_xt-1 P(x_t | x_t-1)*P(x_t-1 | x_0)
+%                  
 %  Given:
 %       x0    -- initial state
 %       g     -- goal location
@@ -62,8 +69,16 @@ end
 %       preds -- cell array indexed by 1:H with corresponding state
 %                distributions
 function preds = predict(x0, g, H, P_b, betas)
-    P_x1 = update_Px(x0, g, betas, P_b);
-    for 
+
+%     assume P(xt | x0) = 0 for all xt
+%     for t in {1,2,...H}
+%        for xt in X
+%            for beta in B
+%                for ut-1 in U
+%                    xt-1 = finv(xt, ut-1)
+%                    p(xt | x0) += P(beta)*P(ut-1|xt-1,beta)*P(xt-1|x0)
+
+
 end
 
 %% Update posterior over beta given measured u0
@@ -141,6 +156,16 @@ function prob = Pu_given_x_b(u, x0, g, beta)
     elseif u == LEFT 
         prob = exp(-log(beta) * Qx0u4 - offset)/normalizer;
     end
+end
+
+%% Gets the 1-step reachable states from x0
+function x1 = oneStepReachableStates(x0)
+    global UP DOWN LEFT RIGHT
+    xu1 = dynamics(x0,UP);
+    xu2 = dynamics(x0,RIGHT);
+    xu3 = dynamics(x0,DOWN);
+    xu4 = dynamics(x0,LEFT);
+    x1 = [xu1, xu2, xu3, xu4];
 end
 
 %% Dynamics function gives next state we can get to given current state.

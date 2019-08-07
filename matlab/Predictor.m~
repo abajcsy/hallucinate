@@ -1,0 +1,190 @@
+classdef Predictor
+    %PREDICTOR Summary of this class goes here
+    %   Detailed explanation goes here
+    
+    properties
+        xinit       % (array) start position (in grid cells)
+        g           % (array) known goal location (in grid cells)
+        betas       % (array) discrete values beta can take
+        Pbeta       % (map) prior over beta -- beta values are keys, probability is value
+        gridDims    % (array) num grid cells in each dim (i.e. height and width)
+        states      % (cell arr) indicies of all states in grid
+        controls    % (cell arr) all controls
+    end
+    
+    methods
+        function obj = Predictor(xinit, goal, gridDims, beta_values, beta_prior)
+            %PREDICTOR Construct an instance of this class
+            %   Detailed explanation goes here
+            obj.xinit = xinit;
+            obj.g = goal;
+            obj.betas = beta_values;
+            obj.Pbeta = beta_prior; 
+            obj.gridDims = gridDims;
+            obj.Pbeta = containers.Map(obj.betas, beta_prior);
+            
+            % enumerate all the state indicies
+            obj.states = {};
+            for x=1:obj.gridDims(1)
+                for y=1:obj.gridDims(2)
+                    obj.states{end+1} = [x;y];
+                end
+            end
+            
+            % enumerate all the controls
+            % UP=1, DOWN=2, LEFT=3, RIGHT=4
+            obj.controls = [1,2,3,4]; 
+        end
+        
+        %% Predicts the state distribution H steps into the future given x0 
+        %  Computes:
+        %       P(xt | x0) = \sum_xt-1 P(x_t | x_t-1)*P(x_t-1 | x_0)
+        %                  
+        %  Given:
+        %       x0    -- initial state
+        %       H     -- prediction horizon
+        %  Output:
+        %       preds -- cell array indexed by 1:H+1 with corresponding state
+        %                distributions.
+        function preds = predict(obj, x0, H)
+
+            % Initialize empty prediction grids forward in time.
+            % Assume P(xt | x0) = 0 for all xt
+            preds = cell([1,H+1]);
+            preds(:) = {zeros(obj.gridDims)};
+            
+            % Current measured state has probability = 1, zeros elsewhere.
+            preds{1}(x0(1), x0(2)) = 1;
+            
+            for t=2:H+1
+                for xcurr = obj.states
+                    xt = xcurr{1};
+                    for b = obj.betas
+                        Pb = obj.Pbeta(b);
+                        for ut1 = obj.controls
+                            % Invert dynamics to get the state x_t-1 we came
+                            % from applying control u_t-1.
+                            xt1 = obj.invDyn(xt, ut1);
+                            
+                            % Get the probability of the prior state, x_t-1
+                            Pxt1_x0 = preds{t-1}(xt1(1), xt1(2));
+                            
+                            % Get the probability of this action being
+                            % taken from x_t-1, given this value of beta.
+                            Put1_xt1_beta = obj.Pu_given_x_b(ut1, xt1, b);
+                            
+                            % Compute the probability of this new state:
+                            % p(xt | x0) += P(beta)*P(ut-1|xt-1,beta)*P(xt-1|x0)
+                            preds{t}(xt(1), xt(2)) = preds{t}(xt(1), xt(2)) + ...
+                                                     Pb * Put1_xt1_beta * Pxt1_x0;
+                        end
+                    end
+                end
+            end
+            
+            %     for t in {1,2,...H}
+            %        for xt in X
+            %            for beta in B
+            %                for ut-1 in U
+            %                    xt-1 = finv(xt, ut-1)
+            %                    p(xt | x0) += P(beta)*P(ut-1|xt-1,beta)*P(xt-1|x0)
+
+        end
+        
+        %% Compute the probability of a specific action given a state and beta value.
+        %  Boltzmann observation model:
+        %       P(u | x0; beta) \propto e^{-beta*Q(x0, u)}
+        %  where the Q-function is simply:
+        %       Q(x0, u) = ||u||_2 + ||x0 + u - g||_2
+        %  and we assume that each control action is norm 1. 
+        function prob = Pu_given_x_b(obj, u, x0, beta)
+
+            % Compute the next states that we could possibly get to given our
+            % dynamics. 
+            xu1 = obj.dynamics(x0,1); % up
+            xu2 = obj.dynamics(x0,2); % right
+            xu3 = obj.dynamics(x0,3); % down
+            xu4 = obj.dynamics(x0,4); % left
+
+            % Compute the Q-value of each possible state-action pair.
+            Qx0u1 = 1 + norm(xu1 - obj.g);
+            Qx0u2 = 1 + norm(xu2 - obj.g);
+            Qx0u3 = 1 + norm(xu3 - obj.g);
+            Qx0u4 = 1 + norm(xu4 - obj.g);
+
+            % Normalization trick to improve numerical stability.
+            % See: http://cs231n.github.io/linear-classify/#softmax
+            offset = 0; %max([Qx0u1, Qx0u2, Qx0u3, Qx0u4]);
+
+            % Compute the denominator by summing over all possible actions.
+            normalizer = exp(-log(beta) * Qx0u1 - offset) + exp(-log(beta) * Qx0u2 - offset) + ...
+                            exp(-log(beta) * Qx0u3 - offset) + exp(-log(beta) * Qx0u4 - offset);
+
+            % Compute the numerator by evaluating the likelihood of the given action. 
+            if u == UP 
+                prob = exp(-log(beta) * Qx0u1 - offset)/normalizer;
+            elseif u == RIGHT 
+                prob = exp(-log(beta) * Qx0u2 - offset)/normalizer;
+            elseif u == DOWN 
+                prob = exp(-log(beta) * Qx0u3 - offset)/normalizer;
+            elseif u == LEFT 
+                prob = exp(-log(beta) * Qx0u4 - offset)/normalizer;
+            end
+        end
+        
+        %% Inverts dynamics to find which state we were at previously.
+        %  Given deterministic dynamics:
+        %           xnext = f(xprev, u)
+        %  this function solves for:
+        %           xprev = finv(xnext, u)
+        function [xprev, isValid]= invDyn(obj, xnext, u)
+            isValid = true;
+            
+            if u == 1 % UP
+                xprev = [xnext(1)+1; xnext(2)];
+            elseif u == 2 % RIGHT
+                xprev = [xnext(1); xnext(2)-1];
+            elseif u == 3 % DOWN
+                xprev = [xnext(1)-1; xnext(2)];
+            elseif u == 4 % LEFT
+                xprev = [xnext(1); xnext(2)+1];
+            end
+            
+            if xprev(1) < 0 || xprev(1) > obj.gridDims(2) || ...
+                    xprev(2) < 0 || xprev(2) > obj.gridDims(1)
+                % NOTE: gridDims is X,Y but the coordinates in xprev = [Y, X]!!
+                %       this matters when gridDims isnt the same for X Y -- fix
+                %       this!
+                xprev = min(xprev, obj.gridDims'); 
+                xprev = max(xprev, [1;1]);
+                isValid = false;
+            end
+        end
+        
+        %% Dynamics function gives next state we can get to given current state.
+        function [xnext, isValid] = dynamics(obj, x0, u)
+            % TODO: need to check bounds on the world/grid.
+            if u == 1 % UP
+                xnext = [x0(1)-1; x0(2)];
+            elseif u == 2 % RIGHT
+                xnext = [x0(1); x0(2)+1];
+            elseif u == 3 % DOWN
+                xnext = [x0(1)+1; x0(2)];
+            elseif u == 4 % LEFT
+                xnext = [x0(1); x0(2)-1];
+            end
+            
+            if xnext(1) < 0 || xnext(1) > obj.gridDims(2) || ...
+                    xnext(2) < 0 || xnext(2) > obj.gridDims(1)  
+                % NOTE: gridDims is X,Y but the coordinates in xprev = [Y, X]!!
+                %       this matters when gridDims isnt the same for X Y -- fix
+                %       this!
+                xnext = min(xnext, obj.gridDims');
+                xnext = max(xnext, [1;1]);
+                isValid = false;
+            end
+
+        end
+    end
+end
+
