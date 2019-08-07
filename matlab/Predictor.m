@@ -5,8 +5,11 @@ classdef Predictor
     properties
         xinit       % (array) start position (in grid cells)
         g           % (array) known goal location (in grid cells)
+        
         betas       % (array) discrete values beta can take
-        Pbeta       % (map) prior over beta -- beta values are keys, probability is value
+        priorBeta   % (map) prior over beta -- beta values are keys, probability is value
+        beliefBeta  % (map) belief over beta, updated after receiving measurements
+        
         gridDims    % (array) num grid cells in each dim (i.e. height and width)
         states      % (cell arr) indicies of all states in grid
         controls    % (cell arr) all controls
@@ -19,9 +22,9 @@ classdef Predictor
             obj.xinit = xinit;
             obj.g = goal;
             obj.betas = beta_values;
-            obj.Pbeta = beta_prior; 
             obj.gridDims = gridDims;
-            obj.Pbeta = containers.Map(obj.betas, beta_prior);
+            obj.priorBeta = containers.Map(obj.betas, beta_prior);
+            obj.beliefBeta = containers.Map(obj.betas, beta_prior);
             
             % enumerate all the state indicies
             obj.states = {};
@@ -37,6 +40,61 @@ classdef Predictor
             obj.controls = [1,2,3,4,5,6,7,8]; 
         end
         
+        
+        %% Predicts the forward reachable sets H steps into the future given x0 
+        %  Given:
+        %       x0          -- initial state
+        %       H           -- prediction horizon
+        %       ctrlThresh  -- threshold for which controls are likely enough 
+        %  Output:
+        %       preds       -- cell array indexed by 1:H+1 with corresponding FRS
+        function preds = predictDeterministic(obj, x0, H, ctrlThresh)
+
+            % Initialize empty prediction grids forward in time.
+            % Assume P(xt | x0) = 0 for all xt
+            preds = cell([1,H+1]);
+            preds(:) = {zeros(obj.gridDims)};
+            
+            % At current timestep, the measured state has 
+            % probability = 1, zeros elsewhere.
+            preds{1}(x0(1), x0(2)) = 1;
+            
+            % Store belief as we "hallucinate" observations during prediction. 
+            hallucinateBelief = obj.beliefBeta;
+ 
+            statesToConsider = {x0};
+            for t=2:H+1
+                nextStates = {};
+                for idx=1:length(statesToConsider)
+                    % (0) Get the current state to compute FRS for. 
+                    xt = statesToConsider{idx};
+                    
+                    % (1) Compute likely controls at this state.
+                    controlSet = obj.getLikelyControls(xt, ctrlThresh, hallucinateBelief);
+
+                    % (2) Compute the likeliood of getting to state xt 
+                    %     given the likely controls
+                    frs = obj.computeFRS(xt, controlSet);
+                    for state = frs
+                        xnext = state{1};
+                        preds{t}(xnext(1), xnext(2)) = 1;
+                    end
+
+                    % (3) Find the worst-case control under the current
+                    %     distribution over beta, P(beta)
+                    worstU = obj.getWorstCaseControl(hallucinateBelief);
+
+                    % (4) Update the hallucinated belief
+                    hallucinateBelief = obj.updateBeliefBeta(worstU, xt, hallucinateBelief);
+
+                    % Record the next states to compute FRS for. 
+                    nextStates = horzcat(nextStates, frs);
+                end
+                statesToConsider = nextStates;
+            end
+        end
+        
+        
         %% Predicts the state distribution H steps into the future given x0 
         %  Computes:
         %       P(xt | x0) = \sum_xt-1 P(x_t | x_t-1)*P(x_t-1 | x_0)
@@ -47,42 +105,110 @@ classdef Predictor
         %  Output:
         %       preds -- cell array indexed by 1:H+1 with corresponding state
         %                distributions.
-        function preds = predict(obj, x0, H)
+        function preds = predictStochastic(obj, x0, H)
 
             % Initialize empty prediction grids forward in time.
             % Assume P(xt | x0) = 0 for all xt
             preds = cell([1,H+1]);
             preds(:) = {zeros(obj.gridDims)};
             
-            % Current measured state has probability = 1, zeros elsewhere.
+            % At current timestep, the measured state has 
+            % probability = 1, zeros elsewhere.
             preds{1}(x0(1), x0(2)) = 1;
+            
+            % Store belief as we "hallucinate" observations during prediction. 
+            hallucinateBelief = obj.betaBelief;
+            
+            % Threshold for which controls are likely enough to be
+            % considered.
+            ctrlThresh = 0;
             
             for t=2:H+1
                 for xcurr = obj.states
                     xt = xcurr{1};
-                    for b = obj.betas
-                        Pb = obj.Pbeta(b);
-                        for ut1 = obj.controls
-                            % Invert dynamics to get the state x_t-1 we came
-                            % from applying control u_t-1.
-                            [xt1, isValid] = obj.invDyn(xt, ut1);
-                            
-                            if isValid
-                                % Get the probability of the prior state, x_t-1
-                                Pxt1_x0 = preds{t-1}(xt1(1), xt1(2));
+                    
+                    % (1) compute likely controls at this state.
+                    controlSet = obj.getLikelyControls(xt, ctrlThresh, hallucinateBelief);
+                    
+                    % (2) compute the likeliood of getting to state xt 
+                    %     given the likely controls
+                    preds{t}(xt(1), xt(2)) = ...
+                        obj.computeStateLikelihood(xt, controlSet, hallucinateBelief, preds{t-1});
+                    
+                    % (3) find the worst-case control under the current
+                    %     distribution over beta, P(beta)
+                    worstU = obj.getWorstCaseControl(hallucinateBelief);
+                    
+                    % (4) update the hallucinated belief
+                    hallucinateBelief = obj.updateBeliefBeta(worstU, xt, hallucinateBelief);
+                end
+            end
+        end
+        
+        %% Gets the worst-case control under the curr distribution of beta.
+        function worstU = getWorstCaseControl(obj, beliefBeta)
+            %TODO: this is hard-coded based on my toy example!
+            %      change this to do something smarter, like KL div or
+            %      something. 
+            worstU = 3;
+        end
+        
+        %% Returns map of likely controls and their probabilities
+        function controlSet = getLikelyControls(obj, xt, ctrlThresh, hallucinateBelief)
+            controlSet = containers.Map('KeyType','int32', 'ValueType','any');
+            for u = obj.controls
+                prob = 0;
+                for b = obj.betas
+                    prob = prob + obj.Pu_given_x_b(u, xt, b)*hallucinateBelief(b);
+                end
+                if prob > ctrlThresh
+                    controlSet(u) = prob;
+                end
+            end
+        end
+        
+        %% Computes the likelihood of reaching x_t 
+        %  given the  the set of possible controls in controlSet 
+        %  and the current distribution over beta parameters. 
+        function prob = computeStateLikelihood(obj, xt, controlSet, beliefBeta, prevStateDist)
+            prob = 0;
+            for b = obj.betas
+                Pb = beliefBeta(b);
 
-                                % Get the probability of this action being
-                                % taken from x_t-1, given this value of beta.
-                                Put1_xt1_beta = obj.Pu_given_x_b(ut1, xt1, b);
+                for u = keys(controlSet)
+                    ut1 = u{1};
+                    
+                    % Invert dynamics to get the state x_t-1 we came
+                    % from applying control u_t-1.
+                    [xt1, isValid] = obj.invDyn(xt, ut1);
 
-                                % Compute the probability of this new state:
-                                % p(xt | x0) += P(beta)*P(ut-1|xt-1,beta)*P(xt-1|x0)
-                                preds{t}(xt(1), xt(2)) = preds{t}(xt(1), xt(2)) + ...
-                                                         Pb * Put1_xt1_beta * Pxt1_x0;
-                            end
-                        end
+                    if isValid
+                        % Get the probability of the prior state, x_t-1
+                        Pxt1_x0 = prevStateDist(xt1(1), xt1(2));
+
+                        % Get the probability of this action being
+                        % taken from x_t-1, given this value of beta.
+                        Put1_xt1_beta = obj.Pu_given_x_b(ut1, xt1, b);
+
+                        % Compute the probability of this new state:
+                        % p(xt | x0) += P(beta)*P(ut-1|xt-1,beta)*P(xt-1|x0)
+                        prob = prob + Pb * Put1_xt1_beta * Pxt1_x0;
                     end
                 end
+            end
+        end
+        
+        %% Updates prior over beta via HMM from RSS paper. 
+        %     P^k_-(beta) = (1-epsilon)P^k-1_+(beta) + epsilon*P^0_-(beta)
+        %  Inputs:
+        %       P_k1    -- (map) contains old posterior
+        %       epsilon -- (float) epsilon probability that beta is
+        %                   resampled from the original prior
+        function P_k = P_beta_HMM(obj, P_k1, epsilon)
+            P_k = P_k1;
+            
+            for b = obj.betas
+                P_k(b) = (1-epsilon)*P_k1(b) + epsilon*obj.priorBeta(b);
             end
         end
         
@@ -114,7 +240,7 @@ classdef Predictor
 
             % Normalization trick to improve numerical stability.
             % See: http://cs231n.github.io/linear-classify/#softmax
-            offset = 0; %max(cell2mat(values(Qs)));
+            offset = max(cell2mat(values(Qs)));
 
             % Compute the denominator by summing over all possible actions.
             normalizer = 0;
@@ -192,30 +318,64 @@ classdef Predictor
                 xnext = x0;
                 isValid = false;
             end
-
+        end
+        
+        %% Computes the set of states that are reachable in one timestep
+        %  from state x_t given the control set. 
+        function frs = computeFRS(obj, xt, controlSet)
+            frs = {};
+            for u = keys(controlSet)
+                ut = u{1};
+                [xnext, isValid] = obj.dynamics(xt, ut);
+                if isValid
+                    frs{end+1} = xnext;
+                end
+            end
+        end
+        
+        %% Update posterior over beta given measured u0
+        %  Apply Bayesian update:  
+        %       P'(beta | x0, u0) \propto P(u0 | x0; beta)*P(beta)
+        %  Given observation (u0) and the state from which this action was
+        %  taken (x0).
+        function priorNext = updateBeliefBeta(obj, u0, x0, beliefBeta)
+            posterior = beliefBeta;
+                
+%             % Compute normalizer. 
+%             denominator = 0;
+%             for b = obj.betas
+%                 denominator = denominator + ...
+%                     obj.Pu_given_x_b(u0, x0, b)*beliefBeta(b);
+%             end
+% 
+%             % Update the distribution over beta.
+%             for b = obj.betas
+%                 numerator = obj.Pu_given_x_b(u0, x0, b)*beliefBeta(b);
+%                 posterior(b) = numerator/denominator;
+%             end
+            
+            % Apply "epsilon-static" transition model to beta.
+            epsilon = 0.02;
+            priorNext = obj.P_beta_HMM(posterior, epsilon);
         end
         
         %% Plotting. 
         function plot(obj, preds, time)
             % Plot the posterior over beta.
             figure(1)
-            heatmap(cell2mat(values(obj.Pbeta)), 'ColorLimits',[0 1]);
+            heatmap(cell2mat(values(obj.priorBeta)), 'ColorLimits',[0 1]);
             ax = gca;
-            ax.XData = cell2mat(keys(obj.Pbeta)); 
+            ax.XData = cell2mat(keys(obj.priorBeta)); 
             ax.YData = ["P(b)"];
 
             % Plot state distributions.
             figure(2)
-            %hold on
             for t = time
+                subplot(length(time),1,t);
                 heatmap(preds{t}, 'ColorLimits',[0 1], 'Colormap', cool, 'FontSize', 4);
-                %im = imagesc(preds{t});
-                %im.AlphaData = .6;
-                %colormap(cool);
+                title(strcat('t=',num2str(t)));
+                colorbar('off')
             end
-            %colorbar
-            %ax = gca;
-            %ax.Title = "P(xH|x0)";
         end
     end
 end
