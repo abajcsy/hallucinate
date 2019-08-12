@@ -1,0 +1,114 @@
+classdef FeedbackHuman < DynSys
+  properties
+    % Fixed human speed
+    v
+    
+    % Max possible heading control bounds
+    uRange
+    
+    % Probability threshold for determining likely controls
+    uThresh
+    
+    % HMM model parameter
+    alpha
+    
+    % Gains for the feedback control policy
+    K
+    m
+    
+    % Prior over beta=0 
+    betaPrior
+    
+    % Belief over beta=0 
+    beliefBeta
+  end
+  
+  methods
+    function obj = FeedbackHuman(x, v, uRange, alpha, K, m, uThresh)
+      %% obj = FeedbackHuman(x, v, uRange, alpha)
+      %     Dynamics of the FeedbackHuman
+      %         \dot{x}_1 = v * cos(u)
+      %         \dot{x}_2 = v * sin(u)
+      %         \dot{x}_3 = alpha * betaPosterior(b=0 | x, u) + (1-alpha) * betaPrior(b=0)
+      %         -pi <= u <= pi
+      %     
+      %     State space of the FeedbackHuman
+      %         x_1 = p_x
+      %         x_2 = p_y
+      %         x_3 = P(\beta = 0)
+      
+      if numel(x) ~= 3
+        error('Initial state does not have right dimension!');
+      end
+      
+      if ~iscolumn(x)
+        x = x';
+      end
+      
+      obj.x = x;
+      obj.xhist = obj.x;
+      obj.dims = 1:3;
+      
+      obj.K = K;
+      obj.m = m;
+      
+      obj.v = v;
+      obj.uRange = uRange;
+      obj.alpha = alpha;
+      obj.uThresh = uThresh;
+      
+      obj.nx = length(x);
+      obj.nu = 1;
+      
+      % Start with uniform prior.
+      obj.betaPrior = 0.5;
+      obj.beliefBeta = obj.betaPrior;
+    end
+    
+    function pb = betaPosterior(obj, x, u)
+        %% Computes posterior given x and u
+        %       P(beta=0 | xt=x, ut=u) \propto P(u | x, beta=0) * P(beta=0)
+        
+        if ~iscell(x)
+          x = num2cell(x);
+        end
+        
+        if u == obj.K(1)*x{1} + obj.K(2)*x{2} + obj.m
+            pb = obj.beliefBeta/obj.P_u_given_x(u, x);
+        else
+            pb = 0;
+        end
+    end
+    
+    function pux = P_u_given_x(obj, u, x)
+        %% Computes the distribution over actions given x and 
+        %   marginalized over the betas
+        %       P(u | x) = \sum_beta P(u | x, beta) * P(beta)
+        
+        if iscell(x)
+            x =  num2cell(x);
+        end
+        
+        if u == obj.K(1)*x{1} + obj.K(2)*x{2} + obj.m
+            pux = obj.beliefBeta + (1 - obj.beliefBeta)/2*pi;
+        else
+            pux = (1-obj.beliefBeta)/2*pi;
+        end
+    end
+    
+    function ctrls = getLikelyControls()
+        %% Gets the set of controls that are more likely than uThresh
+        uOpt == obj.K(1)*x{1} + obj.K(2)*x{2} + obj.m
+        pux = P_u_given_x(obj, u, x);
+    end
+    
+    function updateBelief(obj, uhat, x)
+        %% Performs Bayesian update and beta time-update given an actual measurement.
+        %   P^-_t+1(beta = 0) = alpha * P^+_t(beta) + (1-alpha) * P^-_0(beta = 0)
+        
+        posterior = obj.betaPosterior(x, uhat);
+        obj.beliefBeta = obj.alpha * posterior + (1-obj.alpha) * obj.betaPrior;
+    end
+    
+  end % end methods
+end % end classdef
