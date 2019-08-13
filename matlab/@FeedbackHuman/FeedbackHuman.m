@@ -29,7 +29,7 @@ classdef FeedbackHuman < DynSys
       %     Dynamics of the FeedbackHuman
       %         \dot{x}_1 = v * cos(u)
       %         \dot{x}_2 = v * sin(u)
-      %         \dot{x}_3 = alpha * betaPosterior(beta=0 | x, u) + (1-alpha) * betaPrior(beta=0)
+      %         \dot{x}_3 = (betaPrior(beta=0) - betaPosterior(beta=0 | x, u))*alpha
       %         -pi <= u <= pi
       %     
       %     State space of the FeedbackHuman

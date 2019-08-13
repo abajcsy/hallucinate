@@ -23,7 +23,7 @@ if iscell(validURange)
 else
     % Compute the hamiltonian associated with the optimal theta. 
     hOptU = deriv{1}.*obj.v.*cos(thetaUOpt) + deriv{2}.*obj.v.*sin(thetaUOpt) + ...
-            deriv{3}.*(obj.alpha*obj.betaPosterior(y, thetaUOpt) + (1-obj.alpha)*obj.betaPrior);
+            deriv{3}.*((obj.betaPrior - obj.betaPosterior(y, thetaUOpt))*obj.alpha);
 
     lambda1 = deriv{1}.*obj.v;
     lambda2 = deriv{2}.*obj.v;
@@ -33,8 +33,8 @@ else
 
         % lambda1 * v * cos(theta) + lambda2 * v * sin(theta)
         % is maximized at atan(lambda2*v / lambda1*v)
-        hOptMax = deriv{1}.*obj.v.*obj.cos(thetaStar) + deriv{2}.*obj.v.*sin(thetaStar) + ...
-            deriv{3}.*((1-obj.alpha) * obj.betaPrior);
+        hOptMax = deriv{1}.*obj.v.*cos(thetaStar) + deriv{2}.*obj.v.*sin(thetaStar) + ...
+            deriv{3}.*(obj.betaPrior*obj.alpha);
 
         if hOptMax > hOptU
             uOpt = thetaStar;
@@ -47,7 +47,7 @@ else
         % lambda1 * v * cos(theta) + lambda2 * v * sin(theta)
         % is minimized at atan(lambda2*v / lambda1*v) - pi
         hOptMin = deriv{1}.*obj.v.*cos(thetaStar- pi) + deriv{2}.*obj.v.*sin(thetaStar- pi) + ...
-            deriv{3}.*((1-obj.alpha) * obj.betaPrior);
+            deriv{3}.*(obj.betaPrior*obj.alpha);
 
         if hOptMin < hOptU
             uOpt = wrapToPi(thetaStar - pi);

@@ -3,7 +3,7 @@ function dx = dynamics(obj, ~, x, u, ~)
     %     Dynamics of the FeedbackHuman
     %         \dot{x}_1 = v * cos(u)
     %         \dot{x}_2 = v * sin(u)
-    %         \dot{x}_3 = alpha * betaPosterior(b=0 | x, u) + (1-alpha) * betaPrior(b=0)
+    %         \dot{x}_3 = (betaPrior(beta=0) - betaPosterior(beta=0 | x, u))*alpha
 
     dx = cell(obj.nx, 1);
 
@@ -19,7 +19,7 @@ function dx = dynamics(obj, ~, x, u, ~)
         elseif i == 2
             dx{i} = obj.v .* sin(u);
         elseif i == 3
-            dx{i} = obj.alpha * obj.betaPosterior(x, u) + (1-obj.alpha) * obj.betaPrior;
+            dx{i} = (obj.betaPrior - obj.betaPosterior(x, u)) * obj.alpha;
         else
             error('Only dimension 1-3 are defined for dynamics of FeedbackHuman!')    
         end
