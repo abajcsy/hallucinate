@@ -16,20 +16,20 @@ classdef FeedbackHuman < DynSys
     K
     m
     
-    % Distribution in HMM
-    DeltaB0
+    % Prior over beta=0 
+    betaPrior
     
     % Number of dimensions
     dims
   end
   
   methods
-    function obj = FeedbackHuman(x, v, uRange, alpha, K, m, uThresh, DeltaB0)
+    function obj = FeedbackHuman(x, v, uRange, alpha, K, m, uThresh, prior)
       %% obj = FeedbackHuman(x, v, uRange, alpha)
       %     Dynamics of the FeedbackHuman
       %         \dot{x}_1 = v * cos(u)
       %         \dot{x}_2 = v * sin(u)
-      %         \dot{x}_3 = (DeltaB0(beta=0) - betaPosterior(beta=0 | x, u))*alpha
+      %         \dot{x}_3 = (betaPrior(beta=0) - betaPosterior(beta=0 | x, u))*alpha
       %         -pi <= u <= pi
       %     
       %     State space of the FeedbackHuman
@@ -62,7 +62,7 @@ classdef FeedbackHuman < DynSys
       obj.nx = length(x);
       obj.nu = 1;
       
-      obj.DeltaB0 = DeltaB0;
+      obj.betaPrior = prior;
     end
     
     function pb = betaPosterior(obj, x, u)
@@ -78,9 +78,11 @@ classdef FeedbackHuman < DynSys
           x = num2cell(x);
         end
         
-        uOpt = obj.K(1).*x{1} + obj.K(2).*x{2} + obj.m;
-        pb = (x{3}./obj.P_u_given_x(u, x)) .* (uOpt == u) + ...
-            0 * (abs(uOpt - u) > 0);  
+        if u == obj.K(1).*x{1} + obj.K(2).*x{2} + obj.m
+            pb = x{3}./obj.P_u_given_x(u, x);
+        else
+            pb = 0;
+        end
     end
     
     function pux = P_u_given_x(obj, u, x)
@@ -92,21 +94,23 @@ classdef FeedbackHuman < DynSys
             x =  num2cell(x);
         end
         
-        uOpt = obj.K(1).*x{1} + obj.K(2).*x{2} + obj.m;
-        pux = (x{3} + (1 - x{3})/(2*pi)) .* (uOpt == u) + ...
-            ((1 - x{3})/(2*pi)) .* (abs(uOpt - u) > 0);
+        if u == obj.K(1).*x{1} + obj.K(2).*x{2} + obj.m
+            pux = x{3} + (1 - x{3})/2*pi;
+        else
+            pux = (1 - x{3})/2*pi;
+        end
     end
     
     function validURange = getLikelyControls(obj, x)
         %% Gets the set of controls that are more likely than uThresh
-        optCtrl = obj.K(1).*x{1} + obj.K(2).*x{2} + obj.m;
-        uMin = obj.uRange(1) .* ((1/(2*pi))*(1-x{3}) - obj.uThresh > 0) + ...
-               optCtrl .* ((1/(2*pi))*(1-x{3}) - obj.uThresh <= 0);
         
-        uMax = obj.uRange(2) .* ((1/(2*pi))*(1-x{3}) - obj.uThresh > 0) + ...
-                optCtrl .* ((1/(2*pi))*(1-x{3}) - obj.uThresh <= 0);
-            
-        validURange = {uMin, uMax};
+         hOptMin .* ((1/(2*pi))*(1-x{3}) - obj.uThresh > 0);
+        
+        if (1/(2*pi))*(1-x{3}) > obj.uThresh
+            validURange = obj.uRange;
+        else
+            validURange = obj.K(1).*x{1} + obj.K(2).*x{2} + obj.m;
+        end
     end
     
     

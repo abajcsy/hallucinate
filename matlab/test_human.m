@@ -1,16 +1,38 @@
 clc
 clear all
 
+%% NOTE:
+% In HJIPDESolve, uncomment the following lines:
+%   if isfield(schemeData, 'dynSys')
+%     schemeData.hamFunc = @genericHam;
+%     schemeData.partialFunc = @genericPartial;
+%   end
+
 %% Create human dynamical system
+
+% Velocity
 v = 1;
+
+% Control bounds
 uRange = [-pi; pi];
-alpha = 1;
+
+% gamma in continuous-time P(beta = 0) dynamics
+gamma = 0.5;
+
+% Control gains
 K = [0, 0];
 m = 0;
-uThresh = 0.05;
-betaPrior = 0.5; % Delta_0 = P^-_0(\beta = 0)
-x0 = [0; 0; betaPrior];
-human = FeedbackHuman(x0, v, uRange, alpha, K, m, uThresh, betaPrior);
+
+% Threshold to determine likely controls
+uThresh = 0.05; 
+
+% Distribution in HMM
+DeltaB0 = 0.5; 
+
+% Setup dynamical system
+Pbeta0 = 0.5;
+x0 = [0; 0; Pbeta0];
+human = FeedbackHuman(x0, v, uRange, gamma, K, m, uThresh, DeltaB0);
 
 %% Grid
 grid_min = [-2; -2; -0.1]; % Lower corner of computation domain
@@ -20,7 +42,6 @@ g = createGrid(grid_min, grid_max, N);
 
 %% target set
 R = 0.1;
-% data0 = shapeCylinder(grid,ignoreDims,center,radius)
 data0 = shapeSphere(g, x0, R);
 
 %% time vector
@@ -28,7 +49,7 @@ t0 = 0;
 tMax = 5;
 dt = 0.05;
 tau = t0:dt:tMax;
-uMode = 'min';
+uMode = 'max';
 
 %% Pack problem parameters
 % Put grid and dynamic systems into schemeData
@@ -47,7 +68,7 @@ HJIextraArgs.visualize.initialValueSet = 0;
 HJIextraArgs.visualize.figNum = 1; %set figure number
 HJIextraArgs.visualize.deleteLastPlot = true; %delete previous plot as you update
 HJIextraArgs.visualize.viewGrid = false;
-HJIextraArgs.visualize.viewAxis = [-2 2 -2 2 0.1 1.1];
+HJIextraArgs.visualize.viewAxis = [-2 2 -2 2 0 1.1];
 HJIextraArgs.visualize.xTitle = "$x$";
 HJIextraArgs.visualize.yTitle = "$y$";
 HJIextraArgs.visualize.zTitle = "$P(\beta = 0)$";
