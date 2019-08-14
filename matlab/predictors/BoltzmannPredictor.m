@@ -1,4 +1,4 @@
-classdef Predictor
+classdef BoltzmannPredictor
     %PREDICTOR Summary of this class goes here
     %   Detailed explanation goes here
     
@@ -16,7 +16,7 @@ classdef Predictor
     end
     
     methods
-        function obj = Predictor(xinit, goal, gridDims, beta_values, beta_prior)
+        function obj = BoltzmannPredictor(xinit, goal, gridDims, beta_values, beta_prior)
             %PREDICTOR Construct an instance of this class
             %   Detailed explanation goes here
             obj.xinit = xinit;

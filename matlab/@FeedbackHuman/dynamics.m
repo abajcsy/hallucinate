@@ -19,7 +19,7 @@ function dx = dynamics(obj, ~, x, u, ~)
         elseif i == 2
             dx{i} = obj.v .* sin(u);
         elseif i == 3
-            dx{i} = (obj.betaPrior - obj.betaPosterior(x, u)) * obj.alpha;
+            dx{i} = (obj.DeltaB0 - obj.betaPosterior(x, u)) * obj.alpha;
         else
             error('Only dimension 1-3 are defined for dynamics of FeedbackHuman!')    
         end

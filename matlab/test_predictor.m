@@ -20,7 +20,7 @@ betas = [1, 10, 100, 1000];
 P_betas = [0,0,0.1,0.9];
 
 %% Construct predictor.
-predictor = Predictor(xinit, goal, gridDims, betas, P_betas);
+predictor = BoltzmannPredictor(xinit, goal, gridDims, betas, P_betas);
 
 H = 5; % prediction horizon
 ctrlThresh = 0.01;
