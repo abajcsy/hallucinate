@@ -1,4 +1,4 @@
-classdef (Abstract) PlannerBase
+classdef (Abstract) PlannerBase < handle
   properties
     env
   end

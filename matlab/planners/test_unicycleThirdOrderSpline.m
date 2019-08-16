@@ -8,11 +8,11 @@ function test_unicycleThirdOrderSpline()
   % Final state.
   x1 = 1.;
   y1 = 1.;
-  % th1 = 0.;
+  th1 = 0.;
   % th1 = pi/2.;
   % th1 = pi/1.5;
   % th1 = 3*pi/2.;
-  th1 = pi;
+  % th1 = pi;
   % v1 = 0.;
   % v1 = 0.5;
   v1 = 1.5;
