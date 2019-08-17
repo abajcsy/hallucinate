@@ -37,9 +37,18 @@ traj = planner.plan(startStateCont, goalXY, goalTol);
 
 figure;
 hold on;
+axis equal;
+
+drawTriangle([startStateCont(1); startStateCont(2)], startStateCont(3), 0.1);
+
 for idx = 1:length(traj)-1
   firstState = traj{idx};
   secondState = traj{idx+1};
+
+  drawTriangle([planner.discToCont(secondState.x, 1); ...
+                planner.discToCont(secondState.y, 2)], ...
+               planner.discToCont(secondState.theta, 3), ...
+               0.1);
 
   [a, b, c, d] = unicycleThirdOrderSpline(planner.discToCont(firstState.x, 1), ...
                                           planner.discToCont(firstState.y, 2), ...
@@ -60,3 +69,20 @@ for idx = 1:length(traj)-1
   fplot(xfunc, yfunc, [0 tDisc]);
 end
 hold off;
+
+function drawTriangle(origin, rot, sideLength)
+  aLocal = [2*sideLength; 0; 1];
+  bLocal = [0; -sideLength / sqrt(2); 1];
+  cLocal = [0; sideLength / sqrt(2); 1];
+
+  T = [cos(rot), -sin(rot), origin(1);
+       sin(rot), cos(rot), origin(2);
+       0, 0, 1];
+  a = T * aLocal;
+  b = T * bLocal;
+  c = T * cLocal;
+
+  fill([a(1), b(1), c(1)], ...
+       [a(2), b(2), c(2)], ...
+       'b');
+end
