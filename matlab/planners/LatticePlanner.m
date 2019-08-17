@@ -5,17 +5,32 @@ classdef LatticePlanner < PlannerBase
     thetaDisc
     vDisc
     tDisc
+
+    states
   end
 
   methods
-    function obj = LatticePlanner(env, xDiscArg, yDiscArg, thetaDiscArg, vDiscArg, tDiscArg)
+    function obj = LatticePlanner(env, xDisc, yDisc, thetaDisc, vDisc, tDisc)
       obj@PlannerBase(env);
 
-      obj.xDisc = xDiscArg;
-      obj.yDisc = yDiscArg;
-      obj.thetaDisc = thetaDiscArg;
-      obj.vDisc = vDiscArg;
-      obj.tDisc = tDiscArg;
+      obj.xDisc = xDisc;
+      obj.yDisc = yDisc;
+      obj.thetaDisc = thetaDisc;
+      obj.vDisc = vDisc;
+      obj.tDisc = tDisc;
+
+      obj.states = containers.Map();
+    end
+
+    function state = getState(obj, xDisc, yDisc, thetaDisc, vDisc, tDisc)
+      key = mat2str([xDisc, yDisc, thetaDisc, vDisc, tDisc]);
+      if obj.states.isKey(key)
+        state = obj.states(key);
+      else
+        state = LatticePlannerState(xDisc, yDisc, thetaDisc, vDisc, tDisc);
+        state.costToCome = 1e9;
+        obj.states(key) = state;
+      end
     end
 
     function traj = plan(obj, startStateCont, goalXY, goalTol)
@@ -26,11 +41,12 @@ classdef LatticePlanner < PlannerBase
                         obj.contToDisc(startStateCont(5), 5)];
 
       % TODO Priority queue???
-      startState = LatticePlannerState(startStateDisc(1), ...
-                                       startStateDisc(2), ...
-                                       startStateDisc(3), ...
-                                       startStateDisc(4), ...
-                                       startStateDisc(5));
+      startState = obj.getState(startStateDisc(1), ...
+                                startStateDisc(2), ...
+                                startStateDisc(3), ...
+                                startStateDisc(4), ...
+                                startStateDisc(5));
+      startState.costToCome = 0;
       startState.evalFunc = obj.heuristicCostToGoal(startState, goalXY);
       openList = {startState};
 
@@ -49,6 +65,9 @@ classdef LatticePlanner < PlannerBase
 
         state = openList{bestIdx};
         openList(:, bestIdx) = [];
+        if state.closed
+          continue;
+        end
 
         if mod(expansions, 100) == 0
           fprintf("Expanded %d states so far\n", expansions);
@@ -65,13 +84,19 @@ classdef LatticePlanner < PlannerBase
 
         % Otherwise, expand the state.
         [succs, edges, costs] = obj.expand(state);
+        state.closed = 1;
         expansions = expansions + 1;
         for i = 1:length(succs)
           succ = succs{i};
-          succ.costToCome = state.costToCome + costs{i};
-          succ.parent = state;
-          succ.evalFunc = succ.costToCome + obj.heuristicCostToGoal(succ, goalXY);
-          openList{length(openList) + 1} = succ;
+          if state.costToCome + costs{i} < succ.costToCome
+            succ.costToCome = state.costToCome + costs{i};
+            succ.parent = state;
+            succ.evalFunc = succ.costToCome + obj.heuristicCostToGoal(succ, goalXY);
+          end
+
+          if ~succ.closed
+            openList{length(openList) + 1} = succ;
+          end
         end
       end
     end
@@ -96,11 +121,11 @@ classdef LatticePlanner < PlannerBase
           for deltaVDisc = -1:1:1
             for deltaThetaDisc = -1:1:1
               if deltaXDisc ~= 0 || deltaYDisc ~= 0
-                succ = LatticePlannerState(state.x + deltaXDisc, ...
-                                           state.y + deltaYDisc, ...
-                                           state.theta + deltaThetaDisc, ...
-                                           state.v + deltaVDisc, ...
-                                           state.t + deltaT);
+                succ = obj.getState(state.x + deltaXDisc, ...
+                                    state.y + deltaYDisc, ...
+                                    state.theta + deltaThetaDisc, ...
+                                    state.v + deltaVDisc, ...
+                                    state.t + deltaT);
                 if ~obj.isValidState(succ)
                   continue;
                 end
@@ -116,10 +141,6 @@ classdef LatticePlanner < PlannerBase
                                                         obj.discToCont(deltaT, 5));
 
                 edges{idx} = [a, b, c, d];
-                % costs{idx} = 1; % TODO
-                % costs{idx} = abs(deltaXDisc) + abs(deltaYDisc) + abs(deltaThetaDisc) + abs(deltaVDisc);
-                % costs{idx} = sqrt((obj.discToCont(succ.x, 1) - obj.discToCont(state.x, 1))^2 + ...
-                %                   (obj.discToCont(succ.y, 2) - obj.discToCont(state.y, 2))^2);
                 costs{idx} = norm([obj.discToCont(succ.x, 1); obj.discToCont(succ.y, 2)] - ...
                                   [obj.discToCont(state.x, 1); obj.discToCont(state.y, 2)]);
                 succs{idx} = succ;
@@ -191,8 +212,9 @@ classdef LatticePlanner < PlannerBase
       end
     end
 
-    function cost = getCost(a, b, c, d)
-      cost = 1;
+    function cost = getCost(obj, state, succ, a, b, c, d)
+      cost = norm([obj.discToCont(succ.x, 1); obj.discToCont(succ.y, 2)] - ...
+                  [obj.discToCont(state.x, 1); obj.discToCont(state.y, 2)]);
     end
   end
 end

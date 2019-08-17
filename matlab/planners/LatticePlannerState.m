@@ -9,6 +9,7 @@ classdef LatticePlannerState < handle
     costToCome
     evalFunc
     parent
+    closed
   end
 
   methods
@@ -22,6 +23,7 @@ classdef LatticePlannerState < handle
       obj.costToCome = 0;
       obj.evalFunc = 0;
       obj.parent = 0;
+      obj.closed = 0;
     end
   end
 end
