@@ -1,14 +1,16 @@
 classdef LatticePlanner
     properties
-        xDisc
-        yDisc
-        thetaDisc
-        vDisc
-        tDisc
+        xDisc     % Discretization in x (m / unit).
+        yDisc     % Discretization in y (m / unit).
+        thetaDisc % Discretization in theta (rad / unit).
+        vDisc     % Discretization in v (m / s / unit).
+        tDisc     % Discretization in t (s / unit).
 
-        states
-        stateBounds
-        heurWeight
+        staticObsMap % Occupancy grid of the static obstacles.
+
+        states % Map of states.
+        stateBounds % Bounds (i.e. box constraints) on the states.
+        heurWeight % Heuristic weight / suboptimality bound for search.
     end
 
     methods
@@ -171,6 +173,15 @@ classdef LatticePlanner
 
                         edges{idx} = [a, b, c, d];
 
+                        % TODO Parameter
+                        numSamples = 50;
+                        if ~obj.isEdgeSafe(a, b, c, d, ...
+                                           obj.discToCont(state.t, 5), ...
+                                           obj.discToCont(state.t + deltaT, 5), ...
+                                           numSamples)
+                            continue;
+                        end
+
                         % Add the successor state.
                         succ = obj.getState(obj.contToDisc(endCoords(1), 1), ...
                                             obj.contToDisc(endCoords(2), 2), ...
@@ -275,22 +286,37 @@ classdef LatticePlanner
             % cost = cost + 10 * obj.getSteeringCost(a, b, c, d, T, numSamples);
         end
 
-        function safe = isEdgeSafe(a, b, c, d, t0, t1, numSamples)
-        % TODO
+        function safe = isEdgeSafe(obj, a, b, c, d, t0, t1, numSamples)
+            safe = 1;
+            xfunc = @(t) a(1) .* t.^3 + b(1) .* t.^2 + ...
+                    c(1) .* t + d(1);
+            yfunc = @(t) a(2) .* t.^3 + b(2) .* t.^2 + ...
+                    c(2) .* t + d(2);
+
+            T = t1 - t0;
+            Tsample = T / numSamples;
+            for t = 1:(numSamples - 1)
+                xsample = xfunc(t * Tsample);
+                ysample = yfunc(t * Tsample);
+                if obj.staticObsMap.getData(xsample, ysample) > 0
+                    safe = 0;
+                end
+            end
         end
 
         function cost = getSteeringCost(obj, a, b, c, d, T, numSamples)
-          xfunc = @(t) a(1) .* t.^3 + b(1) .* t.^2 + ...
-                  c(1) .* t + d(1);
-          yfunc = @(t) a(2) .* t.^3 + b(2) .* t.^2 + ...
-                  c(2) .* t + d(2);
-          thetafunc = @(t) atan(yfunc(t) / xfunc(t));
+            xfunc = @(t) a(1) .* t.^3 + b(1) .* t.^2 + ...
+                    c(1) .* t + d(1);
+            yfunc = @(t) a(2) .* t.^3 + b(2) .* t.^2 + ...
+                    c(2) .* t + d(2);
+            thetafunc = @(t) atan(yfunc(t) / xfunc(t));
 
-          Tsample = T / numSamples;
-          cost = 0;
-          for t = 1:(numSamples - 1)
-              cost = cost + abs(thetafunc(t + 1) - thetafunc(t)) / Tsample;
-          end
+            Tsample = T / numSamples;
+            cost = 0;
+            for t = 1:(numSamples - 1)
+                % TODO FIX THIS
+                cost = cost + abs(thetafunc(t + 1) - thetafunc(t)) / Tsample;
+            end
         end
     end
 end
