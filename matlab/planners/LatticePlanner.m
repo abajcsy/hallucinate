@@ -275,6 +275,10 @@ classdef LatticePlanner
             % cost = cost + 10 * obj.getSteeringCost(a, b, c, d, T, numSamples);
         end
 
+        function safe = isEdgeSafe(a, b, c, d, t0, t1, numSamples)
+        % TODO
+        end
+
         function cost = getSteeringCost(obj, a, b, c, d, T, numSamples)
           xfunc = @(t) a(1) .* t.^3 + b(1) .* t.^2 + ...
                   c(1) .* t + d(1);
