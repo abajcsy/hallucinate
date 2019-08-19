@@ -5,7 +5,6 @@ if ~iscell(deriv)
 end
 
 %% Optimal control
-
 uMode = schemeData.uMode;
 K = schemeData.dynSys.K;
 m = schemeData.dynSys.m;
