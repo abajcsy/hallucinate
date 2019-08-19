@@ -6,13 +6,16 @@ thetaDisc = pi / 45;
 vDisc = 0.5;
 tDisc = 0.25;
 
-planner = LatticePlanner(xDisc, yDisc, thetaDisc, vDisc, tDisc);
+heurWeight = 1.25;
+
+planner = LatticePlanner(xDisc, yDisc, thetaDisc, vDisc, tDisc, heurWeight);
 
 % Set up the state bounds.
 planner.stateBounds('x') = [-0.1, 3];
 planner.stateBounds('y') = [-0.1, 3];
 planner.stateBounds('v') = [0.1, 3];
 planner.stateBounds('theta') = [-pi, pi];
+planner.stateBounds('t') = [0, 15]; % Planning horizon.
 
 contVal = 1.25;
 fprintf("cont = %f, disc = %f\n", contVal, planner.contToDisc(contVal, 5));
@@ -37,11 +40,14 @@ fprintf("expanded %d successors\n", length(succs));
 
 % hold off;
 
-% goalXY = [3; 0];
+goalXY = [3; 0];
 % goalXY = [1; 1];
 % goalXY = [0.5; 2.5];
-goalXY = [1.5; 2];
+% goalXY = [1.5; 2];
+% goalXY = [0.2; 2.8];
 goalTol = 0.2;
+
+% Plan the trajectory.
 startStateCont = [0; 0; 0; 0.5; 0];
 traj = planner.plan(startStateCont, goalXY, goalTol);
 

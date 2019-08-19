@@ -12,7 +12,7 @@ classdef LatticePlanner
     end
 
     methods
-        function obj = LatticePlanner(xDisc, yDisc, thetaDisc, vDisc, tDisc)
+        function obj = LatticePlanner(xDisc, yDisc, thetaDisc, vDisc, tDisc, heurWeight)
             obj.xDisc = xDisc;
             obj.yDisc = yDisc;
             obj.thetaDisc = thetaDisc;
@@ -21,8 +21,7 @@ classdef LatticePlanner
 
             obj.states = containers.Map();
             obj.stateBounds = containers.Map();
-            % obj.heurWeight = 1;
-            obj.heurWeight = 2;
+            obj.heurWeight = heurWeight;
         end
 
         function state = getState(obj, xDisc, yDisc, thetaDisc, vDisc, tDisc)
@@ -197,6 +196,7 @@ classdef LatticePlanner
             valid = valid && obj.inBounds(y, 'y');
             valid = valid && obj.inBounds(theta, 'theta');
             valid = valid && obj.inBounds(v, 'v');
+            valid = valid && obj.inBounds(t, 't');
         end
 
         function valid = inBounds(obj, value, stateName)
