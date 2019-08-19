@@ -85,6 +85,7 @@ classdef LatticePlanner < PlannerBase
 
                 % Otherwise, expand the state.
                 [succs, edges, costs] = obj.expand(state);
+                % TODO visualize the expansion
                 state.closed = 1;
                 expansions = expansions + 1;
                 for i = 1:length(succs)
@@ -118,55 +119,79 @@ classdef LatticePlanner < PlannerBase
             idx = 1;
             deltaT = 1;
 
-            for deltaXDisc = 0:1:1
-                for deltaYDisc = -1:1:1
-                    for deltaVDisc = -1:1:1
-                        for deltaThetaDisc = -1:1:1
-                            if deltaXDisc ~= 0 || deltaYDisc ~= 0
-                                succ = obj.getState(state.x + deltaXDisc, ...
-                                                    state.y + deltaYDisc, ...
-                                                    state.theta + deltaThetaDisc, ...
-                                                    state.v + deltaVDisc, ...
-                                                    state.t + deltaT);
-                                if ~obj.isValidState(succ)
-                                    continue;
-                                end
+            localXRange = [1, 2];
+            localYRange = [-2, 2];
+            aRange = [-1, 1];
 
-                                [a, b, c, d] = unicycleThirdOrderSpline(obj.discToCont(state.x, 1), ...
-                                                                        obj.discToCont(state.y, 2), ...
-                                                                        obj.discToCont(state.theta, 3), ...
-                                                                        obj.discToCont(state.v, 4), ...
-                                                                        obj.discToCont(succ.x, 1), ...
-                                                                        obj.discToCont(succ.y, 2), ...
-                                                                        obj.discToCont(succ.theta, 3), ...
-                                                                        obj.discToCont(succ.v, 4), ...
-                                                                        obj.discToCont(deltaT, 5));
+            for localX = localXRange(1):localXRange(2)
+                for localY = localYRange(1):localYRange(2)
+                    for a = aRange(1):aRange(2)
+                        % Get the state and successor coordinates in the
+                        % global frame.
+                        startCoords = [obj.discToCont(state.x, 1);
+                                       obj.discToCont(state.y, 2);
+                                       obj.discToCont(state.theta, 3);
+                                       obj.discToCont(state.v, 4)];
 
-                                edges{idx} = [a, b, c, d];
-                                costs{idx} = obj.getCost(state, succ, a, b, ...
-                                                                c, d);
-                                succs{idx} = succ;
+                        R = [cos(startCoords(3)), -sin(startCoords(3));
+                             sin(startCoords(3)), cos(startCoords(3))];
 
-                                idx = idx + 1;
-                            end
+                        localXCont = obj.discToCont(localX, 1);
+                        localYCont = obj.discToCont(localY, 2);
+
+                        endCoords = startCoords + [R * [localXCont; localYCont]; ...
+                                            atan(localYCont / localXCont); ...
+                                            a];
+
+                        % If the coordinates of the successor state are not
+                        % valid, do not generate the edge.
+                        if ~obj.isValid(endCoords(1), ...
+                                        endCoords(2), ...
+                                        endCoords(3), ...
+                                        endCoords(4), ...
+                                        obj.discToCont(state.t + deltaT, 5))
+                            continue;
                         end
+
+                        % Otherwise, generate motion primitive.
+                        [a, b, c, d] = unicycleThirdOrderSpline(startCoords(1), ...
+                                                                startCoords(2), ...
+                                                                startCoords(3), ...
+                                                                startCoords(4), ...
+                                                                endCoords(1), ...
+                                                                endCoords(2), ...
+                                                                endCoords(3), ...
+                                                                endCoords(4), ...
+                                                                obj ...
+                                                                .discToCont(deltaT, 5));
+
+                        edges{idx} = [a, b, c, d];
+
+                        % Add the successor state.
+                        succ = obj.getState(obj.contToDisc(endCoords(1), 1), ...
+                                            obj.contToDisc(endCoords(2), 2), ...
+                                            obj.contToDisc(endCoords(3), 3), ...
+                                            obj.contToDisc(endCoords(4), 4), ...
+                                            state.t + deltaT)
+
+                        costs{idx} = obj.getCost(state, succ, a, b, ...
+                                                        c, d);
+                        succs{idx} = succ;
+
+                        idx = idx + 1;
                     end
                 end
             end
         end
 
-        function valid = isValidState(obj, state)
+        function valid = isValid(obj, x, y, theta, v, t)
             valid = 1;
 
             % Check state bounds provided by the environment.
-            valid = valid && obj.env.inBounds(obj.discToCont(state.x, 1), ...
-                                              'x');
-            valid = valid && obj.env.inBounds(obj.discToCont(state.y, 2), ...
-                                              'y');
-            valid = valid && obj.env.inBounds(obj.discToCont(state.theta, 3), ...
-                                              'theta');
-            valid = valid && obj.env.inBounds(obj.discToCont(state.v, 4), ...
-                                              'v');
+            valid = valid && obj.env.inBounds(x, 'x');
+            valid = valid && obj.env.inBounds(y, 'y');
+            valid = valid && obj.env.inBounds(theta, 'theta');
+            valid = valid && obj.env.inBounds(v, 'v');
         end
 
         function path = reconstructPath(obj, goalState)
@@ -220,7 +245,26 @@ classdef LatticePlanner < PlannerBase
 
         function cost = getCost(obj, state, succ, a, b, c, d)
             cost = norm([obj.discToCont(succ.x, 1); obj.discToCont(succ.y, 2)] - ...
-                        [obj.discToCont(state.x, 1); obj.discToCont(state.y, 2)]);
+                        [obj.discToCont(state.x, 1); obj.discToCont(state.y, ...
+                                                              2)]);
+
+            numSamples = 50;
+            T = obj.discToCont(succ.t - state.t, 5);
+            cost = cost + 10 * obj.getSteeringCost(a, b, c, d, T, numSamples);
+        end
+
+        function cost = getSteeringCost(obj, a, b, c, d, T, numSamples)
+          xfunc = @(t) a(1) .* t.^3 + b(1) .* t.^2 + ...
+                  c(1) .* t + d(1);
+          yfunc = @(t) a(2) .* t.^3 + b(2) .* t.^2 + ...
+                  c(2) .* t + d(2);
+          thetafunc = @(t) atan(yfunc(t) / xfunc(t));
+
+          Tsample = T / numSamples;
+          cost = 0;
+          for t = 1:(numSamples - 1)
+              cost = cost + abs(thetafunc(t + 1) - thetafunc(t)) / Tsample;
+          end
         end
     end
 end
