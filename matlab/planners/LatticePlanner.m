@@ -1,4 +1,4 @@
-classdef LatticePlanner < PlannerBase
+classdef LatticePlanner
     properties
         xDisc
         yDisc
@@ -7,12 +7,11 @@ classdef LatticePlanner < PlannerBase
         tDisc
 
         states
+        stateBounds
     end
 
     methods
-        function obj = LatticePlanner(env, xDisc, yDisc, thetaDisc, vDisc, tDisc)
-            obj@PlannerBase(env);
-
+        function obj = LatticePlanner(xDisc, yDisc, thetaDisc, vDisc, tDisc)
             obj.xDisc = xDisc;
             obj.yDisc = yDisc;
             obj.thetaDisc = thetaDisc;
@@ -20,6 +19,7 @@ classdef LatticePlanner < PlannerBase
             obj.tDisc = tDisc;
 
             obj.states = containers.Map();
+            obj.stateBounds = containers.Map();
         end
 
         function state = getState(obj, xDisc, yDisc, thetaDisc, vDisc, tDisc)
@@ -76,10 +76,10 @@ classdef LatticePlanner < PlannerBase
                 % Check if the goal has been reached.
                 contX = obj.discToCont(state.x, 1);
                 contY = obj.discToCont(state.y, 2);
-                norm(goalXY - [contX; contY])
+                % norm(goalXY - [contX; contY])
                 if norm(goalXY - [contX; contY]) < goalTol
                     fprintf("Found goal after %d expansions\n", expansions);
-                    traj = obj.reconstructPath(state)
+                    traj = obj.reconstructPath(state);
                     break;
                 end
 
@@ -119,7 +119,8 @@ classdef LatticePlanner < PlannerBase
             idx = 1;
             deltaT = 1;
 
-            localXRange = [1, 2];
+            % localXRange = [1, 2];
+            localXRange = [1, 3];
             localYRange = [-2, 2];
             aRange = [-1, 1];
 
@@ -172,7 +173,7 @@ classdef LatticePlanner < PlannerBase
                                             obj.contToDisc(endCoords(2), 2), ...
                                             obj.contToDisc(endCoords(3), 3), ...
                                             obj.contToDisc(endCoords(4), 4), ...
-                                            state.t + deltaT)
+                                            state.t + deltaT);
 
                         costs{idx} = obj.getCost(state, succ, a, b, ...
                                                         c, d);
@@ -188,10 +189,21 @@ classdef LatticePlanner < PlannerBase
             valid = 1;
 
             % Check state bounds provided by the environment.
-            valid = valid && obj.env.inBounds(x, 'x');
-            valid = valid && obj.env.inBounds(y, 'y');
-            valid = valid && obj.env.inBounds(theta, 'theta');
-            valid = valid && obj.env.inBounds(v, 'v');
+            valid = valid && obj.inBounds(x, 'x');
+            valid = valid && obj.inBounds(y, 'y');
+            valid = valid && obj.inBounds(theta, 'theta');
+            valid = valid && obj.inBounds(v, 'v');
+        end
+
+        function valid = inBounds(obj, value, stateName)
+            valid = 1;
+
+            if obj.stateBounds.isKey(stateName)
+                bounds = obj.stateBounds(stateName);
+                if value < bounds(1) || value > bounds(2)
+                    valid = 0;
+                end
+            end
         end
 
         function path = reconstructPath(obj, goalState)
@@ -250,7 +262,7 @@ classdef LatticePlanner < PlannerBase
 
             numSamples = 50;
             T = obj.discToCont(succ.t - state.t, 5);
-            cost = cost + 10 * obj.getSteeringCost(a, b, c, d, T, numSamples);
+            % cost = cost + 10 * obj.getSteeringCost(a, b, c, d, T, numSamples);
         end
 
         function cost = getSteeringCost(obj, a, b, c, d, T, numSamples)
