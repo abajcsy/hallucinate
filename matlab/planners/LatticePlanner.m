@@ -8,6 +8,7 @@ classdef LatticePlanner
 
         states
         stateBounds
+        heurWeight
     end
 
     methods
@@ -20,6 +21,8 @@ classdef LatticePlanner
 
             obj.states = containers.Map();
             obj.stateBounds = containers.Map();
+            % obj.heurWeight = 1;
+            obj.heurWeight = 2;
         end
 
         function state = getState(obj, xDisc, yDisc, thetaDisc, vDisc, tDisc)
@@ -93,7 +96,8 @@ classdef LatticePlanner
                     if state.costToCome + costs{i} < succ.costToCome
                         succ.costToCome = state.costToCome + costs{i};
                         succ.parent = state;
-                        succ.evalFunc = succ.costToCome + obj.heuristicCostToGoal(succ, goalXY);
+                        succ.evalFunc = succ.costToCome + obj.heurWeight * ...
+                            obj.heuristicCostToGoal(succ, goalXY);
                     end
 
                     if ~succ.closed
@@ -256,10 +260,16 @@ classdef LatticePlanner
         end
 
         function cost = getCost(obj, state, succ, a, b, c, d)
-            cost = norm([obj.discToCont(succ.x, 1); obj.discToCont(succ.y, 2)] - ...
-                        [obj.discToCont(state.x, 1); obj.discToCont(state.y, ...
-                                                              2)]);
+            cost = 0;
 
+            % Add a cost on distance.
+            cost = cost + norm([obj.discToCont(succ.x, 1); obj.discToCont(succ.y, 2)] - ...
+                               [obj.discToCont(state.x, 1); obj.discToCont(state.y, ...
+                                                              2)]);
+            % Add a cost for each time step.
+            % cost = cost + (succ.t - state.t);
+
+            % TODO Cost on steering?
             numSamples = 50;
             T = obj.discToCont(succ.t - state.t, 5);
             % cost = cost + 10 * obj.getSteeringCost(a, b, c, d, T, numSamples);
