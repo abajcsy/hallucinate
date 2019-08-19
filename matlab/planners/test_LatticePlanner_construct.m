@@ -17,6 +17,21 @@ planner.stateBounds('v') = [0.1, 3];
 planner.stateBounds('theta') = [-pi, pi];
 planner.stateBounds('t') = [0, 15]; % Planning horizon.
 
+% Set up the occupancy grid.
+xBounds = planner.stateBounds('x');
+yBounds = planner.stateBounds('y');
+planner.staticObsMap = OccupancyGrid(xDisc, yDisc, ...
+                                     xBounds(1), xBounds(2), ...
+                                     yBounds(1), yBounds(2));
+
+obsBoundsX = [0.5, 1.5];
+obsBoundsY = [0.75, 1.5];
+for x = obsBoundsX(1):xDisc:obsBoundsX(2)
+    for y = obsBoundsY(1):yDisc:obsBoundsY(2)
+        planner.staticObsMap.setData(x, y, 1);
+    end
+end
+
 contVal = 1.25;
 fprintf("cont = %f, disc = %f\n", contVal, planner.contToDisc(contVal, 5));
 
@@ -40,11 +55,12 @@ fprintf("expanded %d successors\n", length(succs));
 
 % hold off;
 
-goalXY = [3; 0];
+% goalXY = [3; 0];
 % goalXY = [1; 1];
 % goalXY = [0.5; 2.5];
 % goalXY = [1.5; 2];
 % goalXY = [0.2; 2.8];
+goalXY = [1.8; 1.25];
 goalTol = 0.2;
 
 % Plan the trajectory.
@@ -58,6 +74,12 @@ axis equal;
 drawTriangle([startStateCont(1); startStateCont(2)], startStateCont(3), 0.1);
 scatter([goalXY(1)], [goalXY(2)]);
 drawCircle(goalXY, goalTol);
+
+% Draw the obstacle.
+obs = fill([obsBoundsX(1), obsBoundsX(1), obsBoundsX(2), obsBoundsX(2)], ...
+           [obsBoundsY(1), obsBoundsY(2), obsBoundsY(2), obsBoundsY(1)], ...
+           'r');
+set(obs, 'facealpha', 0.5);
 
 for idx = 1:length(traj)-1
     firstState = traj{idx};
