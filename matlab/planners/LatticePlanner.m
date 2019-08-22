@@ -7,6 +7,7 @@ classdef LatticePlanner
         tDisc     % Discretization in t (s / unit).
 
         staticObsMap % Occupancy grid of the static obstacles.
+        dynObsMap % Time-dependent occupancy grid of the dynamic obstacles.
 
         states % Map of states.
         stateBounds % Bounds (i.e. box constraints) on the states.
