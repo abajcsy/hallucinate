@@ -298,7 +298,7 @@ classdef LatticePlanner
             for t = 1:(numSamples - 1)
                 xsample = xfunc(t * Tsample);
                 ysample = yfunc(t * Tsample);
-                if obj.staticObsMap.getData(xsample, ysample) > 0
+                if obj.staticObsMap.getData(xsample, ysample, 0) > 0
                     safe = 0;
                 end
             end

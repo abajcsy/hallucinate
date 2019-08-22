@@ -7,6 +7,7 @@ vDisc = 0.5;
 tDisc = 0.25;
 
 heurWeight = 1.25;
+% heurWeight = 3;
 
 planner = LatticePlanner(xDisc, yDisc, thetaDisc, vDisc, tDisc, heurWeight);
 
@@ -20,15 +21,17 @@ planner.stateBounds('t') = [0, 15]; % Planning horizon.
 % Set up the occupancy grid.
 xBounds = planner.stateBounds('x');
 yBounds = planner.stateBounds('y');
-planner.staticObsMap = OccupancyGrid(xDisc, yDisc, ...
+tBounds = planner.stateBounds('t');
+planner.staticObsMap = OccupancyGrid(xDisc, yDisc, tDisc, ...
                                      xBounds(1), xBounds(2), ...
-                                     yBounds(1), yBounds(2));
+                                     yBounds(1), yBounds(2), ...
+                                     tBounds(1), tBounds(2));
 
 obsBoundsX = [0.5, 1.5];
 obsBoundsY = [0.75, 1.5];
 for x = obsBoundsX(1):xDisc:obsBoundsX(2)
     for y = obsBoundsY(1):yDisc:obsBoundsY(2)
-        planner.staticObsMap.setData(x, y, 1);
+        planner.staticObsMap.setData(x, y, 0, 1);
     end
 end
 
@@ -60,11 +63,15 @@ fprintf("expanded %d successors\n", length(succs));
 % goalXY = [0.5; 2.5];
 % goalXY = [1.5; 2];
 % goalXY = [0.2; 2.8];
-goalXY = [1.8; 1.25];
+% goalXY = [1.8; 1.25];
+goalXY = [1.8; 1.8];
 goalTol = 0.2;
 
 % Plan the trajectory.
-startStateCont = [0; 0; 0; 0.5; 0];
+% startStateCont = [0; 0; 0; 0.5; 0];
+startStateCont = [0; 0; 0; 1; 0];
+% startStateCont = [0; 0; pi / 8; 1; 0];
+
 traj = planner.plan(startStateCont, goalXY, goalTol);
 
 figure;
