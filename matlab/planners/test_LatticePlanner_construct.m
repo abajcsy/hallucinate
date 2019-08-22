@@ -6,8 +6,8 @@ thetaDisc = pi / 45;
 vDisc = 0.5;
 tDisc = 0.25;
 
-heurWeight = 1.25;
-% heurWeight = 3;
+% heurWeight = 1.25;
+heurWeight = 3;
 
 planner = LatticePlanner(xDisc, yDisc, thetaDisc, vDisc, tDisc, heurWeight);
 
@@ -88,34 +88,36 @@ obs = fill([obsBoundsX(1), obsBoundsX(1), obsBoundsX(2), obsBoundsX(2)], ...
            'r');
 set(obs, 'facealpha', 0.5);
 
-for idx = 1:length(traj)-1
-    firstState = traj{idx};
-    secondState = traj{idx+1};
+for idx = 1:length(traj.splines)
+    s = traj.contStates{idx};
+    drawTriangle([s(1); s(2)], s(3), 0.1);
 
-    drawTriangle([planner.discToCont(secondState.x, 1); ...
-                  planner.discToCont(secondState.y, 2)], ...
-                 planner.discToCont(secondState.theta, 3), ...
-                 0.1);
+    p = traj.splines{idx};
 
-    [a, b, c, d] = unicycleThirdOrderSpline(planner.discToCont(firstState.x, 1), ...
-                                            planner.discToCont(firstState.y, 2), ...
-                                            planner.discToCont(firstState.theta, 3), ...
-                                            planner.discToCont(firstState.v, 4), ...
-                                            planner.discToCont(secondState.x, 1), ...
-                                            planner.discToCont(secondState.y, 2), ...
-                                            planner.discToCont(secondState.theta, 3), ...
-                                            planner.discToCont(secondState.v, 4), ...
-                                            planner.discToCont(1, 5));
-
-    xfunc = @(t) a(1) .* t.^3 + b(1) .* t.^2 + c(1) .* t + d(1);
-    yfunc = @(t) a(2) .* t.^3 + b(2) .* t.^2 + c(2) .* t + d(2);
-
-    vxfunc = @(t) 3 .* a(1) .* t.^2 + 2 .* b(1) .* t + c(1);
-    vyfunc = @(t) 3 .* a(2) .* t.^2 + 2 .* b(2) .* t + c(2);
+    xfunc = @(t) p(1, 1) .* t.^3 + p(1, 2) .* t.^2 + p(1, 3) .* t + p(1, 4);
+    yfunc = @(t) p(2, 1) .* t.^3 + p(2, 2) .* t.^2 + p(2, 3) .* t + p(2, 4);
 
     fplot(xfunc, yfunc, [0 tDisc]);
 end
-hold off;
+
+lastT = traj.contStates{end}(5);
+samplesX = [];
+samplesY = [];
+t = 0;
+dt = 0.1;
+while t < lastT
+    s = traj.getState(t);
+    t = t + dt;
+    samplesX = [samplesX, s(1)];
+    samplesY = [samplesY, s(2)];
+end
+
+scatter(samplesX, samplesY);
+
+if length(traj.splines) > 0
+    s = traj.contStates{end};
+    drawTriangle([s(1); s(2)], s(3), 0.1);
+end
 
 function tri = drawTriangle(origin, rot, sideLength)
     aLocal = [2*sideLength; 0; 1];

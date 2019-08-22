@@ -84,7 +84,17 @@ classdef LatticePlanner
                 % norm(goalXY - [contX; contY])
                 if norm(goalXY - [contX; contY]) < goalTol
                     fprintf("Found goal after %d expansions\n", expansions);
-                    traj = obj.reconstructPath(state);
+                    path = obj.reconstructPath(state);
+
+                    contStates = {};
+                    for idx = 1:length(path)
+                        contStates{idx} = [obj.discToCont(path{idx}.x, 1);
+                                           obj.discToCont(path{idx}.y, 2);
+                                           obj.discToCont(path{idx}.theta, 3);
+                                           obj.discToCont(path{idx}.v, 4);
+                                           obj.discToCont(path{idx}.t, 5)];
+                    end
+                    traj = Trajectory(contStates);
                     break;
                 end
 
