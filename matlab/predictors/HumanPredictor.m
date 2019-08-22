@@ -67,8 +67,8 @@ classdef HumanPredictor < handle
             fprintf('--------------------------------------\n');
             
             % Run first prediction given initial state measurement.
-            %fprintf('Running first prediction ..........\n');
-            %obj.updatePredictions();
+            fprintf('Running first prediction ..........\n');
+            obj.updatePredictions();
         end
         
         %% Updates the current state of the human. 
