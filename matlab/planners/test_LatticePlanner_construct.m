@@ -6,7 +6,8 @@ thetaDisc = pi / 45;
 vDisc = 0.5;
 tDisc = 0.25;
 
-heurWeight = 1.25;
+% heurWeight = 1.25;
+heurWeight = 3;
 
 planner = LatticePlanner(xDisc, yDisc, thetaDisc, vDisc, tDisc, heurWeight);
 
@@ -60,11 +61,14 @@ fprintf("expanded %d successors\n", length(succs));
 % goalXY = [0.5; 2.5];
 % goalXY = [1.5; 2];
 % goalXY = [0.2; 2.8];
-goalXY = [1.8; 1.25];
+% goalXY = [1.8; 1.25];
+goalXY = [1.8; 1.8];
 goalTol = 0.2;
 
 % Plan the trajectory.
-startStateCont = [0; 0; 0; 0.5; 0];
+% startStateCont = [0; 0; 0; 0.5; 0];
+startStateCont = [0; 0; 0; 1; 0];
+% startStateCont = [0; 0; pi / 8; 1; 0];
 traj = planner.plan(startStateCont, goalXY, goalTol);
 
 figure;
