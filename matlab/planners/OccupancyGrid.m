@@ -40,6 +40,7 @@ classdef OccupancyGrid < handle
        function fromValueFuns(obj, grid, valueFuns, times, t0)
            obj.times = zeros(1,length(times));
            obj.data = cell(1,length(times));
+           obj.tMin = t0;
 
            % We want to project all dimensions down into 2D.
            projDims = zeros(1,grid.dim);

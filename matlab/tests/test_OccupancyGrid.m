@@ -1,16 +1,23 @@
 % Get the parameters of the reachability problem.
-params = dubinsCarGaussianHuman();
+%params = dubinsCarGaussianHuman();
 
 % Create the predictor and make first prediction.
-predictor = HumanPredictor(params);
+%predictor = HumanPredictor(params);
 
 % Grab the predictions (value functions) and times.
-[preds, times] = predictor.getPredictions();
+%[preds, times] = predictor.getPredictions();xz
 
-% Create occupancy grid. 
-tDisc = (params.tMax - params.tMin)/params.dt;
-occuGrid = OccupancyGrid(params.predGrid.N(1), params.predGrid.N(2), tDisc, ...
-    params.lowEnv(1), params.upEnv(1), params.lowEnv(2), params.upEnv(2));
+clc
+clear all
+
+% Create occupancy grid.
+gmin = [0,0];
+gmax = [2,2];
+N = [3,2];
+g = createGrid(gmin, gmax, N);
+valueFun = shapeSphere(g, [1; 1.5], 1);
+occuGrid = OccupancyGrid(N(1), N(2), 1, ...
+    gmin(1),gmax(1),gmin(2),gmax(2));
 
 % Convert to 2D binary occupancy map representation.
-occuGrid.fromValueFuns(params.predGrid, preds, times, 0);
+occuGrid.fromValueFuns(g, valueFun, 1, 0);

@@ -3,7 +3,7 @@ function dx = dynamics(obj, x, u)
     %     Dynamics of the GaussianHuman
     %         \dot{x}_1 = v * cos(u)
     %         \dot{x}_2 = v * sin(u)
-    %         \dot{x}_3 = (betaPrior(beta=0) - betaPosterior(beta=0 | x, u))*alpha    
+    %         \dot{x}_3 = (betaPosterior(beta=0 | x, u) - betaPrior(beta=0))*gamma    
 
     returnVector = false;
     if ~iscell(x)
@@ -22,7 +22,7 @@ function dx = dynamics(obj, x, u)
             %dx{i} = (obj.DeltaB0 - obj.betaPosterior(x, u)) * obj.gamma;
             
             % NOTE: These dynamics are for a STATIONARY beta model. 
-            dx{i} = (obj.betaPosterior(x, u) - x{3}) * obj.gamma;
+            dx{i} = ((obj.betaPosterior(x, u) - x{3}) * obj.gamma) .* ((x{3} >= 0) .* (x{3} <= 1));
         else
             error('Only dimension 1-3 are defined for dynamics of GaussianHuman!')    
         end

@@ -93,11 +93,14 @@ classdef GaussianHuman < DynSys
             %  Note that our third state is x(3) = P(\beta=0 | xt-1, ut-1)
             
             uOpt = obj.K(1).*x{1} + obj.K(2).*x{2} + obj.m;
-            numerator = x{3};
-            denominator = x{3} + (sqrt(2*pi*obj.sigma^2)*obj.gaussianNorm)/(2*pi) .* ...
-                (1 - x{3}) .* (1./exp(-(u - uOpt).^2) ./ (2*obj.sigma^2));
             
-            pb = numerator./denominator;
+            const = (sqrt(2*pi*obj.sigma^2)*obj.gaussianNorm)/(2*pi);
+            gauss = 1 ./ exp((-(u - uOpt).^2) ./ (2*obj.sigma^2));
+            
+            numerator = x{3};
+            denominator = x{3} + const .* (1 - x{3}) .* gauss;
+            
+            pb = numerator ./ denominator;
         end
         
         function likelyCtrls = getLikelyControls(obj, x)
@@ -120,7 +123,7 @@ classdef GaussianHuman < DynSys
             %       a square-root of a negative number. To do this, we 
             %       need to ensure that the result of the log is > 0 and < 1. 
             C = sqrt(-2*obj.sigma^2 .* log(innerLog)) .* (innerLog > 0) .* (innerLog < 1) + ...
-                1e6 * (innerLog < 0) + 1e6 * (innerLog > 1);
+                1e6 * (innerLog < 0) + 1e6 * (innerLog > 1) + 1e6 * (x{3} < 0);
             
             % Compute the bounds on the likley controls.
             upperBound = min(optCtrl + C, obj.uRange(2));

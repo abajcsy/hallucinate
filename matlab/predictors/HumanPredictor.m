@@ -67,18 +67,20 @@ classdef HumanPredictor < handle
             fprintf('--------------------------------------\n');
             
             % Run first prediction given initial state measurement.
-            fprintf('Running first prediction ..........\n');
-            obj.updatePredictions();
+            %fprintf('Running first prediction ..........\n');
+            %obj.updatePredictions();
         end
         
         %% Updates the current state of the human. 
         %  This includes updating the distribution over beta = 0!
-        function updateState(obj, xnext, u)
+        function updateState(obj, xt1, ut)
+            
+            % xcurr = [px_t, py_t, pbeta_t]
             if ~iscell(obj.xcurr)
-                x = num2cell(obj.xcurr);
+                xt = num2cell(obj.xcurr);
             end
-            pbeta = obj.human.betaPosterior(x, u);
-            obj.xcurr = [xnext; pbeta];
+            pbeta_t1 = obj.human.betaPosterior(xt, ut);
+            obj.xcurr = [xt1; pbeta_t1];
         end
         
         %% Predicts the FRS of the human.

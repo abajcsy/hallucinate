@@ -12,7 +12,7 @@ numCtrls = 10;                  % Number of discrete controls
 sigma = 0.1;                    % Variance in normal distribution
 uThresh = 0.05;                 % Threshold to determine likely controls
 DeltaB0 = 0.5;                  % Distribution in HMM
-Pbeta0 = 0.9;                   % Setup dynamical system
+Pbeta0 = 0.001;                   % Setup dynamical system
 
 params.x0 = [0; 0; Pbeta0];     % Initial condition
 
@@ -29,7 +29,7 @@ params.partialFunc = @gaussianHuman_partial;
 
 % beta = 1 --> irrational
 % beta = 0 --> rational
-trueBeta = 0; 
+trueBeta = 1; 
 mu = K*params.x0(1:2) + m;
 params.simHuman = SimFixedBetaGaussianHuman(params.x0(1:2), v, ...
                                             mu, sigma, uRange, trueBeta);
@@ -43,8 +43,8 @@ params.upEnv = [2;2];
 % Discretization of x,y, and P(beta=0) space.
 gridLow = [params.lowEnv; -0.1];
 gridUp = [params.upEnv; 1.1];
-N = [81; 81; 41];
-params.predGrid = createGrid(gridLow, gridUp, N);
+params.N = [81; 81; 41];
+params.predGrid = createGrid(gridLow, gridUp, params.N);
 
 % Prediction time horizon and discretization.
 params.tMin = 0;
@@ -60,10 +60,17 @@ params.minWith = 'set'; % minwith = 'zero' gives us tube.
 params.quiet = true; % runs in quiet computation mode, for efficiency.
 
 %% Planning Params.
-%   TBD.
+params.xDisc = 0.15;
+params.yDisc = 0.15;
+params.thetaDisc = pi / 45;
+params.vDisc = 0.5;
+params.tDisc = 0.25;
+params.heurWeight = 1.25;
+params.goalTol = 0.2;
 
 %% Robot Dynamical System Params.
-%   TBD.
+params.robotx0 = [0; 0; 0; 1; 0];
+params.robotGoalXY = [1.8; 1.8];
 
 %% Simulation Params.
 % Timestep for computation and simulation.
