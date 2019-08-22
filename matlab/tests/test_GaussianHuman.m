@@ -11,7 +11,7 @@ clear all
 %% Create human dynamical system
 
 % Velocity
-v = 1;
+v = 0.6;
 
 % Control bounds
 uRange = [-pi; pi];
@@ -30,7 +30,7 @@ numCtrls = 10;
 sigma = 0.1;
 
 % Threshold to determine likely controls
-uThresh = 0.05; 
+uThresh = 0.1; 
 
 % Distribution in HMM
 DeltaB0 = 0.5; 
@@ -47,7 +47,7 @@ N = [81; 81; 41];         % Number of grid points per dimension
 g = createGrid(grid_min, grid_max, N);
 
 %% target set
-R = 0.2;
+R = 0.1;
 data0 = shapeSphere(g, x0, R);
 
 %% time vector
@@ -75,21 +75,18 @@ HJIextraArgs.visualize.figNum = 1; %set figure number
 HJIextraArgs.visualize.deleteLastPlot = true; %delete previous plot as you update
 HJIextraArgs.visualize.viewGrid = false;
 HJIextraArgs.visualize.viewAxis = [-2 2 -2 2 0 1.1];
-%az = -10;
-%el = 33;
-%HJIextraArgs.visualize.viewAngle = [az, el];
 HJIextraArgs.visualize.xTitle = "$p^x$";
 HJIextraArgs.visualize.yTitle = "$p^y$";
 HJIextraArgs.visualize.zTitle = "$P(\beta = 0)$";
 HJIextraArgs.visualize.fontSize = 15;
 
-%uncomment if you want to see a 2D slice
-HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
-HJIextraArgs.visualize.plotData.projpt = {'min'}; %project pt
-HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
+% %uncomment if you want to see a 2D slice
+% HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
+% HJIextraArgs.visualize.plotData.projpt = {'min'}; %project pt
+% HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
 
-minWith = 'set';
-%minWith = 'zero';
+%minWith = 'set';
+minWith = 'zero';
 [data, tau2, ~] = ...
   HJIPDE_solve(data0, tau, schemeData, minWith, HJIextraArgs);
 

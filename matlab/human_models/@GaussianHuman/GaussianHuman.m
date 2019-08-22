@@ -27,6 +27,9 @@ classdef GaussianHuman < DynSys
 
         % Number of dimensions
         dims
+        
+        % Normalizer for the gaussian distribution
+        gaussianNorm
     end
     
     methods
@@ -36,9 +39,10 @@ classdef GaussianHuman < DynSys
           %     Dynamics of the GaussianHuman
           %         \dot{x}_1 = v * cos(u)
           %         \dot{x}_2 = v * sin(u)
-          %         \dot{x}_3 = (DeltaB0(beta=0) - betaPosterior(beta=0 | x, u))*gamma
+          %         \dot{x}_3 = (betaPosterior(beta=0 | x, u) - x{3})*gamma
           %         -pi <= u <= pi
-          %     
+          %     NOTE: dynamics are for stationary beta right now!     
+          %
           %     State space of the GaussianHuman
           %         x_1 = p_x
           %         x_2 = p_y
@@ -73,6 +77,13 @@ classdef GaussianHuman < DynSys
 
           obj.DeltaB0 = DeltaB0;
           
+          mu = obj.K*obj.x(1:2) + obj.m;
+          if mu ~= 0
+              error("This code only works for K=0 and m=0!");
+          end
+          % Normalize the gaussian to take into account control bounds.
+          p = normcdf([obj.uRange(1), obj.uRange(2)], mu, obj.sigma);
+          obj.gaussianNorm = p(2)-p(1);
         end
         
         function pb = betaPosterior(obj, x, u)
@@ -83,8 +94,8 @@ classdef GaussianHuman < DynSys
             
             uOpt = obj.K(1).*x{1} + obj.K(2).*x{2} + obj.m;
             numerator = x{3};
-            denominator = x{3} + sqrt((2*pi*obj.sigma^2)/(2*pi)) .* ...
-                (1 - x{3}) .* 1./exp(-(u - uOpt).^2 ./ 2*obj.sigma^2);
+            denominator = x{3} + (sqrt(2*pi*obj.sigma^2)*obj.gaussianNorm)/(2*pi) .* ...
+                (1 - x{3}) .* (1./exp(-(u - uOpt).^2) ./ (2*obj.sigma^2));
             
             pb = numerator./denominator;
         end
