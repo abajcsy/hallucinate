@@ -29,10 +29,45 @@ planner.staticObsMap = OccupancyGrid(xDisc, yDisc, tDisc, ...
 
 obsBoundsX = [0.5, 1.5];
 obsBoundsY = [0.75, 1.5];
-for x = obsBoundsX(1):xDisc:obsBoundsX(2)
-    for y = obsBoundsY(1):yDisc:obsBoundsY(2)
-        planner.staticObsMap.setData(x, y, 0, 1);
+% for x = obsBoundsX(1):xDisc:obsBoundsX(2)
+%     for y = obsBoundsY(1):yDisc:obsBoundsY(2)
+%         planner.staticObsMap.setData(x, y, 0, 1);
+%     end
+% end
+
+% dynObsStartXY = [0; 2.5];
+dynObsStartXY = [0.3; 1];
+% dynObsVel = [0.25; -0.1];
+dynObsVel = [0.75; 0];
+dynObsDim = [0.75; 0.75];
+
+planner.dynObsMap = OccupancyGrid(xDisc, yDisc, tDisc, ...
+                                  xBounds(1), xBounds(2), ...
+                                  yBounds(1), yBounds(2), ...
+                                  tBounds(1), tBounds(2));
+for t = tBounds(1):tDisc:tBounds(2)
+    lowerBounds = dynObsStartXY + t * dynObsVel;
+    upperBounds = dynObsStartXY + t * dynObsVel + dynObsDim;
+
+    k = planner.dynObsMap.timeToIndex(t);
+    planner.dynObsMap.data{k} = zeros(ceil((planner.dynObsMap.xMax - ...
+                                            planner.dynObsMap.xMin) / ...
+                                           planner.dynObsMap.xDisc), ...
+                                      ceil((planner.dynObsMap.yMax - ...
+                                            planner.dynObsMap.yMin) / ...
+                                           planner.dynObsMap.yDisc));
+
+    for x = lowerBounds(1):xDisc:upperBounds(1)
+        for y = lowerBounds(2):yDisc:upperBounds(2)
+            planner.dynObsMap.setData(x, y, t, 1);
+        end
     end
+
+    % for x = xBounds(1):xDisc:xBounds(2)
+    %     for y = yBounds(1):yDisc:yBounds(2)
+    %         planner.dynObsMap.setData(x, y, t, 0);
+    %     end
+    % end
 end
 
 contVal = 1.25;
@@ -83,30 +118,29 @@ scatter([goalXY(1)], [goalXY(2)]);
 drawCircle(goalXY, goalTol);
 
 % Draw the obstacle.
-obs = fill([obsBoundsX(1), obsBoundsX(1), obsBoundsX(2), obsBoundsX(2)], ...
-           [obsBoundsY(1), obsBoundsY(2), obsBoundsY(2), obsBoundsY(1)], ...
-           'r');
-set(obs, 'facealpha', 0.5);
+% obs = fill([obsBoundsX(1), obsBoundsX(1), obsBoundsX(2), obsBoundsX(2)], ...
+%            [obsBoundsY(1), obsBoundsY(2), obsBoundsY(2), obsBoundsY(1)], ...
+%            'r');
+% set(obs, 'facealpha', 0.5);
 
-traj.draw();
+lowerBounds = dynObsStartXY;
+upperBounds = dynObsStartXY + dynObsDim;
 
-% for idx = 1:length(traj.splines)
-%     s = traj.contStates{idx};
-%     drawTriangle([s(1); s(2)], s(3), 0.1);
+dynObs = fill([lowerBounds(1), lowerBounds(1), upperBounds(1), upperBounds(1)], ...
+              [lowerBounds(2), upperBounds(2), upperBounds(2), lowerBounds(2)], ...
+              'g')
+dynObs.set('facealpha', 0.5);
 
-%     p = traj.splines{idx};
-
-%     xfunc = @(t) p(1, 1) .* t.^3 + p(1, 2) .* t.^2 + p(1, 3) .* t + p(1, 4);
-%     yfunc = @(t) p(2, 1) .* t.^3 + p(2, 2) .* t.^2 + p(2, 3) .* t + p(2, 4);
-
-%     fplot(xfunc, yfunc, [0 tDisc]);
-% end
+traj.draw(false);
 
 lastT = traj.contStates{end}(5);
 samplesX = [];
 samplesY = [];
 t = 0;
-dt = 0.1;
+dt = 0.05;
+s = traj.getState(t);
+stateVis = drawTriangle([s(1); s(2)], s(3), 0.05);
+
 while t < lastT
     s = traj.getState(t);
 
@@ -114,7 +148,18 @@ while t < lastT
     samplesX = [samplesX, s(1)];
     samplesY = [samplesY, s(2)];
 
-    drawTriangle([s(1); s(2)], s(3), 0.05);
+    drawTriangle([s(1); s(2)], s(3), 0.05, stateVis);
+
+    % Update the dynmaic obstacle.
+    lowerBounds = dynObsStartXY + t * dynObsVel;
+    upperBounds = dynObsStartXY + t * dynObsVel + dynObsDim;
+    dynObs.set('XData', [lowerBounds(1), lowerBounds(1), upperBounds(1), ...
+                        upperBounds(1)]);
+    dynObs.set('YData', [lowerBounds(2), upperBounds(2), upperBounds(2), ...
+                        lowerBounds(2)]);
+
+    drawnow;
+    pause(dt);
 
     % fprintf("control at %f: \n", t);
     % traj.getControl(t)
@@ -127,7 +172,7 @@ if length(traj.splines) > 0
     drawTriangle([s(1); s(2)], s(3), 0.1);
 end
 
-function tri = drawTriangle(origin, rot, sideLength)
+function tri = drawTriangle(origin, rot, sideLength, lastTri)
     aLocal = [2*sideLength; 0; 1];
     bLocal = [0; -sideLength / sqrt(2); 1];
     cLocal = [0; sideLength / sqrt(2); 1];
@@ -139,10 +184,16 @@ function tri = drawTriangle(origin, rot, sideLength)
     b = T * bLocal;
     c = T * cLocal;
 
-    tri = fill([a(1), b(1), c(1)], ...
-               [a(2), b(2), c(2)], ...
-               'b');
-    set(tri, 'facealpha', 0.5);
+    if nargin > 3
+        lastTri.set('XData', [a(1), b(1), c(1)]);
+        lastTri.set('YData', [a(2), b(2), c(2)]);
+        tri = lastTri;
+    else
+        tri = fill([a(1), b(1), c(1)], ...
+                   [a(2), b(2), c(2)], ...
+                   'b');
+        set(tri, 'facealpha', 0.5);
+    end
 end
 
 function circ = drawCircle(origin, radius)

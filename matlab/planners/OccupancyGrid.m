@@ -100,8 +100,8 @@ classdef OccupancyGrid < handle
        end
 
        function [i, j] = xyToIndex(obj, x, y)
-           i = round((x - obj.xMin) / obj.xDisc) + 1;
-           j = round((y - obj.yMin) / obj.yDisc) + 1;
+           i = floor((x - obj.xMin) / obj.xDisc) + 1;
+           j = floor((y - obj.yMin) / obj.yDisc) + 1;
        end
 
        function [x, y] = indexToXY(obj, i, j)
@@ -110,7 +110,7 @@ classdef OccupancyGrid < handle
        end
 
        function k = timeToIndex(obj, t)
-           k = (t - obj.tMin) / obj.tDisc + 1;
+           k = floor((t - obj.tMin) / obj.tDisc) + 1;
        end
 
        function t = indexToTime(obj, k)
