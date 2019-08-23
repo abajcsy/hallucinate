@@ -87,5 +87,5 @@ HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
 
 minWith = 'set';
 [data, tau2, ~] = ...
-  HJIPDE_solve(data0, tau, schemeData, minWith, HJIextraArgs);
+  HJIPDE_solve_pred(data0, tau, schemeData, minWith, HJIextraArgs);
 

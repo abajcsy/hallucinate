@@ -15,11 +15,11 @@ planner = LatticePlanner(params.xDisc, params.yDisc, ...
                         params.tDisc, params.heurWeight);
                     
 % Set up the state bounds.
-planner.stateBounds('x') = [params.lowEnv(1), params.upEnv(1)];
-planner.stateBounds('y') = [params.lowEnv(2), params.upEnv(2)];
-planner.stateBounds('v') = [0.1, 3];
-planner.stateBounds('theta') = [-pi, pi];
-planner.stateBounds('t') = [0, 15]; % Planning horizon.
+planner.stateBounds('x') = params.xBounds;
+planner.stateBounds('y') = params.yBounds;
+planner.stateBounds('v') = params.vBounds;
+planner.stateBounds('theta') = params.thetaBounds;
+planner.stateBounds('t') = params.timeBounds;
                   
 % Create the static obstacle map.
 planner.staticObsMap = OccupancyGrid(params.xDisc, params.yDisc, params.tDisc, ...
@@ -42,29 +42,42 @@ predictor.updatePredictions();
 planner.dynObsMap.fromValueFuns(params.predGrid, preds, times, 0);
 
 % Create the first plan. 
-traj = planner.plan(params.robotx0, params.robotGoalXY, params.goalTol);
+traj = planner.plan(params.xR0, params.goalRXY, params.goalTol);
+
+% Apply control to robot
+uR = traj.getControl(0);
+params.simRobot.updateState(uR, params.simDt, params.simRobot.x);
+xR = params.simRobot.x;
+
+% Get the initial state of the simulated human.
+xHnext = params.xH0(1:2);
 
 for t=1:params.T
+        
+    % ----- plotting ------ %
+    plot(xHnext(1), xHnext(2),'b.', 'MarkerSize', 10); % plot human
+    plot(xR(1), xR(2),'k.', 'MarkerSize', 10); % plot robot
+    xlim([params.lowEnv(1),params.upEnv(1)]);
+    ylim([params.lowEnv(2),params.upEnv(2)]);
+    pause(0.1);
+    % --------------------- %
     
     % Get most recent measurement of where the person is and what action
     % they applied.
     [xHnext, uHcurr] = params.simHuman.simulateAction(params.simDt);
-    
-    plot(xHnext(1), xHnext(2),'k.', 'MarkerSize', 10);
-    xlim([-1,3]);
-    ylim([-1,3]);
-    pause(0.1);
-    
+
     % Prediction step. 
-    predictor.updateState(xHnext, 0);
-    predictor.xcurr
-    %predictor.updatePredictions();
+    predictor.updateState(xHnext, uHcurr);
+    predictor.updatePredictions();
     
     % Planning step. 
-    % [preds, times] = predictor.getPredictions();
-    % planner.updatePredictions(preds, times);
-    % plan = planner.replan();
-    
-    % Move the robot.
-    % robot.executePlan(plan);
+    [preds, times] = predictor.getPredictions();
+    planner.dynObsMap.fromValueFuns(params.predGrid, preds, times, t*params.simDt);
+    traj = planner.plan(params.xR0, params.goalRXY, params.goalTol);
+
+    % Apply control to robot.
+    uR = traj.getControl(t*params.simDt);
+    params.simRobot.updateState(uR, params.simDt, xR);
+    xR = params.simRobot.x;
+
 end

@@ -23,10 +23,10 @@ classdef HumanPredictor < handle
         %% Constructor
         function obj = HumanPredictor(params)
             obj.human = params.humanModel;
-            obj.xcurr = params.x0;
+            obj.xcurr = params.xH0;
             obj.tau = params.tMin:params.dt:params.tMax;
             obj.grid = params.predGrid;
-            obj.targetR = params.targetR;
+            obj.targetR = params.targetRad;
             obj.uMode = params.uMode;
             obj.minWith = params.minWith;
             
@@ -89,9 +89,10 @@ classdef HumanPredictor < handle
             % Target set.
             data = shapeSphere(obj.grid, obj.xcurr, obj.targetR);
             
-            % Run HJI computation 
-            [obj.preds, obj.timeDisc, ~] = HJIPDE_solve(data, obj.tau, ...
-                obj.schemeData, obj.minWith, obj.HJIextraArgs);
+            %Run HJI computation 
+            [obj.preds, obj.timeDisc, ~] = HJIPDE_solve_pred(data, obj.tau, ...
+               obj.schemeData, obj.minWith, obj.HJIextraArgs);
+     
         end
         
         %% Gets the current predictions and timestamps
