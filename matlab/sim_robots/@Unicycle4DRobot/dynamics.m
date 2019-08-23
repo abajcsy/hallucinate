@@ -1,4 +1,4 @@
-function dx = dynamics(obj, x, u)
+function dx = dynamics(obj, ~, x, u)
     % dx = dynamics(obj,x, u)
     %         \dot{x}_1 = x_4 * cos(x_3) + d_1
     %         \dot{x}_2 = x_4 * sin(x_3) + d_1

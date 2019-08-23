@@ -11,6 +11,7 @@ classdef OccupancyGrid < handle
        tMin % Lower-bound on t (s).
        tMax % Upper-bound on t (s).
 
+       grid2D
        data  % Cell array of grids (indexed by time).
        times % Array of times.
    end
@@ -52,13 +53,14 @@ classdef OccupancyGrid < handle
                     vF = valueFuns(:,:,:,i);
 
                     % Project to 2D by taking union over entire value function.
-                    [~, data2D] = proj(grid, vF, projDims, 'min');
+                    [grid2D, data2D] = proj(grid, vF, projDims, 'min');
 
                     % Convert to binary map.
                     data2D = 1*(data2D <= 0) + 0*(data2D > 0);
 
                     % Store data and time-index based on starting time of
                     % prediction.
+                    obj.grid2D = grid2D;
                     obj.data{i} = data2D;
                     obj.times(i) = t0 + times(i);
                end
@@ -150,5 +152,12 @@ classdef OccupancyGrid < handle
                end
            end
        end
+       
+        function draw(obj)
+            for i=1:length(obj.times)
+                vF = obj.data{i};
+                contourf(obj.grid2D.xs{1}, obj.grid2D.xs{2}, vF, -1:1:1);
+            end
+        end
    end
 end

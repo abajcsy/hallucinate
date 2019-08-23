@@ -41,23 +41,24 @@ classdef HumanPredictor < handle
             
             % Populate extra arguments.
             obj.HJIextraArgs.quiet = params.quiet;
-            obj.HJIextraArgs.visualize.valueSet = 1;
-            obj.HJIextraArgs.visualize.initialValueSet = 0;
-            obj.HJIextraArgs.visualize.figNum = 1; %set figure number
-            obj.HJIextraArgs.visualize.deleteLastPlot = true; 
-            obj.HJIextraArgs.visualize.viewGrid = false;
-            obj.HJIextraArgs.visualize.viewAxis = [params.lowEnv(1) params.upEnv(1) ...
-                                                    params.lowEnv(2) params.upEnv(2) ...
-                                                    0 1];
-            obj.HJIextraArgs.visualize.xTitle = "$p^x$";
-            obj.HJIextraArgs.visualize.yTitle = "$p^y$";
-            obj.HJIextraArgs.visualize.zTitle = "$P(\beta = 0)$";
-            obj.HJIextraArgs.visualize.fontSize = 15;
-
-            % Uncomment if you want to see a 2D slice
-            obj.HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
-            obj.HJIextraArgs.visualize.plotData.projpt = {'min'}; %project pt
-            obj.HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
+            obj.HJIextraArgs.visualize = 0;
+%             obj.HJIextraArgs.visualize.valueSet = 1;
+%             obj.HJIextraArgs.visualize.initialValueSet = 0;
+%             obj.HJIextraArgs.visualize.figNum = 1; %set figure number
+%             obj.HJIextraArgs.visualize.deleteLastPlot = true; 
+%             obj.HJIextraArgs.visualize.viewGrid = false;
+%             obj.HJIextraArgs.visualize.viewAxis = [params.lowEnv(1) params.upEnv(1) ...
+%                                                     params.lowEnv(2) params.upEnv(2) ...
+%                                                     0 1];
+%             obj.HJIextraArgs.visualize.xTitle = "$p^x$";
+%             obj.HJIextraArgs.visualize.yTitle = "$p^y$";
+%             obj.HJIextraArgs.visualize.zTitle = "$P(\beta = 0)$";
+%             obj.HJIextraArgs.visualize.fontSize = 15;
+% 
+%             % Uncomment if you want to see a 2D slice
+%             obj.HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
+%             obj.HJIextraArgs.visualize.plotData.projpt = {'min'}; %project pt
+%             obj.HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
             
             fprintf('------ Human Predictor Setup -------\n');
             fprintf('   human type: %s\n', params.humanType);
