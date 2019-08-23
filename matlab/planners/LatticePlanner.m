@@ -56,6 +56,7 @@ classdef LatticePlanner
             openList = {startState};
 
             expansions = 0;
+            foundPath = 0;
 
             while length(openList) > 0
                 % Search for the state with the smallest evaluation function.
@@ -95,6 +96,7 @@ classdef LatticePlanner
                                            obj.discToCont(path{idx}.t, 5)];
                     end
                     traj = Trajectory(contStates);
+                    foundPath = 1;
                     break;
                 end
 
@@ -116,6 +118,14 @@ classdef LatticePlanner
                         openList{length(openList) + 1} = succ;
                     end
                 end
+            end
+
+            % If planner fails, return an empty trajectory.
+            if ~foundPath
+                fprintf('Planner failed to find a path after %d expansions!\n', ...
+                        expansions);
+                contStates = {};
+                traj = Trajectory(contStates);
             end
         end
 
@@ -309,8 +319,18 @@ classdef LatticePlanner
             for t = 1:(numSamples - 1)
                 xsample = xfunc(t * Tsample);
                 ysample = yfunc(t * Tsample);
+
+                % Check against the static obstacle map.
                 if obj.staticObsMap.getData(xsample, ysample, 0) > 0
                     safe = 0;
+                    break;
+                end
+
+                % Check against the dynamic obstacle map.
+                if obj.dynObsMap.getData(xsample, ysample, t0 + Tsample * t) ...
+                        > 0
+                    safe = 0;
+                    break;
                 end
             end
         end

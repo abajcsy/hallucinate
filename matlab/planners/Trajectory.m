@@ -102,13 +102,15 @@ classdef Trajectory < handle
             control = [omega; a];
         end
 
-        function draw(obj)
+        function draw(obj, showStates)
             for idx = 1:length(obj.splines)
                 s = obj.contStates{idx};
                 sNext = obj.contStates{idx + 1};
                 tDisc = sNext(5) - s(5);
 
-                obj.drawTriangle([s(1); s(2)], s(3), 0.1);
+                if nargin > 1 && showStates
+                    obj.drawTriangle([s(1); s(2)], s(3), 0.1);
+                end
 
                 p = obj.splines{idx};
 
