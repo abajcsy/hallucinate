@@ -84,9 +84,9 @@ for t=1:params.T
 
 end
 
-%% Plots dubins car point and heading.
+%% Plots human or robot.
 % Inputs:
-%   x [vector]  - 3D/4D state of dubins car
+%   x [vector]  - 3D/4D state of agent
 % Ouput:
 %   c   - handle for figure
 function c = plotAgent(x, color)
