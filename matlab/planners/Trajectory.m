@@ -101,5 +101,40 @@ classdef Trajectory < handle
             % Return the control input.
             control = [omega; a];
         end
+
+        function draw(obj)
+            for idx = 1:length(obj.splines)
+                s = obj.contStates{idx};
+                sNext = obj.contStates{idx + 1};
+                tDisc = sNext(5) - s(5);
+
+                obj.drawTriangle([s(1); s(2)], s(3), 0.1);
+
+                p = obj.splines{idx};
+
+                xfunc = @(t) p(1, 1) .* t.^3 + p(1, 2) .* t.^2 + p(1, 3) .* t + p(1, 4);
+                yfunc = @(t) p(2, 1) .* t.^3 + p(2, 2) .* t.^2 + p(2, 3) .* t + p(2, 4);
+
+                fplot(xfunc, yfunc, [0 tDisc]);
+            end
+        end
+
+        function tri = drawTriangle(obj, origin, rot, sideLength)
+            aLocal = [2*sideLength; 0; 1];
+            bLocal = [0; -sideLength / sqrt(2); 1];
+            cLocal = [0; sideLength / sqrt(2); 1];
+
+            T = [cos(rot), -sin(rot), origin(1);
+                 sin(rot), cos(rot), origin(2);
+                 0, 0, 1];
+            a = T * aLocal;
+            b = T * bLocal;
+            c = T * cLocal;
+
+            tri = fill([a(1), b(1), c(1)], ...
+                       [a(2), b(2), c(2)], ...
+                       'b');
+            set(tri, 'facealpha', 0.5);
+        end
     end
 end

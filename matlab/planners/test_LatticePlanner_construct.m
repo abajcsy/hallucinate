@@ -88,17 +88,19 @@ obs = fill([obsBoundsX(1), obsBoundsX(1), obsBoundsX(2), obsBoundsX(2)], ...
            'r');
 set(obs, 'facealpha', 0.5);
 
-for idx = 1:length(traj.splines)
-    s = traj.contStates{idx};
-    drawTriangle([s(1); s(2)], s(3), 0.1);
+traj.draw();
 
-    p = traj.splines{idx};
+% for idx = 1:length(traj.splines)
+%     s = traj.contStates{idx};
+%     drawTriangle([s(1); s(2)], s(3), 0.1);
 
-    xfunc = @(t) p(1, 1) .* t.^3 + p(1, 2) .* t.^2 + p(1, 3) .* t + p(1, 4);
-    yfunc = @(t) p(2, 1) .* t.^3 + p(2, 2) .* t.^2 + p(2, 3) .* t + p(2, 4);
+%     p = traj.splines{idx};
 
-    fplot(xfunc, yfunc, [0 tDisc]);
-end
+%     xfunc = @(t) p(1, 1) .* t.^3 + p(1, 2) .* t.^2 + p(1, 3) .* t + p(1, 4);
+%     yfunc = @(t) p(2, 1) .* t.^3 + p(2, 2) .* t.^2 + p(2, 3) .* t + p(2, 4);
+
+%     fplot(xfunc, yfunc, [0 tDisc]);
+% end
 
 lastT = traj.contStates{end}(5);
 samplesX = [];
