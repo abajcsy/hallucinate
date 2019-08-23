@@ -4,7 +4,7 @@ classdef HumanPredictor < handle
     
     properties
         human       % (obj) dynamical system representing human model
-        xcurr       % (arr) vector of the current [x,y,P(beta=0)] state
+        zcurr       % (arr) vector of the current [x,y,P(beta=0)] state
         tau         % (arr) time vector representing prediction horizon
         grid        % (obj) compute grid for prediction
         targetR     % (float) radius of initial target set
@@ -23,7 +23,7 @@ classdef HumanPredictor < handle
         %% Constructor
         function obj = HumanPredictor(params)
             obj.human = params.humanModel;
-            obj.xcurr = params.xH0;
+            obj.zcurr = params.z0;
             obj.tau = params.tMin:params.dt:params.tMax;
             obj.grid = params.predGrid;
             obj.targetR = params.targetRad;
@@ -62,7 +62,7 @@ classdef HumanPredictor < handle
             
             fprintf('------ Human Predictor Setup -------\n');
             fprintf('   human type: %s\n', params.humanType);
-            fprintf('   x0: [%d, %d, %d]\n', obj.xcurr(1), obj.xcurr(2), obj.xcurr(3));
+            fprintf('   z0: [%d, %d, %d]\n', obj.zcurr(1), obj.zcurr(2), obj.zcurr(3));
             fprintf('   target radius: %d\n', obj.targetR);
             fprintf('   uMode: %s\n', obj.uMode);
             fprintf('--------------------------------------\n');
@@ -76,19 +76,19 @@ classdef HumanPredictor < handle
         %  This includes updating the distribution over beta = 0!
         function updateState(obj, xt1, ut)
             
-            % xcurr = [px_t, py_t, pbeta_t]
-            if ~iscell(obj.xcurr)
-                xt = num2cell(obj.xcurr);
+            % zcurr = [px_t, py_t, pbeta_t]
+            if ~iscell(obj.zcurr)
+                zt = num2cell(obj.zcurr);
             end
-            pbeta_t1 = obj.human.betaPosterior(xt, ut);
-            obj.xcurr = [xt1; pbeta_t1];
+            pbeta_t1 = obj.human.betaPosterior(zt, ut);
+            obj.zcurr = [xt1; pbeta_t1];
         end
         
         %% Predicts the FRS of the human.
         function updatePredictions(obj)
             
             % Target set.
-            data = shapeSphere(obj.grid, obj.xcurr, obj.targetR);
+            data = shapeSphere(obj.grid, obj.zcurr, obj.targetR);
             
             %Run HJI computation 
             [obj.preds, obj.timeDisc, ~] = HJIPDE_solve_pred(data, obj.tau, ...

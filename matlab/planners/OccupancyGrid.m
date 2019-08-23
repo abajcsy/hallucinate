@@ -11,7 +11,6 @@ classdef OccupancyGrid < handle
        tMin % Lower-bound on t (s).
        tMax % Upper-bound on t (s).
 
-       grid2D
        data  % Cell array of grids (indexed by time).
        times % Array of times.
    end
@@ -34,8 +33,12 @@ classdef OccupancyGrid < handle
            yExtent = ceil((yMax - yMin) / yDisc);
            tExtent = ceil((tMax - tMin) / tDisc);
 
-           obj.data = {zeros(xExtent, yExtent)};
-           % TODO Initialize the times array.
+           obj.times = tMin:tDisc:tMax;
+           obj.data = {};
+           for t=1:length(obj.times)
+              obj.data{t} = zeros(xExtent, yExtent);
+           end
+           
        end
 
        function fromValueFuns(obj, grid, valueFuns, times, t0)
@@ -53,14 +56,13 @@ classdef OccupancyGrid < handle
                     vF = valueFuns(:,:,:,i);
 
                     % Project to 2D by taking union over entire value function.
-                    [grid2D, data2D] = proj(grid, vF, projDims, 'min');
+                    [~, data2D] = proj(grid, vF, projDims, 'min');
 
                     % Convert to binary map.
                     data2D = 1*(data2D <= 0) + 0*(data2D > 0);
 
                     % Store data and time-index based on starting time of
                     % prediction.
-                    obj.grid2D = grid2D;
                     obj.data{i} = data2D;
                     obj.times(i) = t0 + times(i);
                end
@@ -68,6 +70,18 @@ classdef OccupancyGrid < handle
                obj.data = valueFuns;
                for i=1:length(times)
                 obj.times(i) = t0 + times(i);
+               end
+           end
+       end
+       
+       function setRectangularObs(obj, lowXY, upXY, t)
+           [lowi, lowj] = obj.xyToIndex(lowXY(1), lowXY(2));
+           [upi, upj] = obj.xyToIndex(upXY(1), upXY(2));
+           k = obj.timeToIndex(t);
+           
+           for i=lowi:upi
+               for j=lowj:upj
+                    obj.data{k}(i, j) = 1;
                end
            end
        end
@@ -87,8 +101,8 @@ classdef OccupancyGrid < handle
        end
 
        function [i, j] = xyToIndex(obj, x, y)
-           i = round((x - obj.xMin) / obj.xDisc) + 1;
-           j = round((y - obj.yMin) / obj.yDisc) + 1;
+           i = floor((x - obj.xMin) / obj.xDisc) + 1;
+           j = floor((y - obj.yMin) / obj.yDisc) + 1;
        end
 
        function [x, y] = indexToXY(obj, i, j)
@@ -153,11 +167,12 @@ classdef OccupancyGrid < handle
            end
        end
        
-        function draw(obj)
+        function draw(obj, grid2D)
             for i=1:length(obj.times)
                 vF = obj.data{i};
-                contourf(obj.grid2D.xs{1}, obj.grid2D.xs{2}, vF, -1:1:1);
+                contourf(grid2D.xs{1}, grid2D.xs{2}, -vF, -1:1:1);
             end
+            colormap('gray');
         end
    end
 end

@@ -1,24 +1,25 @@
 function params = dubinsCarGaussianHuman()
 
 %% Predictor: Create human dynamical system for prediction
-vH = 0.6;                        % Velocity
-uHRange = [-pi; pi];             % Control bounds
-gamma = 1;                      % gamma in continuous-time P(beta = 0) dynamics
+vH = 0.6;                           % Velocity
+uHRange = [-pi; pi];                % Control bounds
+gamma = 1;                          % gamma in continuous-time P(beta = 0) dynamics
 
-K = [0, 0];                     % Control gains
+K = [0, 0];                         % Control gains
 m = 0;
 
-numCtrls = 10;                  % Number of discrete controls
-sigma = 0.1;                    % Variance in normal distribution
-uHThresh = 0.05;                 % Threshold to determine likely controls
-DeltaB0 = 0.5;                  % Distribution in HMM
-Pbeta0 = 0.001;                   % Setup dynamical system
+numCtrls = 10;                      % Number of discrete controls
+sigma = 0.1;                        % Variance in normal distribution
+uHThresh = 0.05;                    % Threshold to determine likely controls
+DeltaB0 = 0.5;                      % Distribution in HMM
+Pbeta0 = 0.001;                     % Setup dynamical system
 
-params.xH0 = [0; 0; Pbeta0];     % Initial condition
+params.xH0 = [-0.5; 1];             % Initial state of human    
+params.z0 = [params.xH0; Pbeta0];   % Initial condition for reachability
 
 % Create human prediction model.
 params.humanType = "gaussian";
-params.humanModel = GaussianHuman(params.xH0, vH, uHRange, gamma, K, m, ...
+params.humanModel = GaussianHuman(params.z0, vH, uHRange, gamma, K, m, ...
                              sigma, uHThresh, DeltaB0, numCtrls);
 
 % Setup custom hamiltonians.
@@ -27,7 +28,7 @@ params.partialFunc = @gaussianHuman_partial;
 
 %% Human Simluator: Parameters for simulating human measurements. 
 
-x0Sim = params.xH0(1:2);
+x0Sim = params.xH0;
 muSim = K*x0Sim + m;
 vHSim = vH;
 sigmaSim = sigma;
@@ -44,6 +45,10 @@ params.simHuman = SimFixedBetaGaussianHuman(x0Sim, vHSim, ...
 params.lowEnv = [-2;-2];
 params.upEnv = [2;2];
 
+rect1 = {params.lowEnv, [params.lowEnv(1)+0.5; params.upEnv(2)]};
+rect2 = {[params.upEnv(1)-0.5; params.lowEnv(2)], params.upEnv};
+params.staticObsBounds = {rect1, rect2}; % has lower and upper bounds for 2 static obstacles.
+
 %% Forward Reachability: Prediction Computation Params.
 
 % Discretization of x,y, and P(beta=0) space.
@@ -58,7 +63,7 @@ params.tMax = 2;
 params.dt = 0.05;
 
 % Target set radius.
-params.targetRad = 0.2;
+params.targetRad = 0.1;
 
 % Setup for the control 
 params.uMode = 'max'; 
@@ -86,8 +91,8 @@ params.thetaBounds = [-pi, pi];
 params.timeBounds = [0, 15]; % Planning horizon.
 
 % Setup initial state of planner and goal state of planner.
-params.xR0 = [0; 0; 0; 1; 0];
-params.goalRXY = [1.8; 1.8];
+params.xR0 = [0.5; -1.5; pi/2; 0.1; 0];
+params.goalRXY = [-0.5; 1.5];
 
 %% Robot: Dynamical System Params.
 wMax = 1;
