@@ -6,8 +6,8 @@ thetaDisc = pi / 45;
 vDisc = 0.5;
 tDisc = 0.25;
 
-% heurWeight = 1.25;
-heurWeight = 3;
+heurWeight = 1.25;
+% heurWeight = 3;
 
 planner = LatticePlanner(xDisc, yDisc, thetaDisc, vDisc, tDisc, heurWeight);
 
@@ -128,7 +128,7 @@ upperBounds = dynObsStartXY + dynObsDim;
 
 dynObs = fill([lowerBounds(1), lowerBounds(1), upperBounds(1), upperBounds(1)], ...
               [lowerBounds(2), upperBounds(2), upperBounds(2), lowerBounds(2)], ...
-              'g')
+              'g');
 dynObs.set('facealpha', 0.5);
 
 traj.draw(false);
