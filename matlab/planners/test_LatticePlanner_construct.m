@@ -107,9 +107,15 @@ t = 0;
 dt = 0.1;
 while t < lastT
     s = traj.getState(t);
+
     t = t + dt;
     samplesX = [samplesX, s(1)];
     samplesY = [samplesY, s(2)];
+
+    drawTriangle([s(1); s(2)], s(3), 0.05);
+
+    % fprintf("control at %f: \n", t);
+    % traj.getControl(t)
 end
 
 scatter(samplesX, samplesY);
