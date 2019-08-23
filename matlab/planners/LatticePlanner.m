@@ -319,8 +319,18 @@ classdef LatticePlanner
             for t = 1:(numSamples - 1)
                 xsample = xfunc(t * Tsample);
                 ysample = yfunc(t * Tsample);
+
+                % Check against the static obstacle map.
                 if obj.staticObsMap.getData(xsample, ysample, 0) > 0
                     safe = 0;
+                    break;
+                end
+
+                % Check against the dynamic obstacle map.
+                if obj.dynObsMap.getData(xsample, ysample, t0 + Tsample * t) ...
+                        > 0
+                    safe = 0;
+                    break;
                 end
             end
         end

@@ -79,11 +79,24 @@ classdef OccupancyGrid < handle
            obj.data{k}(i, j) = val;
        end
 
-       function val = getData(obj, x, y, t)
+       function val = getData(obj, x, y, t, interpolateInTime)
            [i, j] = obj.xyToIndex(x, y);
            k = obj.timeToIndex(t);
 
-           val = obj.data{k}(i, j);
+           if nargin > 4 && interpolateInTime
+               % Interpolate in time.
+               [kBelow, kAbove] = obj.closestIndexToTime(t);
+               tBelow = obj.indexToTime(kBelow);
+               tAbove = obj.indexToTime(kAbove);
+
+               alpha = (t - tBelow) / (tAbove - tBelow);
+               valBelow = obj.data{kBelow}(i, j);
+               valAbove = obj.data{kAbove}(i, j);
+
+               val = valBelow + alpha * (valAbove - valBelow);
+           else
+               val = obj.data{k}(i, j);
+           end
        end
 
        function [i, j] = xyToIndex(obj, x, y)
@@ -152,12 +165,12 @@ classdef OccupancyGrid < handle
                end
            end
        end
-       
-        function draw(obj)
-            for i=1:length(obj.times)
-                vF = obj.data{i};
-                contourf(obj.grid2D.xs{1}, obj.grid2D.xs{2}, vF, -1:1:1);
-            end
-        end
+
+       function draw(obj)
+           for i=1:length(obj.times)
+               vF = obj.data{i};
+               contourf(obj.grid2D.xs{1}, obj.grid2D.xs{2}, vF, -1:1:1);
+           end
+       end
    end
 end
