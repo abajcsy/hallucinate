@@ -38,7 +38,7 @@ classdef OccupancyGrid < handle
            for t=1:length(obj.times)
               obj.data{t} = zeros(xExtent, yExtent);
            end
-           
+
        end
 
        function fromValueFuns(obj, grid, valueFuns, times, t0)
@@ -73,7 +73,7 @@ classdef OccupancyGrid < handle
                end
            end
        end
-       
+
        function setRectangularObs(obj, lowXY, upXY, t)
            [lowi, lowj] = obj.xyToIndex(lowXY(1), lowXY(2));
            [upi, upj] = obj.xyToIndex(upXY(1), upXY(2));

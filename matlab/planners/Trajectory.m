@@ -50,9 +50,9 @@ classdef Trajectory < handle
                 vy = 3 * p(2, 1) * s^2 + 2 * p(2, 2) * s + p(2, 3);
                 v = norm([vx; vy]);
 
-                theta = atan(vy / vx);
+                theta = atan2(vy, vx);
 
-                state = [x, y, theta, v];
+                state = [x; y; theta; v];
             else
                 fprintf('Warning: time %f is out of bounds of trajectory!\n', ...
                         t);
@@ -76,22 +76,27 @@ classdef Trajectory < handle
                 end
             end
 
+            fprintf('At t = %f, tLow = %f, on spline index = %d\n', ...
+                    t, tLow, splineIdx);
+
             if splineIdx > 0
                 p = obj.splines{splineIdx};
-                s = t - tLow
+                s = t - tLow;
 
-                x = p(1, 1) * s^3 + p(1, 2) * s^2 + p(1, 3) * s + p(1, 4);
-                y = p(2, 1) * s^3 + p(2, 2) * s^2 + p(2, 3) * s + p(2, 4);
+                a = [p(1, 1); p(2, 1)];
+                b = [p(1, 2); p(2, 2)];
+                c = [p(1, 3); p(2, 3)];
+                d = [p(1, 4); p(2, 4)];
 
-                vx = 3 * p(1, 1) * s^2 + 2 * p(1, 2) * s + p(1, 3);
-                vy = 3 * p(2, 1) * s^2 + 2 * p(2, 2) * s + p(2, 3);
+                vx = 3 * a(1) * s^2 + 2 * b(1) * s + c(1);
+                vy = 3 * a(2) * s^2 + 2 * b(2) * s + c(2);
 
                 v = norm([vx; vy]);
-                theta = atan(vy / vx);
+                theta = atan2(vy, vx);
 
-                omega = ((6 * p(2, 1) * s + 2 * p(2, 2)) * cos(theta) - ...
-                         (6 * p(1, 1) * s + 2 * p(1, 2)) * sin(theta)) / v;
-                a = (v * omega * sin(theta) + 6 * p(1, 1) * s + 2 * p(1, 2)) ...
+                omega = ((6 * a(2) * s + 2 * b(2)) * cos(theta) - ...
+                         (6 * a(1) * s + 2 * b(1)) * sin(theta)) / v;
+                a = (v * omega * sin(theta) + 6 * a(1) * s + 2 * b(1)) ...
                     / cos(theta);
             else
                 fprintf('Warning: time %f is out of bounds of trajectory!\n', ...
@@ -114,8 +119,13 @@ classdef Trajectory < handle
 
                 p = obj.splines{idx};
 
-                xfunc = @(t) p(1, 1) .* t.^3 + p(1, 2) .* t.^2 + p(1, 3) .* t + p(1, 4);
-                yfunc = @(t) p(2, 1) .* t.^3 + p(2, 2) .* t.^2 + p(2, 3) .* t + p(2, 4);
+                a = [p(1, 1); p(2, 1)];
+                b = [p(1, 2); p(2, 2)];
+                c = [p(1, 3); p(2, 3)];
+                d = [p(1, 4); p(2, 4)];
+
+                xfunc = @(t) a(1) .* t.^3 + b(1) .* t.^2 + c(1) .* t + d(1);
+                yfunc = @(t) a(2) .* t.^3 + b(2) .* t.^2 + c(2) .* t + d(2);
 
                 fplot(xfunc, yfunc, [0 tDisc]);
             end

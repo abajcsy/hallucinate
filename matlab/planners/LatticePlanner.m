@@ -39,9 +39,18 @@ classdef LatticePlanner
         end
 
         function traj = plan(obj, startStateCont, goalXY, goalTol)
+            fprintf('Planning from start state (%f, %f, %f, %f, %f)\n', ...
+                    startStateCont(1), ...
+                    startStateCont(2), ...
+                    startStateCont(3), ...
+                    startStateCont(4), ...
+                    startStateCont(5));
+            % TODO (HACK) Need to clear the states.
+            obj.states = containers.Map();
+
             startStateDisc = [obj.contToDisc(startStateCont(1), 1);
                               obj.contToDisc(startStateCont(2), 2);
-                              obj.contToDisc(startStateCont(3), 3);
+                              wrapToPi(obj.contToDisc(startStateCont(3), 3));
                               obj.contToDisc(startStateCont(4), 4);
                               obj.contToDisc(startStateCont(5), 5)];
 

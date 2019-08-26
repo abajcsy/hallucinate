@@ -3,7 +3,8 @@
 xDisc = 0.15;
 yDisc = 0.15;
 thetaDisc = pi / 45;
-vDisc = 0.5;
+% vDisc = 0.5;
+vDisc = 0.1;
 tDisc = 0.25;
 
 heurWeight = 1.25;
@@ -14,7 +15,8 @@ planner = LatticePlanner(xDisc, yDisc, thetaDisc, vDisc, tDisc, heurWeight);
 % Set up the state bounds.
 planner.stateBounds('x') = [-0.1, 3];
 planner.stateBounds('y') = [-0.1, 3];
-planner.stateBounds('v') = [0.1, 3];
+% planner.stateBounds('v') = [0.1, 3];
+planner.stateBounds('v') = [0.1, 0.5];
 planner.stateBounds('theta') = [-pi, pi];
 planner.stateBounds('t') = [0, 15]; % Planning horizon.
 
@@ -104,8 +106,8 @@ goalTol = 0.2;
 
 % Plan the trajectory.
 % startStateCont = [0; 0; 0; 0.5; 0];
-startStateCont = [0; 0; 0; 1; 0];
-% startStateCont = [0; 0; pi / 8; 1; 0];
+startStateCont = [0; 0; 0; 0.1; 0];
+% startStateCont = [0; 0; pi / 8; 0.1; 0];
 
 traj = planner.plan(startStateCont, goalXY, goalTol);
 
@@ -139,16 +141,49 @@ samplesY = [];
 t = 0;
 dt = 0.05;
 s = traj.getState(t);
+sWithCtrl = traj.getState(t);
 stateVis = drawTriangle([s(1); s(2)], s(3), 0.05);
+stateWithCtrlVis = drawTriangle([sWithCtrl(1); sWithCtrl(2)], sWithCtrl(3), ...
+                                0.05);
 
-while t < lastT
+kp_a = 0.25;
+kp_omega = 1.5;
+
+while t < 3*lastT
     s = traj.getState(t);
+    % ctrl = traj.getControl(t);
+
+    % Acceleration is proportional to error in the current direction.
+    pos_err = [s(1) - sWithCtrl(1);
+               s(2) - sWithCtrl(2)];
+    curr_dir = [cos(sWithCtrl(3));
+                sin(sWithCtrl(3))];
+    aCtrl = kp_a * (pos_err' * curr_dir);
+
+    % Angular velocity is proportional to the relative angle to the
+    % reference.
+    if norm(pos_err) > 1e-6
+        unit_pos_err = pos_err / norm(pos_err);
+    else
+        unit_pos_err = pos_err;
+    end
+    omegaCtrl = kp_omega * wrapToPi(asin(curr_dir(1) * unit_pos_err(2) - unit_pos_err(1) * ...
+                          curr_dir(2)));
+    ctrl = [omegaCtrl; aCtrl]
+
+    sWithCtrl = sWithCtrl + dt * ...
+        [sWithCtrl(4) * cos(sWithCtrl(3)); ...
+         sWithCtrl(4) * sin(sWithCtrl(3)); ...
+         ctrl(1); ...
+         ctrl(2)];
 
     t = t + dt;
     samplesX = [samplesX, s(1)];
     samplesY = [samplesY, s(2)];
 
-    drawTriangle([s(1); s(2)], s(3), 0.05, stateVis);
+    % drawTriangle([s(1); s(2)], s(3), 0.05, stateVis);
+    drawTriangle([sWithCtrl(1); sWithCtrl(2)], sWithCtrl(3), 0.05, ...
+                 stateWithCtrlVis);
 
     % Update the dynmaic obstacle.
     lowerBounds = dynObsStartXY + t * dynObsVel;
