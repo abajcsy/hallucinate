@@ -22,7 +22,7 @@ function dx = dynamics(obj, x, u)
             %dx{i} = (obj.DeltaB0 - obj.betaPosterior(x, u)) * obj.gamma;
             
             % NOTE: These dynamics are for a STATIONARY beta model. 
-            dx{i} = ((obj.betaPosterior(x, u) - x{3}) * obj.gamma) .* ((x{3} >= 0) .* (x{3} <= 1));
+            dx{i} = obj.gamma * (obj.betaPosterior(x, u) - x{3}) .* (x{3} >= 0) .* (x{3} <= 1);
         else
             error('Only dimension 1-3 are defined for dynamics of GaussianHuman!')    
         end

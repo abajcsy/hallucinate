@@ -40,4 +40,13 @@ for i=1:human.numCtrls
     end
 end
 
+% Compare against teh Hamiltonian obtained by just maximizing the first
+% two terms
+uOpt_nobeta = atan2(deriv{2}, deriv{1});
+xdot_nobeta = human.dynamics(x,uOpt_nobeta);
+hamU_nobeta = deriv{1} .* xdot_nobeta{1} + deriv{2} .* xdot_nobeta{2} + deriv{3} .* xdot_nobeta{3};
+if strcmp(uMode, 'max')
+    hamValue = max(hamValue, hamU_nobeta);
+end
+
 end

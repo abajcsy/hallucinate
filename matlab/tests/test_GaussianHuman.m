@@ -24,7 +24,7 @@ K = [0, 0];
 m = 0;
 
 % Number of discrete controls
-numCtrls = 10;
+numCtrls = 11;
 
 % Variance in normal distribution
 sigma = 0.1;
@@ -36,7 +36,7 @@ uThresh = 0.05;
 DeltaB0 = 0.5; 
 
 % Setup dynamical system
-Pbeta0 = 0.001; 
+Pbeta0 = 0.2; 
 x0 = [0; 0; Pbeta0];
 human = GaussianHuman(x0, v, uRange, gamma, K, m, sigma, uThresh, DeltaB0, numCtrls);
 
@@ -47,6 +47,10 @@ N = [81; 81; 81];           % Number of grid points per dimension
 g = createGrid(grid_min, grid_max, N);
 
 %% target set
+% Findings: (1) Increasing R reduces the gap between the two extremes so it 
+% could just be numerical issues. (2) Increasing the grid resolution for
+% R=0.1 also reduces the gap between the two extremes so that is other
+% evidence that it is just numerical error.
 R = 0.1;
 data0 = shapeSphere(g, x0, R);
 
@@ -68,16 +72,16 @@ schemeData.hamFunc = @gaussianHuman_ham;
 schemeData.partialFunc = @gaussianHuman_partial;
 
 %% Compute value function
-%HJIextraArgs.visualize = true; %show plot
+% HJIextraArgs.visualize = true; %show plot
 HJIextraArgs.visualize.valueSet = 1;
 HJIextraArgs.visualize.initialValueSet = 0;
 HJIextraArgs.visualize.figNum = 1; %set figure number
 HJIextraArgs.visualize.deleteLastPlot = true; %delete previous plot as you update
 HJIextraArgs.visualize.viewGrid = false;
 HJIextraArgs.visualize.viewAxis = [-2 2 -2 2 -0.1 1.1];
-HJIextraArgs.visualize.xTitle = "$p^x$";
-HJIextraArgs.visualize.yTitle = "$p^y$";
-HJIextraArgs.visualize.zTitle = "$P(\beta = 0)$";
+HJIextraArgs.visualize.xTitle = '$p^x$';
+HJIextraArgs.visualize.yTitle = '$p^y$';
+HJIextraArgs.visualize.zTitle = '$P(\beta = 0)$';
 HJIextraArgs.visualize.fontSize = 15;
 
 % since we have a finite compute grid, we may not want to 
