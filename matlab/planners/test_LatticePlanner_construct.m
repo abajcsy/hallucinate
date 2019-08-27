@@ -16,7 +16,7 @@ planner = LatticePlanner(xDisc, yDisc, thetaDisc, vDisc, tDisc, heurWeight);
 planner.stateBounds('x') = [-0.1, 3];
 planner.stateBounds('y') = [-0.1, 3];
 % planner.stateBounds('v') = [0.1, 3];
-planner.stateBounds('v') = [0.1, 0.5];
+planner.stateBounds('v') = [0.1, 0.3];
 planner.stateBounds('theta') = [-pi, pi];
 planner.stateBounds('t') = [0, 15]; % Planning horizon.
 
@@ -139,37 +139,21 @@ lastT = traj.contStates{end}(5);
 samplesX = [];
 samplesY = [];
 t = 0;
-dt = 0.05;
+% dt = 0.05;
+% dt = 0.01;
+dt = 0.005;
 s = traj.getState(t);
 sWithCtrl = traj.getState(t);
 stateVis = drawTriangle([s(1); s(2)], s(3), 0.05);
 stateWithCtrlVis = drawTriangle([sWithCtrl(1); sWithCtrl(2)], sWithCtrl(3), ...
                                 0.05);
 
-kp_a = 0.25;
-kp_omega = 1.5;
+kPropAngAcc = 1.5;
+kPropLinAcc = 0.25;
 
-while t < 3*lastT
+while t < lastT
     s = traj.getState(t);
-    % ctrl = traj.getControl(t);
-
-    % Acceleration is proportional to error in the current direction.
-    pos_err = [s(1) - sWithCtrl(1);
-               s(2) - sWithCtrl(2)];
-    curr_dir = [cos(sWithCtrl(3));
-                sin(sWithCtrl(3))];
-    aCtrl = kp_a * (pos_err' * curr_dir);
-
-    % Angular velocity is proportional to the relative angle to the
-    % reference.
-    if norm(pos_err) > 1e-6
-        unit_pos_err = pos_err / norm(pos_err);
-    else
-        unit_pos_err = pos_err;
-    end
-    omegaCtrl = kp_omega * wrapToPi(asin(curr_dir(1) * unit_pos_err(2) - unit_pos_err(1) * ...
-                          curr_dir(2)));
-    ctrl = [omegaCtrl; aCtrl]
+    ctrl = traj.getProportionalControl(t, sWithCtrl, kPropAngAcc, kPropLinAcc);
 
     sWithCtrl = sWithCtrl + dt * ...
         [sWithCtrl(4) * cos(sWithCtrl(3)); ...
@@ -181,7 +165,7 @@ while t < 3*lastT
     samplesX = [samplesX, s(1)];
     samplesY = [samplesY, s(2)];
 
-    % drawTriangle([s(1); s(2)], s(3), 0.05, stateVis);
+    drawTriangle([s(1); s(2)], s(3), 0.05, stateVis);
     drawTriangle([sWithCtrl(1); sWithCtrl(2)], sWithCtrl(3), 0.05, ...
                  stateWithCtrlVis);
 
@@ -195,9 +179,6 @@ while t < 3*lastT
 
     drawnow;
     pause(dt);
-
-    % fprintf("control at %f: \n", t);
-    % traj.getControl(t)
 end
 
 scatter(samplesX, samplesY);
