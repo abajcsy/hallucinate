@@ -30,6 +30,10 @@ classdef GaussianHuman < DynSys
         
         % Normalizer for the gaussian distribution
         gaussianNorm
+        
+        % Store the likelyCtrls and dynamics for all states.
+        likelyCtrls
+        xdot
     end
     
     methods
@@ -84,6 +88,7 @@ classdef GaussianHuman < DynSys
           % Normalize the gaussian to take into account control bounds.
           p = normcdf([obj.uRange(1), obj.uRange(2)], mu, obj.sigma);
           obj.gaussianNorm = p(2)-p(1);
+          
         end
         
         function pb = betaPosterior(obj, x, u)
@@ -139,6 +144,28 @@ classdef GaussianHuman < DynSys
             linNums = linspace(0,1,obj.numCtrls);
             parfor i=1:obj.numCtrls
                 likelyCtrls{i} = linNums(i)*lowerBound + (1-linNums(i))*upperBound;
+            end
+        end
+        
+        function computeUAndXDot(obj, x)
+            %% Computes and stores the likley state-dependant control and state deriv.
+            % Get the likely state-dependant control for the ith discrete control: 
+            %   P(u_i | x)
+            obj.likelyCtrls = obj.getLikelyControls(x);
+
+            % Compute and store the corresponding dynamics.
+            obj.xdot = {};
+            for i=1:obj.numCtrls
+                u = obj.likelyCtrls{i};
+            	f = obj.dynamics(x,u);
+                % Convert into an N1 x N2 x N3 x numCtrls array
+                if i == 1
+                    obj.xdot = f;
+                else
+                    obj.xdot{1} = cat(4, obj.xdot{1}, f{1});
+                    obj.xdot{2} = cat(4, obj.xdot{2}, f{2});
+                    obj.xdot{3} = cat(4, obj.xdot{3}, f{3});
+                end
             end
         end
         

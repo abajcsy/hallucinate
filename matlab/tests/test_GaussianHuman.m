@@ -1,13 +1,6 @@
 clc
 clear all
 
-%% NOTE:
-% In HJIPDESolve, uncomment the following lines:
-%   if isfield(schemeData, 'dynSys')
-%     schemeData.hamFunc = @genericHam;
-%     schemeData.partialFunc = @genericPartial;
-%   end
-
 %% Create human dynamical system
 
 % Velocity
@@ -36,15 +29,18 @@ uThresh = 0.05;
 DeltaB0 = 0.5; 
 
 % Setup dynamical system
-Pbeta0 = 0.2; 
+Pbeta0 = 0.9; 
 x0 = [0; 0; Pbeta0];
 human = GaussianHuman(x0, v, uRange, gamma, K, m, sigma, uThresh, DeltaB0, numCtrls);
 
 %% Grid
 grid_min = [-2; -2; -0.1];  % Lower corner of computation domain
 grid_max = [2; 2; 1.1];     % Upper corner of computation domain
-N = [81; 81; 81];           % Number of grid points per dimension
+N = [81; 81; 41];           % Number of grid points per dimension
 g = createGrid(grid_min, grid_max, N);
+
+%% Pre-compute the likely controls and dynamics over the entire state-space.
+human.computeUAndXDot(g.xs);
 
 %% target set
 % Findings: (1) Increasing R reduces the gap between the two extremes so it 
@@ -56,7 +52,7 @@ data0 = shapeSphere(g, x0, R);
 
 %% time vector
 t0 = 0;
-tMax = 5;
+tMax = 2;
 dt = 0.05;
 tau = t0:dt:tMax;
 uMode = 'max';

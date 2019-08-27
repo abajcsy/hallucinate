@@ -36,7 +36,7 @@ uHRangeSim = uHRange;
 
 % beta = 1 --> irrational
 % beta = 0 --> rational
-trueBeta = 1; 
+trueBeta = 0; 
 params.simHuman = SimFixedBetaGaussianHuman(x0Sim, vHSim, ...
                                             muSim, sigmaSim, ...
                                             uHRangeSim, trueBeta);
@@ -56,6 +56,9 @@ predGridLow = [params.lowEnv; -0.1];
 predGridUp = [params.upEnv; 1.1];
 params.N = [81; 81; 41];
 params.predGrid = createGrid(predGridLow, predGridUp, params.N);
+
+% Pre-compute the likely controls and dynamics over the entire state-space.
+humanModel.computeUAndXDot(predGrid.xs);
 
 % Prediction time horizon and discretization.
 params.tMin = 0;
