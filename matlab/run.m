@@ -52,19 +52,33 @@ hold on
 %[preds, times] = predictor.getPredictions();
 %planner.dynObsMap.fromValueFuns(params.predGrid, preds, times, 0);
 
-% Create the first plan. 
-traj = planner.plan(params.xR0, params.goalRXY, params.goalTol);
+% Initialize the planned trajectory.
+contStates = {};
+traj = Trajectory(contStates);
 
-% Apply control to robot
-uR = traj.getControl(0);
-params.simRobot.updateState(uR, params.simDt, params.simRobot.x);
-xR = params.simRobot.x;
+% Initialize the robot state.
+xR = params.xR0(1:4, :);
 
 % Get the initial state of the simulated human.
 xHnext = params.xH0(1:2);
 
-for t=1:params.T
-        
+for t=0:params.T-1
+    % Update the state based on the planned trajectory / controls.
+    if ~traj.isEmpty()
+        if ~params.trajUseControl
+            xR = traj.getState(t * params.simDt);
+        else
+            % Apply control to robot, and integrate the dynamics to get the next state.
+            tspan = [0 params.simDt];
+            [~, soln] = ode45(@(t_, x_) unicycleDynamics(t_, x_, ...
+                                                         traj.getControl((t - 1) * params.simDt ...
+                                                              + t_)), ...
+                              tspan, ...
+                              xR);
+            xR = soln(end, :)';
+        end
+    end
+
     % ----- plotting ------ %
     planner.staticObsMap.draw(staticGrid2D);    % draw the static obstacle
     %planner.dynObsMap.draw(grid2D);      % draw the dynamic obstacle
@@ -76,25 +90,36 @@ for t=1:params.T
     ylim([params.lowEnv(2),params.upEnv(2)]);
     pause(0.1);
     % --------------------- %
-    
+
     % Get most recent measurement of where the person is and what action
     % they applied.
     [xHnext, uHcurr] = params.simHuman.simulateAction(params.simDt);
 
-    % Prediction step. 
-    %predictor.updateState(xHnext, uHcurr);
-    %predictor.updatePredictions();
-    
-    % Planning step. 
-    %[preds, times] = predictor.getPredictions();
-    %planner.dynObsMap.fromValueFuns(params.predGrid, preds, times, t*params.simDt);
-    traj = planner.plan(params.xR0, params.goalRXY, params.goalTol);
+    % Prediction step.
+    % predictor.updateState(xHnext, uHcurr);
+    % predictor.updatePredictions();
 
-    % Apply control to robot.
-    uR = traj.getControl(t*params.simDt);
-    params.simRobot.updateState(uR, params.simDt, xR);
-    xR = params.simRobot.x;
+    % Planning step.
+    % [preds, times] = predictor.getPredictions();
+    % planner.dynObsMap.fromValueFuns(params.predGrid, preds, times,
+    % t*params.simDt);
+    xRStart = xR;
+    tStart = t * params.simDt;
+    if ~traj.isEmpty()
+        xRStart = traj.getState(tStart);
+    end
 
+    if traj.isEmpty() || mod(t, params.replanAfterSteps) == 0
+        traj = planner.plan([xRStart; tStart], params.goalRXY, ...
+                            params.goalTol);
+    end
+end
+
+function dxdt = unicycleDynamics(t, x, u)
+    dxdt = [x(4) * cos(x(3));
+            x(4) * sin(x(3));
+            u(1);
+            u(2)];
 end
 
 %% Plots human or robot.
@@ -107,18 +132,18 @@ function c = plotAgent(x, color)
     c{1} = plot(x(1), x(2), 'ko','MarkerSize', 8, ...
         'MarkerEdgeColor', color, 'MarkerFaceColor', color);
 
-%     % Plot heading.
-%     center = x(1:2);
-% 
-%     if length(x) >= 3
-%         % Rotation matrix.
-%         R = [cos(x(3)) -sin(x(3)); 
-%              sin(x(3)) cos(x(3))];
-%         % Heading pt.
-%         hpt = [0.2; 0];
-%         hptRot = R*hpt + center;
-%         p2 = plot([center(1) hptRot(1)], [center(2) hptRot(2)], color, 'LineWidth', 1.5);
-%         p2.Color(4) = 1.0;
-%         c{2} = p2;
-%     end
+    % Plot heading.
+    center = x(1:2);
+
+    if length(x) >= 3
+        % Rotation matrix.
+        R = [cos(x(3)) -sin(x(3)); 
+             sin(x(3)) cos(x(3))];
+        % Heading pt.
+        hpt = [0.2; 0];
+        hptRot = R*hpt + center;
+        p2 = plot([center(1) hptRot(1)], [center(2) hptRot(2)], color, 'LineWidth', 1.5);
+        p2.Color(4) = 1.0;
+        c{2} = p2;
+    end
 end

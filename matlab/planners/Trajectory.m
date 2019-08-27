@@ -9,10 +9,6 @@ classdef Trajectory < handle
             obj.contStates = contStates;
             obj.splines = {};
 
-            % TODO Should be parameters.
-            f0 = 1;
-            f1 = 1;
-
             % Generate splines between each continuous state.
             for idx = 1:(length(contStates) - 1)
                 [f0, f1] = obj.getHeuristicFValues(contStates{idx}(4), ...
@@ -36,6 +32,10 @@ classdef Trajectory < handle
 
                 obj.splines{idx} = [a, b, c, d];
             end
+        end
+
+        function empty = isEmpty(obj)
+            empty = (length(obj.splines) == 0);
         end
 
         function [f0, f1] = getHeuristicFValues(obj, v0, x0, y0, x1, y1)

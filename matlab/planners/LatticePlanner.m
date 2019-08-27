@@ -50,7 +50,7 @@ classdef LatticePlanner
 
             startStateDisc = [obj.contToDisc(startStateCont(1), 1);
                               obj.contToDisc(startStateCont(2), 2);
-                              wrapToPi(obj.contToDisc(startStateCont(3), 3));
+                              obj.contToDisc(startStateCont(3), 3);
                               obj.contToDisc(startStateCont(4), 4);
                               obj.contToDisc(startStateCont(5), 5)];
 
