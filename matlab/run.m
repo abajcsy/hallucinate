@@ -49,24 +49,37 @@ predGrid2D = proj(params.predGrid, params.predGrid.xs, [0,0,1]);
 hold on
 
 % Create the first prediction.
-predictor.updatePredictions();
-[preds, times] = predictor.getPredictions();
-planner.dynObsMap.fromValueFuns(params.predGrid, preds, times, 0);
+%predictor.updatePredictions();
+%[preds, times] = predictor.getPredictions();
+%planner.dynObsMap.fromValueFuns(params.predGrid, preds, times, 0);
 
-% % Create the first plan. 
-% traj = planner.plan(params.xR0, params.goalRXY, params.goalTol);
-% 
-% % Apply control to robot
-% uR = traj.getControl(0);
-% params.simRobot.updateState(uR, params.simDt, params.simRobot.x);
-% xR = params.simRobot.x;
+% Initialize the planned trajectory.
+contStates = {};
+traj = Trajectory(contStates);
+
+% Initialize the robot state.
+xR = params.xR0(1:4, :);
 
 % Get the initial state of the simulated human.
 xHnext = params.xH0(1:2);
-hh = [];
-rh = [];
-for t=1:params.T
-        
+
+for t=0:params.T-1
+    % Update the state based on the planned trajectory / controls.
+    if ~traj.isEmpty()
+        if ~params.trajUseControl
+            xR = traj.getState(t * params.simDt);
+        else
+            % Apply control to robot, and integrate the dynamics to get the next state.
+            tspan = [0 params.simDt];
+            [~, soln] = ode45(@(t_, x_) unicycleDynamics(t_, x_, ...
+                                                         traj.getControl((t - 1) * params.simDt ...
+                                                              + t_)), ...
+                              tspan, ...
+                              xR);
+            xR = soln(end, :)';
+        end
+    end
+
     % ----- plotting ------ %
     planner.staticObsMap.draw(staticGrid2D, 'k');    % draw the static obstacle
     planner.dynObsMap.draw(predGrid2D, [99., 180., 255.]/255.);         % draw the dynamic obstacle
@@ -89,25 +102,37 @@ for t=1:params.T
     ylim([params.lowEnv(2),params.upEnv(2)]);
     pause(0.1);
     % --------------------- %
-    
+
     % Get most recent measurement of where the person is and what action
     % they applied.
     [xHnext, uHcurr] = params.simHuman.simulateAction(params.simDt);
 
-    % Prediction step. 
-    predictor.updateState(xHnext, uHcurr);
-    predictor.updatePredictions();
-    
-    % Planning step. 
-    [preds, times] = predictor.getPredictions();
-    planner.dynObsMap.fromValueFuns(params.predGrid, preds, times, t*params.simDt);
-%     traj = planner.plan(params.xR0, params.goalRXY, params.goalTol);
-% 
-%     % Apply control to robot.
-%     uR = traj.getControl(t*params.simDt);
-%     params.simRobot.updateState(uR, params.simDt, xR);
-%     xR = params.simRobot.x;
 
+    % Prediction step.
+    % predictor.updateState(xHnext, uHcurr);
+    % predictor.updatePredictions();
+
+    % Planning step.
+    % [preds, times] = predictor.getPredictions();
+    % planner.dynObsMap.fromValueFuns(params.predGrid, preds, times,
+    % t*params.simDt);
+    xRStart = xR;
+    tStart = t * params.simDt;
+    if ~traj.isEmpty()
+        xRStart = traj.getState(tStart);
+    end
+
+    if traj.isEmpty() || mod(t, params.replanAfterSteps) == 0
+        traj = planner.plan([xRStart; tStart], params.goalRXY, ...
+                            params.goalTol);
+    end
+end
+
+function dxdt = unicycleDynamics(t, x, u)
+    dxdt = [x(4) * cos(x(3));
+            x(4) * sin(x(3));
+            u(1);
+            u(2)];
 end
 
 %% Plots human or robot.

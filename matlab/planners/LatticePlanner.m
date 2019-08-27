@@ -39,6 +39,15 @@ classdef LatticePlanner
         end
 
         function traj = plan(obj, startStateCont, goalXY, goalTol)
+            fprintf('Planning from start state (%f, %f, %f, %f, %f)\n', ...
+                    startStateCont(1), ...
+                    startStateCont(2), ...
+                    startStateCont(3), ...
+                    startStateCont(4), ...
+                    startStateCont(5));
+            % TODO (HACK) Need to clear the states.
+            obj.states = containers.Map();
+
             startStateDisc = [obj.contToDisc(startStateCont(1), 1);
                               obj.contToDisc(startStateCont(2), 2);
                               obj.contToDisc(startStateCont(3), 3);
@@ -94,6 +103,10 @@ classdef LatticePlanner
                                            obj.discToCont(path{idx}.theta, 3);
                                            obj.discToCont(path{idx}.v, 4);
                                            obj.discToCont(path{idx}.t, 5)];
+                        fprintf('State at t: %f is (%f, %f, %f, %f)\n', ...
+                                contStates{idx}(5), contStates{idx}(1), ...
+                                contStates{idx}(2), contStates{idx}(3), ...
+                                contStates{idx}(4));
                     end
                     traj = Trajectory(contStates);
                     foundPath = 1;
@@ -145,10 +158,15 @@ classdef LatticePlanner
             idx = 1;
             deltaT = 1;
 
+            % TODO These should be planner parameters.
             % localXRange = [1, 2];
             localXRange = [1, 3];
             localYRange = [-2, 2];
             aRange = [-1, 1];
+
+            % TODO These should be parameters.
+            f0 = 1;
+            f1 = 1;
 
             for localX = localXRange(1):localXRange(2)
                 for localY = localYRange(1):localYRange(2)
@@ -168,7 +186,7 @@ classdef LatticePlanner
 
                         endCoords = startCoords + [R * [localXCont; localYCont]; ...
                                             atan(localYCont / localXCont); ...
-                                            a];
+                                            obj.discToCont(a, 4)];
 
                         % If the coordinates of the successor state are not
                         % valid, do not generate the edge.
@@ -180,21 +198,30 @@ classdef LatticePlanner
                             continue;
                         end
 
+                        % Choose the free parameters of the spline heuristically.
+                        [f0, f1] = obj.getHeuristicFValues(startCoords(4), ...
+                                                           startCoords(1), ...
+                                                           startCoords(2), ...
+                                                           endCoords(1), ...
+                                                           endCoords(2));
+
                         % Otherwise, generate motion primitive.
-                        [a, b, c, d] = unicycleThirdOrderSpline(startCoords(1), ...
-                                                                startCoords(2), ...
-                                                                startCoords(3), ...
-                                                                startCoords(4), ...
-                                                                endCoords(1), ...
-                                                                endCoords(2), ...
-                                                                endCoords(3), ...
-                                                                endCoords(4), ...
-                                                                obj ...
-                                                                .discToCont(deltaT, 5));
+                        [a, b, c, d] = unicycleThirdOrderTimeSpline(startCoords(1), ...
+                                                                    startCoords(2), ...
+                                                                    startCoords(3), ...
+                                                                    startCoords(4), ...
+                                                                    f0, ...
+                                                                    endCoords(1), ...
+                                                                    endCoords(2), ...
+                                                                    endCoords(3), ...
+                                                                    endCoords(4), ...
+                                                                    f1, ...
+                                                                    obj ...
+                                                                    .discToCont(deltaT, 5));
 
                         edges{idx} = [a, b, c, d];
 
-                        % TODO Parameter
+                        % TODO Should be a planner parameter.
                         numSamples = 50;
                         if ~obj.isEdgeSafe(a, b, c, d, ...
                                            obj.discToCont(state.t, 5), ...
@@ -239,6 +266,9 @@ classdef LatticePlanner
                 if value < bounds(1) || value > bounds(2)
                     valid = 0;
                 end
+            else
+                fprintf('Warning: no bounds found for state name %s!\n', ...
+                        stateName);
             end
         end
 
@@ -298,21 +328,19 @@ classdef LatticePlanner
             cost = cost + norm([obj.discToCont(succ.x, 1); obj.discToCont(succ.y, 2)] - ...
                                [obj.discToCont(state.x, 1); obj.discToCont(state.y, ...
                                                               2)]);
-            % Add a cost for each time step.
-            % cost = cost + (succ.t - state.t);
 
-            % TODO Cost on steering?
-            numSamples = 50;
-            T = obj.discToCont(succ.t - state.t, 5);
-            % cost = cost + 10 * obj.getSteeringCost(a, b, c, d, T, numSamples);
+            % TODO Add additional costs as needed
         end
 
         function safe = isEdgeSafe(obj, a, b, c, d, t0, t1, numSamples)
             safe = 1;
-            xfunc = @(t) a(1) .* t.^3 + b(1) .* t.^2 + ...
-                    c(1) .* t + d(1);
-            yfunc = @(t) a(2) .* t.^3 + b(2) .* t.^2 + ...
-                    c(2) .* t + d(2);
+
+            pfunc = @(t) a(3) .* t.^3 + b(3) .* t.^2 + c(3) .* t + d(3);
+
+            xfunc = @(t) a(1) .* pfunc(t).^3 + b(1) .* pfunc(t).^2 + c(1) .* ...
+                    pfunc(t) + d(1);
+            yfunc = @(t) a(2) .* pfunc(t).^3 + b(2) .* pfunc(t).^2 + c(2) .* ...
+                    pfunc(t) + d(2);
 
             T = t1 - t0;
             Tsample = T / numSamples;
@@ -335,19 +363,32 @@ classdef LatticePlanner
             end
         end
 
-        function cost = getSteeringCost(obj, a, b, c, d, T, numSamples)
-            xfunc = @(t) a(1) .* t.^3 + b(1) .* t.^2 + ...
-                    c(1) .* t + d(1);
-            yfunc = @(t) a(2) .* t.^3 + b(2) .* t.^2 + ...
-                    c(2) .* t + d(2);
-            thetafunc = @(t) atan(yfunc(t) / xfunc(t));
+        function isVelocityBounded(obj, a, b, c, d, t0, t1, numSamples)
+        % TODO Finish implementing / testing this function.
+            safe = 1;
+            vxfunc = @(t) 3 .* a(1) .* t.^2 + 2 .* b(1) .* t + ...
+                     c(1);
+            vyfunc = @(t) 3 .* a(2) .* t.^2 + 2 .* b(2) .* t + ...
+                     c(2);
 
+            T = t1 - t0;
             Tsample = T / numSamples;
-            cost = 0;
             for t = 1:(numSamples - 1)
-                % TODO FIX THIS
-                cost = cost + abs(thetafunc(t + 1) - thetafunc(t)) / Tsample;
+                vxsample = vxfunc(t * Tsample);
+                vysample = vyfunc(t * Tsample);
+
+                % Check the sampled velocity to ensure that it is in bounds.
+                vsample = sqrt(vxsample^2 + vysample^2);
+                if ~obj.inBounds(vsample, 'v')
+                    safe = 0;
+                    break;
+                end
             end
+        end
+
+        function [f0, f1] = getHeuristicFValues(obj, v0, x0, y0, x1, y1)
+            f0 = v0 + norm([x1 - x0; y1 - y0]);
+            f1 = v0 + norm([x1 - x0; y1 - y0]);
         end
     end
 end

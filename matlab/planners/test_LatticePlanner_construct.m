@@ -3,7 +3,8 @@
 xDisc = 0.15;
 yDisc = 0.15;
 thetaDisc = pi / 45;
-vDisc = 0.5;
+% vDisc = 0.5;
+vDisc = 0.1;
 tDisc = 0.25;
 
 heurWeight = 1.25;
@@ -14,7 +15,8 @@ planner = LatticePlanner(xDisc, yDisc, thetaDisc, vDisc, tDisc, heurWeight);
 % Set up the state bounds.
 planner.stateBounds('x') = [-0.1, 3];
 planner.stateBounds('y') = [-0.1, 3];
-planner.stateBounds('v') = [0.1, 3];
+% planner.stateBounds('v') = [0.1, 3];
+planner.stateBounds('v') = [0.1, 0.3];
 planner.stateBounds('theta') = [-pi, pi];
 planner.stateBounds('t') = [0, 15]; % Planning horizon.
 
@@ -104,8 +106,8 @@ goalTol = 0.2;
 
 % Plan the trajectory.
 % startStateCont = [0; 0; 0; 0.5; 0];
-startStateCont = [0; 0; 0; 1; 0];
-% startStateCont = [0; 0; pi / 8; 1; 0];
+startStateCont = [0; 0; 0; 0.1; 0];
+% startStateCont = [0; 0; pi / 8; 0.1; 0];
 
 traj = planner.plan(startStateCont, goalXY, goalTol);
 
@@ -137,18 +139,44 @@ lastT = traj.contStates{end}(5);
 samplesX = [];
 samplesY = [];
 t = 0;
-dt = 0.05;
-s = traj.getState(t);
-stateVis = drawTriangle([s(1); s(2)], s(3), 0.05);
+% t = 0.01;
+% dt = 0.05;
+% dt = 0.01;
+dt = 0.005;
+state = traj.getState(t);
+stateWithCtrl = traj.getState(t);
+stateVis = drawTriangle([state(1); state(2)], state(3), 0.05);
+stateWithCtrlVis = drawTriangle([stateWithCtrl(1); stateWithCtrl(2)], ...
+                                stateWithCtrl(3), 0.05);
+
+kPropAngAcc = 1.5;
+kPropLinAcc = 0.25;
 
 while t < lastT
-    s = traj.getState(t);
+    state = traj.getState(t);
+    ctrl = traj.getControl(t)
+
+    % Euler integration.
+    % stateWithCtrl = stateWithCtrl + dt * ...
+    %     [stateWithCtrl(4) * cos(stateWithCtrl(3)); ...
+    %      stateWithCtrl(4) * sin(stateWithCtrl(3)); ...
+    %      ctrl(1); ...
+    %      ctrl(2)];
+
+    % Using ODE solver.
+    tspan = [0 dt];
+    [tt, soln] = ode45(@(t_, x_) unicycleDynamics(t_, x_, traj.getControl(t + t_)), ...
+                       tspan, ...
+                       stateWithCtrl);
+    stateWithCtrl = soln(end, :)';
 
     t = t + dt;
-    samplesX = [samplesX, s(1)];
-    samplesY = [samplesY, s(2)];
+    samplesX = [samplesX, state(1)];
+    samplesY = [samplesY, state(2)];
 
-    drawTriangle([s(1); s(2)], s(3), 0.05, stateVis);
+    drawTriangle([state(1); state(2)], state(3), 0.05, stateVis);
+    drawTriangle([stateWithCtrl(1); stateWithCtrl(2)], ...
+                 stateWithCtrl(3), 0.05, stateWithCtrlVis);
 
     % Update the dynmaic obstacle.
     lowerBounds = dynObsStartXY + t * dynObsVel;
@@ -160,16 +188,20 @@ while t < lastT
 
     drawnow;
     pause(dt);
-
-    % fprintf("control at %f: \n", t);
-    % traj.getControl(t)
 end
 
 scatter(samplesX, samplesY);
 
 if length(traj.splines) > 0
-    s = traj.contStates{end};
-    drawTriangle([s(1); s(2)], s(3), 0.1);
+    state = traj.contStates{end};
+    drawTriangle([state(1); state(2)], state(3), 0.1);
+end
+
+function dxdt = unicycleDynamics(t, x, u)
+    dxdt = [x(4) * cos(x(3));
+            x(4) * sin(x(3));
+            u(1);
+            u(2)];
 end
 
 function tri = drawTriangle(origin, rot, sideLength, lastTri)

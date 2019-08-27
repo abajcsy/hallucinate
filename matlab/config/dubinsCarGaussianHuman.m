@@ -109,6 +109,13 @@ params.simRobot = Unicycle4DRobot(params.xR0(1:4), wMax, aRange, vRange);
 %% Simulation Params.
 % Timestep for computation and simulation.
 params.simDt = 0.05;
-params.T = 2000; 
+params.T = 2000;
+
+% Number of steps after which to replan.
+params.replanAfterSteps = 5;
+
+% If set to true, uses the control from the trajectory; otherwise, uses the
+% state directly.
+params.trajUseControl = false;
 
 end

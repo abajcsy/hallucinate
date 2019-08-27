@@ -76,7 +76,7 @@ classdef OccupancyGrid < handle
                end
            end
        end
-       
+
        function setRectangularObs(obj, lowXY, upXY, t)
            [lowi, lowj] = obj.xyToIndex(lowXY(1), lowXY(2));
            [upi, upj] = obj.xyToIndex(upXY(1), upXY(2));
