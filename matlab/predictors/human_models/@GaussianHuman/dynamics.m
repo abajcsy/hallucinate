@@ -15,14 +15,16 @@ function dx = dynamics(obj, x, u)
 
     for i = 1:length(obj.dims)
         if i == 1
-            dx{i} = obj.v .* cos(u);
+            % NOTE: we need to "freeze" the dynamics when we have invalid
+            % probabilities. 
+            dx{i} = obj.v .* cos(u) .* (x{3} >= 0) .* (x{3} <= 1);
         elseif i == 2
-            dx{i} = obj.v .* sin(u);
+            dx{i} = obj.v .* sin(u) .* (x{3} >= 0) .* (x{3} <= 1);
         elseif i == 3
             %dx{i} = (obj.DeltaB0 - obj.betaPosterior(x, u)) * obj.gamma;
             
             % NOTE: These dynamics are for a STATIONARY beta model. 
-            dx{i} = ((obj.betaPosterior(x, u) - x{3}) * obj.gamma) .* ((x{3} >= 0) .* (x{3} <= 1));
+            dx{i} = obj.gamma * (obj.betaPosterior(x, u) - x{3}) .* (x{3} >= 0) .* (x{3} <= 1);
         else
             error('Only dimension 1-3 are defined for dynamics of GaussianHuman!')    
         end

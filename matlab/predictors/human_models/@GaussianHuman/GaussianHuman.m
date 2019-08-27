@@ -30,6 +30,10 @@ classdef GaussianHuman < DynSys
         
         % Normalizer for the gaussian distribution
         gaussianNorm
+        
+        % Store the likelyCtrls and dynamics for all states.
+        likelyCtrls
+        xdot
     end
     
     methods
@@ -79,11 +83,12 @@ classdef GaussianHuman < DynSys
           
           mu = obj.K*obj.x(1:2) + obj.m;
           if mu ~= 0
-              error("This code only works for K=0 and m=0!");
+              error('This code only works for K=0 and m=0!');
           end
           % Normalize the gaussian to take into account control bounds.
           p = normcdf([obj.uRange(1), obj.uRange(2)], mu, obj.sigma);
           obj.gaussianNorm = p(2)-p(1);
+          
         end
         
         function pb = betaPosterior(obj, x, u)
@@ -92,15 +97,18 @@ classdef GaussianHuman < DynSys
             %
             %  Note that our third state is x(3) = P(\beta=0 | xt-1, ut-1)
             
-            uOpt = obj.K(1).*x{1} + obj.K(2).*x{2} + obj.m;
-            
-            const = (sqrt(2*pi*obj.sigma^2)*obj.gaussianNorm)/(2*pi);
-            gauss = 1 ./ exp((-(u - uOpt).^2) ./ (2*obj.sigma^2));
-            
+            % Posterior update in the valid range of beta
+            uOpt = obj.K(1)*x{1} + obj.K(2)*x{2} + obj.m;
             numerator = x{3};
-            denominator = x{3} + const .* (1 - x{3}) .* gauss;
+
+            denominator = x{3} + ((sqrt(2*pi*obj.sigma^2)*obj.gaussianNorm)/(2*pi)) * ...
+                (1 - x{3}) .* (exp(((u - uOpt).^2) / (2*obj.sigma^2)));
             
-            pb = numerator ./ denominator;
+            pb = numerator./denominator;
+            pb = max(min(pb, 1), 0);
+            
+            % Account for the probability outside the valid range
+            pb = (pb .* (x{3} >= 0) .* (x{3} <= 1)) + (x{3} .* (x{3} < 0)) + (x{3} .* (x{3} > 1));
         end
         
         function likelyCtrls = getLikelyControls(obj, x)
@@ -113,17 +121,18 @@ classdef GaussianHuman < DynSys
             %       likelyCtrls -- (cell arr) valid controls at each state    
             
             % Compute optimal control: u* = Kx + m
-            optCtrl = obj.K(1).*x{1} + obj.K(2).*x{2} + obj.m;
+            optCtrl = obj.K(1)*x{1} + obj.K(2)*x{2} + obj.m;
             
             % Compute the inner part that we are going to take log of.
             % TODO: Safeguard against x{3} being zero.
-            innerLog = (sqrt(2*pi*obj.sigma^2)./x{3}).*(obj.uThresh - (1/(2*pi)).*(1 - x{3}));
+            innerLog = (sqrt(2*pi*obj.sigma^2))*((obj.uThresh - (1/(2*pi))*(1 - x{3}))./x{3});
             
             % NOTE: We need to safeguard against cases where we are taking 
             %       a square-root of a negative number. To do this, we 
             %       need to ensure that the result of the log is > 0 and < 1. 
-            C = sqrt(-2*obj.sigma^2 .* log(innerLog)) .* (innerLog > 0) .* (innerLog < 1) + ...
-                1e6 * (innerLog < 0) + 1e6 * (innerLog > 1) + 1e6 * (x{3} < 0);
+            C = sqrt(-2*obj.sigma^2 .* log(innerLog)) .* (innerLog > 0) .* (innerLog <= 1) + ...
+                1e6 * (innerLog <= 0) + 1e6 * (innerLog > 1) + ...
+                1e6 * (x{3} < 0) + 1e6 * (x{3} > 1);
             
             % Compute the bounds on the likley controls.
             upperBound = min(optCtrl + C, obj.uRange(2));
@@ -135,6 +144,28 @@ classdef GaussianHuman < DynSys
             linNums = linspace(0,1,obj.numCtrls);
             parfor i=1:obj.numCtrls
                 likelyCtrls{i} = linNums(i)*lowerBound + (1-linNums(i))*upperBound;
+            end
+        end
+        
+        function computeUAndXDot(obj, x)
+            %% Computes and stores the likley state-dependant control and state deriv.
+            % Get the likely state-dependant control for the ith discrete control: 
+            %   P(u_i | x)
+            obj.likelyCtrls = obj.getLikelyControls(x);
+
+            % Compute and store the corresponding dynamics.
+            obj.xdot = {};
+            for i=1:obj.numCtrls
+                u = obj.likelyCtrls{i};
+            	f = obj.dynamics(x,u);
+                % Convert into an N1 x N2 x N3 x numCtrls array
+                if i == 1
+                    obj.xdot = f;
+                else
+                    obj.xdot{1} = cat(4, obj.xdot{1}, f{1});
+                    obj.xdot{2} = cat(4, obj.xdot{2}, f{2});
+                    obj.xdot{3} = cat(4, obj.xdot{3}, f{3});
+                end
             end
         end
         
