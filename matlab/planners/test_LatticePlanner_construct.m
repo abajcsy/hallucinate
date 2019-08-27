@@ -156,11 +156,19 @@ while t < lastT
     state = traj.getState(t);
     ctrl = traj.getControl(t)
 
-    stateWithCtrl = stateWithCtrl + dt * ...
-        [stateWithCtrl(4) * cos(stateWithCtrl(3)); ...
-         stateWithCtrl(4) * sin(stateWithCtrl(3)); ...
-         ctrl(1); ...
-         ctrl(2)];
+    % Euler integration.
+    % stateWithCtrl = stateWithCtrl + dt * ...
+    %     [stateWithCtrl(4) * cos(stateWithCtrl(3)); ...
+    %      stateWithCtrl(4) * sin(stateWithCtrl(3)); ...
+    %      ctrl(1); ...
+    %      ctrl(2)];
+
+    % Using ODE solver.
+    tspan = [0 dt];
+    [tt, soln] = ode45(@(t_, x_) unicycleDynamics(t_, x_, traj.getControl(t + t_)), ...
+                       tspan, ...
+                       stateWithCtrl);
+    stateWithCtrl = soln(end, :)';
 
     t = t + dt;
     samplesX = [samplesX, state(1)];
@@ -187,6 +195,13 @@ scatter(samplesX, samplesY);
 if length(traj.splines) > 0
     state = traj.contStates{end};
     drawTriangle([state(1); state(2)], state(3), 0.1);
+end
+
+function dxdt = unicycleDynamics(t, x, u)
+    dxdt = [x(4) * cos(x(3));
+            x(4) * sin(x(3));
+            u(1);
+            u(2)];
 end
 
 function tri = drawTriangle(origin, rot, sideLength, lastTri)

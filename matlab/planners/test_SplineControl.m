@@ -31,21 +31,31 @@ dt = 0.001;
 x = getState(a, b, c, d, t);
 xWithCtrl = getState(a, b, c, d, t)
 
-xTri = drawTriangle([x(1); x(2)], x(3), 0.05);
-xWithCtrlTri = drawTriangle([xWithCtrl(1); xWithCtrl(2)], xWithCtrl(3), 0.05);
+xTri = drawTriangle([x(1); x(2)], x(3), 'b', 0.05);
+xWithCtrlTri = drawTriangle([xWithCtrl(1); xWithCtrl(2)], xWithCtrl(3), 'r', 0.05);
 
 while t <= T
     x = getState(a, b, c, d, t)
     ctrl = getControl(a, b, c, d, t);
 
-    xWithCtrl = xWithCtrl + dt * [xWithCtrl(4) * cos(xWithCtrl(3)); ...
-                        xWithCtrl(4) * sin(xWithCtrl(3)); ...
-                        ctrl(1); ...
-                        ctrl(2)]
+    % Euler integration.
+    % xWithCtrl = xWithCtrl + dt * [xWithCtrl(4) * cos(xWithCtrl(3)); ...
+    %                     xWithCtrl(4) * sin(xWithCtrl(3)); ...
+    %                     ctrl(1); ...
+    %                     ctrl(2)];
 
-    xTri = drawTriangle([x(1); x(2)], x(3), 0.05, xTri);
+    % Using ODE solver.
+    tspan = [0 dt];
+    [tt, soln] = ode45(@(t_, x_) unicycleDynamics(t_, x_, getControl(a, b, c, ...
+                                                                        d, ...
+                                                                        t + t_)), ...
+                       tspan, ...
+                       xWithCtrl);
+    xWithCtrl = soln(end, :)';
+
+    xTri = drawTriangle([x(1); x(2)], x(3), 0.05, 'b', xTri);
     xWithCtrlTri = drawTriangle([xWithCtrl(1); xWithCtrl(2)], xWithCtrl(3), ...
-                                0.05, xWithCtrlTri);
+                                0.05, 'r', xWithCtrlTri);
 
     drawnow;
     pause(dt);
@@ -53,6 +63,13 @@ while t <= T
 end
 
 hold off;
+
+function dxdt = unicycleDynamics(t, x, u)
+    dxdt = [x(4) * cos(x(3));
+            x(4) * sin(x(3));
+            u(1);
+            u(2)];
+end
 
 function state = getState(a, b, c, d, t)
     s = t;
@@ -107,7 +124,7 @@ function control = getControl(a, b, c, d, t)
     control = [omega; acc];
 end
 
-function tri = drawTriangle(origin, rot, sideLength, lastTri)
+function tri = drawTriangle(origin, rot, sideLength, color, lastTri)
     aLocal = [2*sideLength; 0; 1];
     bLocal = [0; -sideLength / sqrt(2); 1];
     cLocal = [0; sideLength / sqrt(2); 1];
@@ -119,14 +136,14 @@ function tri = drawTriangle(origin, rot, sideLength, lastTri)
     b = T * bLocal;
     c = T * cLocal;
 
-    if nargin > 3
+    if nargin > 4
         lastTri.set('XData', [a(1), b(1), c(1)]);
         lastTri.set('YData', [a(2), b(2), c(2)]);
         tri = lastTri;
     else
         tri = fill([a(1), b(1), c(1)], ...
                    [a(2), b(2), c(2)], ...
-                   'b');
+                   color);
         set(tri, 'facealpha', 0.5);
     end
 end
