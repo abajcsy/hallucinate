@@ -22,9 +22,6 @@ classdef GaussianHuman < DynSys
         % Num discrete controls to consider
         numCtrls
 
-        % Distribution in HMM
-        DeltaB0
-
         % Number of dimensions
         dims
         
@@ -34,18 +31,24 @@ classdef GaussianHuman < DynSys
         % Store the likelyCtrls and dynamics for all states.
         likelyCtrls
         xdot
+        
+        % Mixing parameter and mixing distribution 
+        alpha 
+        DeltaB0
+        
+        % (string) are we using static or dynamic beta model?
+        betaModel
     end
     
     methods
         function obj = GaussianHuman(x, v, uRange, gamma, ...
-                K, m, sigma, uThresh, DeltaB0, numCtrls)
-          %% obj = GaussianHuman(x, v, uRange, gamma, K, m, sigma, uThresh, DeltaB0)
+                K, m, sigma, uThresh, numCtrls, betaModel, extraArgs)
+          %% obj = GaussianHuman(x, v, uRange, gamma, K, m, sigma, uThresh, betaModel)
           %     Dynamics of the GaussianHuman
           %         \dot{x}_1 = v * cos(u)
           %         \dot{x}_2 = v * sin(u)
-          %         \dot{x}_3 = (betaPosterior(beta=0 | x, u) - x{3})*gamma
-          %         -pi <= u <= pi
-          %     NOTE: dynamics are for stationary beta right now!     
+          %         \dot{x}_3 = \dot{P}_t(beta = 0)
+          %         -uRange(1) <= u <= uRange(2)
           %
           %     State space of the GaussianHuman
           %         x_1 = p_x
@@ -79,7 +82,23 @@ classdef GaussianHuman < DynSys
           obj.nx = length(x);
           obj.nu = 1;
 
-          obj.DeltaB0 = DeltaB0;
+          obj.betaModel = betaModel;
+          if strcmp(betaModel, 'dynamic')
+              if isfield(extraArgs, 'DeltaB0')
+                  obj.DeltaB0 = extraArgs.DeltaB0;
+              else
+                  obj.DeltaB0 = 0.5;
+                  warning('Setting DeltaB0 to default: 0.5\n');
+              end
+              if isfield(extraArgs, 'alpha')
+                  obj.alpha = extraArgs.alpha;
+              else
+                  obj.alpha = 0.1;
+                  warning('Setting alpha to default: 0.1\n');
+              end
+          elseif ~strcmp(betaModel, 'static')
+              error("No support for beta model %s\n", betaModel);
+          end
           
           mu = obj.K*obj.x(1:2) + obj.m;
           if mu ~= 0

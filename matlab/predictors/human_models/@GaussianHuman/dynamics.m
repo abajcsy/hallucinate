@@ -21,10 +21,14 @@ function dx = dynamics(obj, x, u)
         elseif i == 2
             dx{i} = obj.v .* sin(u) .* (x{3} >= 0) .* (x{3} <= 1);
         elseif i == 3
-            %dx{i} = (obj.DeltaB0 - obj.betaPosterior(x, u)) * obj.gamma;
-            
-            % NOTE: These dynamics are for a STATIONARY beta model. 
-            dx{i} = obj.gamma * (obj.betaPosterior(x, u) - x{3}) .* (x{3} >= 0) .* (x{3} <= 1);
+            if strcmp(obj.betaModel, 'static')
+                % NOTE: These dynamics are for a STATIONARY beta model. 
+                dx{i} = obj.gamma * (obj.betaPosterior(x, u) - x{3}) .* (x{3} >= 0) .* (x{3} <= 1);
+            else
+                % NOTE: These dynamics are for a DYNAMIC beta model. 
+                dx{i} = obj.gamma * ((obj.betaPosterior(x, u) - x{3}) + ...
+                    (obj.alpha * x{3} + (1 - obj.alpha) * obj.DeltaB0 - x{3})).* (x{3} >= 0) .* (x{3} <= 1);
+            end
         else
             error('Only dimension 1-3 are defined for dynamics of GaussianHuman!')    
         end

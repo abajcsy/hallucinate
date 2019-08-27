@@ -25,13 +25,18 @@ sigma = 0.1;
 % Threshold to determine likely controls
 uThresh = 0.05; 
 
-% Distribution in HMM
-DeltaB0 = 0.5; 
+% Are we using dynamic of static beta model?
+betaModel = 'static';
+
+% Dynamic beta parameters
+extraArgs.alpha = 0.5;
+extraArgs.DeltaB0 = 0.5; 
 
 % Setup dynamical system
 Pbeta0 = 0.9; 
 x0 = [0; 0; Pbeta0];
-human = GaussianHuman(x0, v, uRange, gamma, K, m, sigma, uThresh, DeltaB0, numCtrls);
+human = GaussianHuman(x0, v, uRange, gamma, K, m, sigma, uThresh, numCtrls, ...
+    betaModel, extraArgs);
 
 %% Grid
 grid_min = [-2; -2; -0.1];  % Lower corner of computation domain
@@ -53,7 +58,7 @@ data0 = shapeSphere(g, x0, R);
 %% time vector
 t0 = 0;
 tMax = 2;
-dt = 0.05;
+dt = 0.1;
 tau = t0:dt:tMax;
 uMode = 'max';
 
@@ -61,7 +66,7 @@ uMode = 'max';
 % Put grid and dynamic systems into schemeData
 schemeData.grid = g;
 schemeData.dynSys = human;
-schemeData.accuracy = 'medium'; %set accuracy
+schemeData.accuracy = 'high'; %set accuracy
 schemeData.uMode = uMode;
 schemeData.tMode = 'forward';
 schemeData.hamFunc = @gaussianHuman_ham;
@@ -73,12 +78,13 @@ HJIextraArgs.visualize.valueSet = 1;
 HJIextraArgs.visualize.initialValueSet = 0;
 HJIextraArgs.visualize.figNum = 1; %set figure number
 HJIextraArgs.visualize.deleteLastPlot = true; %delete previous plot as you update
-HJIextraArgs.visualize.viewGrid = false;
+HJIextraArgs.visualize.viewGrid = true;
 HJIextraArgs.visualize.viewAxis = [-2 2 -2 2 -0.1 1.1];
 HJIextraArgs.visualize.xTitle = '$p^x$';
 HJIextraArgs.visualize.yTitle = '$p^y$';
 HJIextraArgs.visualize.zTitle = '$P(\beta = 0)$';
 HJIextraArgs.visualize.fontSize = 15;
+%HJIextraArgs.visualize.camlightPosition = [0 0 0];
 
 % since we have a finite compute grid, we may not want to 
 % trust values near the boundary of grid
@@ -92,6 +98,7 @@ HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
 %HJIextraArgs.targets = data0;
 
 minWith = 'set';
+%minWith = 'zero';
 %minWith = 'minVwithL';
 [data, tau2, ~] = ...
   HJIPDE_solve_pred(data0, tau, schemeData, minWith, HJIextraArgs);

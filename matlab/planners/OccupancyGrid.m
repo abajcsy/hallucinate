@@ -13,6 +13,8 @@ classdef OccupancyGrid < handle
 
        data  % Cell array of grids (indexed by time).
        times % Array of times.
+       
+       figh % figure handle.
    end
 
    methods
@@ -39,6 +41,7 @@ classdef OccupancyGrid < handle
               obj.data{t} = zeros(xExtent, yExtent);
            end
            
+           obj.figh = [];
        end
 
        function fromValueFuns(obj, grid, valueFuns, times, t0)
@@ -180,10 +183,21 @@ classdef OccupancyGrid < handle
            end
        end
        
-        function draw(obj, grid2D)
-            for i=1:length(obj.times)
+        function draw(obj, grid2D, color)
+            linNums = linspace(0, 1, length(obj.times));
+            if ~isempty(obj.figh)
+                for i=1:length(obj.figh)
+                    delete(obj.figh{i});
+                end
+            end
+            
+            for i=1:10:length(obj.times)
                 vF = obj.data{i};
-                contourf(grid2D.xs{1}, grid2D.xs{2}, -vF, -1:1:1);
+                posIdx = find(vF >= 1);
+                alpha = linNums(i)*0.1 + (1-linNums(i))*1;
+                obj.figh{end+1} = scatter(grid2D.xs{1}(posIdx), grid2D.xs{2}(posIdx), 30, ...
+                    'MarkerFaceColor', color, 'MarkerFaceAlpha', alpha, 'MarkerEdgeColor', 'none');
+                %contourf(grid2D.xs{1}, grid2D.xs{2}, -vF, -1:1:1);
             end
             colormap('gray');
         end
