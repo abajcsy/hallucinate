@@ -15,6 +15,12 @@ classdef Trajectory < handle
 
             % Generate splines between each continuous state.
             for idx = 1:(length(contStates) - 1)
+                [f0, f1] = obj.getHeuristicFValues(contStates{idx}(4), ...
+                                                   contStates{idx}(1), ...
+                                                   contStates{idx}(2), ...
+                                                   contStates{idx + 1}(1), ...
+                                                   contStates{idx + 1}(2));
+
                 [a, b, c, d] = unicycleThirdOrderTimeSpline(contStates{idx}(1), ...
                                                             contStates{idx}(2), ...
                                                             contStates{idx}(3), ...
@@ -30,6 +36,11 @@ classdef Trajectory < handle
 
                 obj.splines{idx} = [a, b, c, d];
             end
+        end
+
+        function [f0, f1] = getHeuristicFValues(obj, v0, x0, y0, x1, y1)
+            f0 = v0 + norm([x1 - x0; y1 - y0]);
+            f1 = v0 + norm([x1 - x0; y1 - y0]);
         end
 
         function [a, b, c, d, tLow] = getSpline(obj, t)
@@ -72,8 +83,9 @@ classdef Trajectory < handle
             x = a(1) * p^3 + b(1) * p^2 + c(1) * p + d(1);
             y = a(2) * p^3 + b(2) * p^2 + c(2) * p + d(2);
 
-            vx = 3 * a(1) * p^2 + 2 * b(1) * p + c(1);
-            vy = 3 * a(2) * p^2 + 2 * b(2) * p + c(2);
+            vp = 3 * a(3) * s^2 + 2 * b(3) * s + c(3);
+            vx = (3 * a(1) * p^2 + 2 * b(1) * p + c(1)) * vp;
+            vy = (3 * a(2) * p^2 + 2 * b(2) * p + c(2)) * vp;
             v = norm([vx; vy]);
 
             theta = atan2(vy, vx);
@@ -84,13 +96,40 @@ classdef Trajectory < handle
         function control = getControl(obj, t)
             [a, b, c, d, tLow] = obj.getSpline(t);
 
-            omega = 0;
-            a = 0;
+            % Time always starts from zero.
+            s = t - tLow;
 
-            % TODO Implement me!
+            omega = 0;
+            acc = 0;
+
+            p = a(3) * s^3 + b(3) * s^2 + c(3) * s + d(3);
+            vp = 3 * a(3) * s^2 + 2 * b(3) * s + c(3);
+            ap = 6 * a(3) * s + 2 * b(3);
+
+            vxp = (3 * a(1) * p^2 + 2 * b(1) * p + c(1));
+            vyp = (3 * a(2) * p^2 + 2 * b(2) * p + c(2));
+            axp = (6 * a(1) * p + 2 * b(1));
+            ayp = (6 * a(2) * p + 2 * b(2));
+            vx = vxp * vp;
+            vy = vyp * vp;
+            v = norm([vx; vy]);
+
+            ax = (6 * a(1) * p + 2 * b(1)) * vp^2 + (3 * a(1) * p^2 + 2 * b(1) ...
+                                                     * p + c(1)) * ap;
+            ay = (6 * a(2) * p + 2 * b(2)) * vp^2 + (3 * a(2) * p^2 + 2 * b(2) ...
+                                                     * p + c(2)) * ap;
+
+            theta = atan2(vyp, vxp);
+
+            % acc = ap * norm([vxp; vyp]) + (vp^2 / norm([vxp; vyp])) * (axp + ...
+            %                                                   ayp);
+            % omega = (vp / (vxp^2 + vyp^2)) * (ayp * vxp - axp * vyp);
+
+            omega = (ay * cos(theta) - ax * sin(theta)) / v;
+            acc = (ax + omega * v * sin(theta)) / cos(theta);
 
             % Return the control input.
-            control = [omega; a];
+            control = [omega; acc];
         end
 
         function control = getProportionalControl(obj, t, x, kPropAngAcc, ...

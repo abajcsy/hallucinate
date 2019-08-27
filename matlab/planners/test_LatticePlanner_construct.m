@@ -139,35 +139,36 @@ lastT = traj.contStates{end}(5);
 samplesX = [];
 samplesY = [];
 t = 0;
+% t = 0.01;
 % dt = 0.05;
 % dt = 0.01;
 dt = 0.005;
-s = traj.getState(t);
-sWithCtrl = traj.getState(t);
-stateVis = drawTriangle([s(1); s(2)], s(3), 0.05);
-stateWithCtrlVis = drawTriangle([sWithCtrl(1); sWithCtrl(2)], sWithCtrl(3), ...
-                                0.05);
+state = traj.getState(t);
+stateWithCtrl = traj.getState(t);
+stateVis = drawTriangle([state(1); state(2)], state(3), 0.05);
+stateWithCtrlVis = drawTriangle([stateWithCtrl(1); stateWithCtrl(2)], ...
+                                stateWithCtrl(3), 0.05);
 
 kPropAngAcc = 1.5;
 kPropLinAcc = 0.25;
 
 while t < lastT
-    s = traj.getState(t);
-    ctrl = traj.getProportionalControl(t, sWithCtrl, kPropAngAcc, kPropLinAcc);
+    state = traj.getState(t);
+    ctrl = traj.getControl(t)
 
-    sWithCtrl = sWithCtrl + dt * ...
-        [sWithCtrl(4) * cos(sWithCtrl(3)); ...
-         sWithCtrl(4) * sin(sWithCtrl(3)); ...
+    stateWithCtrl = stateWithCtrl + dt * ...
+        [stateWithCtrl(4) * cos(stateWithCtrl(3)); ...
+         stateWithCtrl(4) * sin(stateWithCtrl(3)); ...
          ctrl(1); ...
          ctrl(2)];
 
     t = t + dt;
-    samplesX = [samplesX, s(1)];
-    samplesY = [samplesY, s(2)];
+    samplesX = [samplesX, state(1)];
+    samplesY = [samplesY, state(2)];
 
-    drawTriangle([s(1); s(2)], s(3), 0.05, stateVis);
-    drawTriangle([sWithCtrl(1); sWithCtrl(2)], sWithCtrl(3), 0.05, ...
-                 stateWithCtrlVis);
+    drawTriangle([state(1); state(2)], state(3), 0.05, stateVis);
+    drawTriangle([stateWithCtrl(1); stateWithCtrl(2)], ...
+                 stateWithCtrl(3), 0.05, stateWithCtrlVis);
 
     % Update the dynmaic obstacle.
     lowerBounds = dynObsStartXY + t * dynObsVel;
@@ -184,8 +185,8 @@ end
 scatter(samplesX, samplesY);
 
 if length(traj.splines) > 0
-    s = traj.contStates{end};
-    drawTriangle([s(1); s(2)], s(3), 0.1);
+    state = traj.contStates{end};
+    drawTriangle([state(1); state(2)], state(3), 0.1);
 end
 
 function tri = drawTriangle(origin, rot, sideLength, lastTri)

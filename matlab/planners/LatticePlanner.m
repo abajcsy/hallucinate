@@ -198,6 +198,13 @@ classdef LatticePlanner
                             continue;
                         end
 
+                        % Choose the free parameters of the spline heuristically.
+                        [f0, f1] = obj.getHeuristicFValues(startCoords(4), ...
+                                                           startCoords(1), ...
+                                                           startCoords(2), ...
+                                                           endCoords(1), ...
+                                                           endCoords(2));
+
                         % Otherwise, generate motion primitive.
                         [a, b, c, d] = unicycleThirdOrderTimeSpline(startCoords(1), ...
                                                                     startCoords(2), ...
@@ -377,6 +384,11 @@ classdef LatticePlanner
                     break;
                 end
             end
+        end
+
+        function [f0, f1] = getHeuristicFValues(obj, v0, x0, y0, x1, y1)
+            f0 = v0 + norm([x1 - x0; y1 - y0]);
+            f1 = v0 + norm([x1 - x0; y1 - y0]);
         end
     end
 end
