@@ -161,6 +161,7 @@ classdef LatticePlanner
             % TODO These should be planner parameters.
             % localXRange = [1, 2];
             localXRange = [1, 3];
+            % localXRange = [2, 5];
             localYRange = [-2, 2];
             aRange = [-1, 1];
 
@@ -219,10 +220,18 @@ classdef LatticePlanner
                                                                     obj ...
                                                                     .discToCont(deltaT, 5));
 
-                        edges{idx} = [a, b, c, d];
-
                         % TODO Should be a planner parameter.
                         numSamples = 50;
+
+                        % Velocity must be within bounds along the spline.
+                        if ~obj.isVelocityBounded(a, b, c, d, ...
+                                                  obj.discToCont(deltaT, 5), ...
+                                                  numSamples)
+                            continue;
+                        end
+
+                        edges{idx} = [a, b, c, d];
+
                         if ~obj.isEdgeSafe(a, b, c, d, ...
                                            obj.discToCont(state.t, 5), ...
                                            obj.discToCont(state.t + deltaT, 5), ...
@@ -363,23 +372,22 @@ classdef LatticePlanner
             end
         end
 
-        function isVelocityBounded(obj, a, b, c, d, t0, t1, numSamples)
-        % TODO Finish implementing / testing this function.
+        function safe = isVelocityBounded(obj, a, b, c, d, T, numSamples)
             safe = 1;
-            vxfunc = @(t) 3 .* a(1) .* t.^2 + 2 .* b(1) .* t + ...
-                     c(1);
-            vyfunc = @(t) 3 .* a(2) .* t.^2 + 2 .* b(2) .* t + ...
-                     c(2);
 
-            T = t1 - t0;
+            pfunc = @(t) a(3) * t^3 + b(3) * t^2 + c(3) * t + d(3);
+
+            vpfunc = @(t) 3 * a(3) * t^2 + 2 * b(3) * t + c(3);
+            vxfunc = @(t) (3 * a(1) * pfunc(t)^2 + 2 * b(1) * pfunc(t) + c(1)) * vpfunc(t);
+            vyfunc = @(t) (3 * a(2) * pfunc(t)^2 + 2 * b(2) * pfunc(t) + c(2)) * vpfunc(t);
+            vfunc = @(t) norm([vxfunc(t); vyfunc(t)]);
+
             Tsample = T / numSamples;
-            for t = 1:(numSamples - 1)
-                vxsample = vxfunc(t * Tsample);
-                vysample = vyfunc(t * Tsample);
-
+            for k = 1:(numSamples - 1)
                 % Check the sampled velocity to ensure that it is in bounds.
-                vsample = sqrt(vxsample^2 + vysample^2);
+                vsample = vfunc(k * Tsample);
                 if ~obj.inBounds(vsample, 'v')
+                    % fprintf('Velocity of %f is too high!\n', vsample);
                     safe = 0;
                     break;
                 end

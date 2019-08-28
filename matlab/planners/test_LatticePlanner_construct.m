@@ -1,11 +1,18 @@
-% xDisc = 0.25;
-% yDisc = 0.25;
-xDisc = 0.15;
-yDisc = 0.15;
+% % xDisc = 0.25;
+% % yDisc = 0.25;
+% xDisc = 0.15;
+% yDisc = 0.15;
+% thetaDisc = pi / 45;
+% % vDisc = 0.5;
+% vDisc = 0.1;
+% tDisc = 0.25;
+
+% Discretization on 8/28/2019
+xDisc = 0.1;
+yDisc = 0.1;
 thetaDisc = pi / 45;
-% vDisc = 0.5;
-vDisc = 0.1;
-tDisc = 0.25;
+vDisc = 0.05;
+tDisc = 0.5;
 
 heurWeight = 1.25;
 % heurWeight = 3;
@@ -16,7 +23,7 @@ planner = LatticePlanner(xDisc, yDisc, thetaDisc, vDisc, tDisc, heurWeight);
 planner.stateBounds('x') = [-0.1, 3];
 planner.stateBounds('y') = [-0.1, 3];
 % planner.stateBounds('v') = [0.1, 3];
-planner.stateBounds('v') = [0.1, 0.3];
+planner.stateBounds('v') = [0, 0.6];
 planner.stateBounds('theta') = [-pi, pi];
 planner.stateBounds('t') = [0, 15]; % Planning horizon.
 
@@ -74,26 +81,6 @@ end
 
 contVal = 1.25;
 fprintf("cont = %f, disc = %f\n", contVal, planner.contToDisc(contVal, 5));
-
-startState = LatticePlannerState(0, 0, 0, 1, 0);
-% startState = LatticePlannerState(2, 2, 22, 1, 0);
-[succs, edges, costs] = planner.expand(startState);
-fprintf("expanded %d successors\n", length(succs));
-
-% figure;
-% hold on;
-
-% for idx = 1:length(succs)
-%   % figure;
-%   xfunc = @(t) edges{idx}(1, 1) .* t.^3 + edges{idx}(1, 2) .* t.^2 + ...
-%           edges{idx}(1, 3) .* t + edges{idx}(1, 4);
-%   yfunc = @(t) edges{idx}(2, 1) .* t.^3 + edges{idx}(2, 2) .* t.^2 + ...
-%           edges{idx}(2, 3) .* t + edges{idx}(2, 4);
-
-%   fplot(xfunc, yfunc, [0 tDisc]);
-% end
-
-% hold off;
 
 % goalXY = [3; 0];
 % goalXY = [1; 1];
