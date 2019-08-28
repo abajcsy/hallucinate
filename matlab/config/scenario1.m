@@ -1,4 +1,8 @@
-function params = dubinsCarGaussianHuman()
+function params = scenario1()
+%% Scenario 1
+%  Robot needs to cross paths with human to get to its goal. If it trusts
+%  that the human will continue to move forward, it will overconfidently
+%  plan to cut in front of the human and end up in a collision. 
 
 %% Predictor: Create human dynamical system for prediction
 vH = 0.6;                           % Velocity
@@ -11,13 +15,13 @@ m = 0;
 numCtrls = 11;                      % Number of discrete controls
 sigma = 0.1;                        % Variance in normal distribution
 uHThresh = 0.05;                    % Threshold to determine likely controls
-Pbeta0 = 0.9;                       % Prior over beta = 0 (rational human)
+Pbeta0 = 0.5;                       % Prior over beta = 0 (rational human)
 
 betaModel = 'static';               % Are we using dynamic of static beta model?
 extraArgs.alpha = 0.5;              % (dynamic beta) parameter
 extraArgs.DeltaB0 = 0.5;            % (dynamic beta) mixing distribution 
 
-params.xH0 = [-1; -0.5];            % Initial physical state of human    
+params.xH0 = [-0.5; -0.5];            % Initial physical state of human    
 params.z0 = [params.xH0; Pbeta0];   % Initial condition for reachability
 
 % Create human prediction model.
@@ -32,17 +36,11 @@ params.partialFunc = @gaussianHuman_partial;
 %% Human Simluator: Parameters for simulating human measurements. 
 
 x0Sim = params.xH0;
-muSim = K*x0Sim + m;
 vHSim = vH;
-sigmaSim = sigma;
-uHRangeSim = uHRange;
+ctrls = {0, pi/4, pi/2, (3*pi)/4, pi};
+times = {[0,0.5], [0.5,0.7], [0.7,1.0], [1.0,1.3], [1.3,4]};
 
-% beta = 1 --> irrational
-% beta = 0 --> rational
-trueBeta = 0; 
-params.simHuman = FixedBetaGaussianHuman(x0Sim, vHSim, ...
-                                         muSim, sigmaSim, ...
-                                         uHRangeSim, trueBeta);
+params.simHuman = FixedTrajHuman(x0Sim, vHSim, ctrls, times);
 
 %% Environment Params (meters).
 params.lowEnv = [-2;-2];
@@ -82,11 +80,11 @@ params.predColor = [99., 180., 255.]/255.;
 %% Robot: Planning Params.
 
 % Discretization in (x,y,theta,v,time)
-xDisc = 0.1;
-yDisc = 0.1;
-thetaDisc = pi / 45;
-vDisc = 0.05;
-tDisc = 0.5;
+params.xDisc = 0.15;
+params.yDisc = 0.15;
+params.thetaDisc = pi / 45;
+params.vDisc = 0.5;
+params.tDisc = 0.25;
 
 % Heuristic and goal parameters.
 params.heurWeight = 1.25;
@@ -95,13 +93,13 @@ params.goalTol = 0.2;
 % Setup the state bounds.
 params.xBounds = [params.lowEnv(1), params.upEnv(1)];
 params.yBounds = [params.lowEnv(2), params.upEnv(2)];
-params.vBounds = [0, 0.6];
+params.vBounds = [0.1, 3];
 params.thetaBounds = [-2*pi, 2*pi];
 params.timeBounds = [0, 15]; % Planning horizon.
 
 % Setup initial state of planner and goal state of planner.
-params.xR0 = [1.5; 0.5; pi; 0.1; 0];
-params.goalRXY = [-1.5; -0.5];
+params.xR0 = [0.5; -1; (3*pi)/4; 0.1; 0];
+params.goalRXY = [-1; 1];
 
 %% Robot: Dynamical System Params.
 wMax = 1;
@@ -119,6 +117,6 @@ params.replanAfterSteps = 1;
 
 % If set to true, uses the control from the trajectory; otherwise, uses the
 % state directly.
-params.trajUseControl = false;
+params.trajUseControl = true;
 
 end
