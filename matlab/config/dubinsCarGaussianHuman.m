@@ -76,6 +76,9 @@ params.uMode = 'max';
 params.minWith = 'set'; % minwith = 'zero' gives us tube.
 params.quiet = true; % runs in quiet computation mode, for efficiency.
 
+% Color of predictions for plotting.
+params.predColor = [99., 180., 255.]/255.;
+
 %% Robot: Planning Params.
 
 % Discretization in (x,y,theta,v,time)
@@ -93,7 +96,7 @@ params.goalTol = 0.2;
 params.xBounds = [params.lowEnv(1), params.upEnv(1)];
 params.yBounds = [params.lowEnv(2), params.upEnv(2)];
 params.vBounds = [0.1, 3];
-params.thetaBounds = [-pi, pi];
+params.thetaBounds = [-2*pi, 2*pi];
 params.timeBounds = [0, 15]; % Planning horizon.
 
 % Setup initial state of planner and goal state of planner.
@@ -109,10 +112,10 @@ params.simRobot = Unicycle4DRobot(params.xR0(1:4), wMax, aRange, vRange);
 %% Simulation Params.
 % Timestep for computation and simulation.
 params.simDt = 0.05;
-params.T = 2000;
+params.T = 200;
 
 % Number of steps after which to replan.
-params.replanAfterSteps = 5;
+params.replanAfterSteps = 1;
 
 % If set to true, uses the control from the trajectory; otherwise, uses the
 % state directly.

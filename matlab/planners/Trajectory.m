@@ -2,12 +2,14 @@ classdef Trajectory < handle
     properties
         contStates % Continuous (x, y, theta, v, t) states.
         splines % Spline parameters (a, b, c, d).
+        figh % figure handle
     end
 
     methods
         function obj = Trajectory(contStates)
             obj.contStates = contStates;
             obj.splines = {};
+            obj.figh = [];
 
             % Generate splines between each continuous state.
             for idx = 1:(length(contStates) - 1)
@@ -151,7 +153,8 @@ classdef Trajectory < handle
             control = [omega; a];
         end
 
-        function draw(obj, showStates)
+        function h = draw(obj, showStates)
+            h = {};
             for idx = 1:length(obj.splines)
                 s = obj.contStates{idx};
                 sNext = obj.contStates{idx + 1};
@@ -172,7 +175,8 @@ classdef Trajectory < handle
                 xfunc = @(t) a(1) .* pfunc(t).^3 + b(1) .* pfunc(t).^2 + c(1) .* pfunc(t) + d(1);
                 yfunc = @(t) a(2) .* pfunc(t).^3 + b(2) .* pfunc(t).^2 + c(2) .* pfunc(t) + d(2);
 
-                fplot(xfunc, yfunc, [0 tDisc]);
+                h{end+1} = fplot(xfunc, yfunc, [0 tDisc], ...
+                    'Color', [255, 148, 148]/255., 'Linewidth', 2);
             end
         end
 

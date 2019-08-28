@@ -70,9 +70,14 @@ classdef OccupancyGrid < handle
                     obj.times(i) = t0 + times(i);
                end
            else
-               obj.data = valueFuns;
                for i=1:length(times)
-                obj.times(i) = t0 + times(i);
+                   data2D = valueFuns(:,:,i);
+                    
+                   % Convert to binary map.
+                   data2D = 1*(data2D <= 0) + 0*(data2D > 0);
+                    
+                   obj.data{i} = data2D;
+                   obj.times(i) = t0 + times(i);
                end
            end
        end

@@ -1,7 +1,7 @@
 %% Clear old figure plotting and variables.
 clf 
-clc 
-clear all
+%clc 
+%clear all
 
 %% Load the experimental setup.
 params = dubinsCarGaussianHuman();
@@ -49,9 +49,11 @@ predGrid2D = proj(params.predGrid, params.predGrid.xs, [0,0,1]);
 hold on
 
 % Create the first prediction.
-%predictor.updatePredictions();
-%[preds, times] = predictor.getPredictions();
-%planner.dynObsMap.fromValueFuns(params.predGrid, preds, times, 0);
+%load('/home/abajcsy/hybrid_ws/src/hallucinate/matlab/data/introspective_p09.mat');
+
+% predictor.updatePredictions();
+% [preds, times] = predictor.getPredictions();
+planner.dynObsMap.fromValueFuns(predGrid2D, humanPreds{1}, predsTimes{1}, 0);
 
 % Initialize the planned trajectory.
 contStates = {};
@@ -63,6 +65,10 @@ xR = params.xR0(1:4, :);
 % Get the initial state of the simulated human.
 xHnext = params.xH0(1:2);
 
+hh = [];
+rh = [];
+th = [];
+pIdx = 2;
 for t=0:params.T-1
     % Update the state based on the planned trajectory / controls.
     if ~traj.isEmpty()
@@ -72,31 +78,39 @@ for t=0:params.T-1
             % Apply control to robot, and integrate the dynamics to get the next state.
             tspan = [0 params.simDt];
             [~, soln] = ode45(@(t_, x_) unicycleDynamics(t_, x_, ...
-                                                         traj.getControl((t - 1) * params.simDt ...
-                                                              + t_)), ...
-                              tspan, ...
-                              xR);
+                traj.getControl((t - 1) * params.simDt + t_)), tspan, xR);
             xR = soln(end, :)';
         end
     end
 
     % ----- plotting ------ %
-    planner.staticObsMap.draw(staticGrid2D, 'k');    % draw the static obstacle
-    planner.dynObsMap.draw(predGrid2D, [99., 180., 255.]/255.);         % draw the dynamic obstacle
+    planner.staticObsMap.draw(staticGrid2D, 'k');           % draw the static obstacle
+    planner.dynObsMap.draw(predGrid2D, params.predColor);   % draw the dynamic obstacle
 	
+    % plot the robot goal and goal tolerance.
+    info = [params.goalRXY(1)-params.goalTol params.goalRXY(2)-params.goalTol params.goalTol*2 params.goalTol*2];
+    rectangle('Position',info,'Curvature',1, ...
+        'FaceColor', [255, 222, 222]/255., 'EdgeColor', [255, 222, 222]/255.);
+   	plot(params.goalRXY(1), params.goalRXY(2), ... 
+            'ro','MarkerSize', 8);          % plot robot goal
+    
     if ~isempty(hh)
         delete(hh{1});
     end
-    hh = plotAgent(xHnext, 'b');         % plot human
+    hh = plotAgent(xHnext, 'b');        % plot human
     
     if ~isempty(rh)
         delete(rh{1});
         delete(rh{2});
     end
-    %rh = plotAgent(xR, 'r');             % plot robot
-    plot(params.goalRXY(1), params.goalRXY(2), 'ro','MarkerSize', 8); % plot robot goal
     
-    %traj.draw();                    % plot trajectory
+    if ~isempty(th)
+        for i=1:length(th)
+            delete(th{i});
+        end
+    end
+    th = traj.draw();                   % plot trajectory
+    rh = plotAgent(xR, 'r');            % plot robot
     
     xlim([params.lowEnv(1),params.upEnv(1)]);
     ylim([params.lowEnv(2),params.upEnv(2)]);
@@ -107,15 +121,17 @@ for t=0:params.T-1
     % they applied.
     [xHnext, uHcurr] = params.simHuman.simulateAction(params.simDt);
 
-
     % Prediction step.
-    % predictor.updateState(xHnext, uHcurr);
-    % predictor.updatePredictions();
+    %predictor.updateState(xHnext, uHcurr);
+    %predictor.updatePredictions();
 
     % Planning step.
-    % [preds, times] = predictor.getPredictions();
-    % planner.dynObsMap.fromValueFuns(params.predGrid, preds, times,
-    % t*params.simDt);
+    %[preds, times] = predictor.getPredictions();
+    planner.dynObsMap.fromValueFuns(predGrid2D, humanPreds{pIdx}, ...
+                predsTimes{pIdx}, ...
+                t*params.simDt);
+	pIdx = pIdx + 1;
+
     xRStart = xR;
     tStart = t * params.simDt;
     if ~traj.isEmpty()
@@ -128,6 +144,7 @@ for t=0:params.T-1
     end
 end
 
+%% Gets the 4D Unicycle dynamics.
 function dxdt = unicycleDynamics(t, x, u)
     dxdt = [x(4) * cos(x(3));
             x(4) * sin(x(3));
