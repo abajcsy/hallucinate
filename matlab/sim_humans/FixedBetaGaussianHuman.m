@@ -1,10 +1,9 @@
-classdef SimFixedBetaGaussianHuman < handle
+classdef FixedBetaGaussianHuman < SimHuman
     %SIMFIXEDBETAGAUSSIANHUMAN Summary of this class goes here
     %   Detailed explanation goes here
     
     properties
         xcurr
-        v
         mu
         sigma
         uRange
@@ -13,7 +12,7 @@ classdef SimFixedBetaGaussianHuman < handle
     end
     
     methods
-        function obj = SimFixedBetaGaussianHuman(x0, v, mu, sigma, uRange, beta)
+        function obj = FixedBetaGaussianHuman(x0, v, mu, sigma, uRange, beta)
             %SIMFIXEDBETAGAUSSIANHUMAN Construct an instance of this class
             %   Detailed explanation goes here
             obj.xcurr = x0;
@@ -40,7 +39,7 @@ classdef SimFixedBetaGaussianHuman < handle
         end
         
         %% Simulates an action of the human according to the model.
-        function [x, u] = simulateAction(obj, dt)
+        function [xnext, u] = simulate(obj, x, t, dt)
             if obj.beta == 0
                 % Generate random action from the normal distribution. 
                 u = random(obj.clippedNorm,1,1);
@@ -51,14 +50,8 @@ classdef SimFixedBetaGaussianHuman < handle
            
             % Figure out where the human would move in one timestep.
             xdot = dynamics(obj, obj.xcurr, u);
-            x = obj.xcurr + dt*xdot;
-            obj.xcurr = x;
-        end
-        
-        %% Defines the dynamics of the human. 
-        function xdot = dynamics(obj, x, u)
-            % Simple dynamics of human.
-            xdot = [obj.v*cos(u); obj.v*sin(u)];
+            xnext = obj.xcurr + dt*xdot;
+            obj.xcurr = xnext;
         end
     end
 end

@@ -4,7 +4,9 @@ clc
 clear all
 
 %% Load the experimental setup.
-params = dubinsCarGaussianHuman();
+%params = dubinsCarGaussianHuman();
+params = dubinsCarFixedTrajHuman();
+filename = 'fixed_human_rss_p05.mat';
 
 %% Create human predictor.
 predictor = HumanPredictor(params);
@@ -31,7 +33,8 @@ end
 
 % Get the initial state of the simulated human.cvf
 xHnext = params.xH0(1:2);
-xHgoal = [1.5; -0.5];
+%xHgoal = [1.5; -0.5];
+xHgoal = [-1.1; -0.1079];
 hh = [];
 
 for t=0:params.T-1
@@ -47,18 +50,18 @@ for t=0:params.T-1
     predsTimes{end+1} = times;
 
     % ----- plotting ------ %
-%     if ~isempty(hh)
-%         delete(hh{1});
-%     end
-%     hh = plotAgent(xHnext, 'b');        
-%     xlim([params.lowEnv(1),params.upEnv(1)]);
-%     ylim([params.lowEnv(2),params.upEnv(2)]);
-%     pause(0.1);
+    if ~isempty(hh)
+        delete(hh{1});
+    end
+    hh = plotAgent(xHnext, 'b');        
+    xlim([params.lowEnv(1),params.upEnv(1)]);
+    ylim([params.lowEnv(2),params.upEnv(2)]);
+    pause(0.1);
     % --------------------- %
 
     % Get most recent measurement of where the person is and what action
     % they applied.
-    [xHnext, uHcurr] = params.simHuman.simulateAction(params.simDt);
+    [xHnext, uHcurr] = params.simHuman.simulate(xHnext, t*params.simDt, params.simDt);
 
     % Prediction step.
     predictor.updateState(xHnext, uHcurr);
@@ -74,7 +77,7 @@ for t=0:params.T-1
 end
 
 % Save out data.
-save('introspective_p09.mat', 'timestamps', 'humanStates', 'humanPreds', 'predsTimes');
+save(filename, 'timestamps', 'humanStates', 'humanPreds', 'predsTimes', '-v7.3');
 
 %% Plots human or robot.
 % Inputs:

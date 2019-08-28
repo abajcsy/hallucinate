@@ -1,10 +1,14 @@
 %% Clear old figure plotting and variables.
 clf 
-%clc 
-%clear all
+clc 
+clear all
 
 %% Load the experimental setup.
-params = dubinsCarGaussianHuman();
+%params = scenario1();
+params = scenario2();
+
+% Load the predictions.
+load('/home/abajcsy/hybrid_ws/src/hallucinate/matlab/data/fixed_human_rss_p05.mat');
 
 %% Create human predictor.
 predictor = HumanPredictor(params);
@@ -47,9 +51,6 @@ predGrid2D = proj(params.predGrid, params.predGrid.xs, [0,0,1]);
                               
 %% Simulation loop.
 hold on
-
-% Create the first prediction.
-%load('/home/abajcsy/hybrid_ws/src/hallucinate/matlab/data/introspective_p09.mat');
 
 % predictor.updatePredictions();
 % [preds, times] = predictor.getPredictions();
@@ -119,7 +120,7 @@ for t=0:params.T-1
 
     % Get most recent measurement of where the person is and what action
     % they applied.
-    [xHnext, uHcurr] = params.simHuman.simulateAction(params.simDt);
+    [xHnext, uHcurr] = params.simHuman.simulate(xHnext, t*params.simDt, params.simDt);
 
     % Prediction step.
     %predictor.updateState(xHnext, uHcurr);
@@ -146,6 +147,7 @@ end
 
 %% Gets the 4D Unicycle dynamics.
 function dxdt = unicycleDynamics(t, x, u)
+    x(4) = min(x(4), 0.6)
     dxdt = [x(4) * cos(x(3));
             x(4) * sin(x(3));
             u(1);
