@@ -82,11 +82,11 @@ params.predColor = [99., 180., 255.]/255.;
 %% Robot: Planning Params.
 
 % Discretization in (x,y,theta,v,time)
-params.xDisc = 0.15;
-params.yDisc = 0.15;
+params.xDisc = 0.1;
+params.yDisc = 0.1;
 params.thetaDisc = pi / 45;
-params.vDisc = 0.5;
-params.tDisc = 0.25;
+params.vDisc = 0.05;
+params.tDisc = 0.5;
 
 % Heuristic and goal parameters.
 params.heurWeight = 1.25;
@@ -95,7 +95,7 @@ params.goalTol = 0.2;
 % Setup the state bounds.
 params.xBounds = [params.lowEnv(1), params.upEnv(1)];
 params.yBounds = [params.lowEnv(2), params.upEnv(2)];
-params.vBounds = [0.1, 3];
+params.vBounds = [0, 0.6];
 params.thetaBounds = [-2*pi, 2*pi];
 params.timeBounds = [0, 15]; % Planning horizon.
 

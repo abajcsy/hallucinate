@@ -9,30 +9,41 @@ params = scenario1();
 
 % Load the predictions.
 load('/home/abajcsy/hybrid_ws/src/hallucinate/matlab/data/fixed_human_ours_p05.mat');
+% load('/home/abajcsy/hybrid_ws/src/hallucinate/matlab/data/fixed_human_rss_p05.mat');
+
+% load(['/home/eratner/Documents/hallucinate/matlab/data/' ...
+%       'fixed_human_ours_p05.mat']);
+%load(['/home/eratner/Documents/hallucinate/matlab/data/' ...
+%      'fixed_human_rss_p05.mat']);
 
 %% Create human predictor.
 predictor = HumanPredictor(params);
 
 %% Create robot motion planner.
-planner = LatticePlanner(params.xDisc, params.yDisc, ...
-                        params.thetaDisc, params.vDisc, ...
-                        params.tDisc, params.heurWeight);
-                    
+% planner = LatticePlanner(params.xDisc, params.yDisc, ...
+%                          params.thetaDisc, params.vDisc, ...
+%                          params.tDisc, params.heurWeight, ...
+%                          params.minEdgeTimeSteps, params.maxEdgeTimeSteps);
+
+planner = XYTPlanner(params.xDisc, params.yDisc, params.tDisc, ...
+                     params.heurWeight, params.deltaTCont);
+
+
 % Set up the state bounds.
 planner.stateBounds('x') = params.xBounds;
 planner.stateBounds('y') = params.yBounds;
-planner.stateBounds('v') = params.vBounds;
-planner.stateBounds('theta') = params.thetaBounds;
+% planner.stateBounds('v') = params.vBounds;
+% planner.stateBounds('theta') = params.thetaBounds;
 planner.stateBounds('t') = params.timeBounds;
-                  
+
 % Create the static obstacle map.
-Nx = ceil((params.upEnv(1) - params.lowEnv(1))/params.xDisc);
-Ny = ceil((params.upEnv(2) - params.lowEnv(2))/params.yDisc);
+Nx = round((params.upEnv(1) - params.lowEnv(1))/params.xDisc) + 1;
+Ny = round((params.upEnv(2) - params.lowEnv(2))/params.yDisc) + 1;
 staticGrid2D = createGrid(params.lowEnv, params.upEnv, [Nx; Ny]);
 planner.staticObsMap = OccupancyGrid(params.xDisc, params.yDisc, params.tDisc, ...
                                      params.lowEnv(1), params.upEnv(1), ...
                                      params.lowEnv(2), params.upEnv(2), ...
-                                     params.tMin, params.tMax);
+                                     params.tMin, params.tMax, staticGrid2D);
 % Setup the static obstacles.
 for t=params.tMin:params.tDisc:params.tMax
     for r = params.staticObsBounds
@@ -40,15 +51,16 @@ for t=params.tMin:params.tDisc:params.tMax
         planner.staticObsMap.setRectangularObs(rect{1}, rect{2}, t);
     end
 end
-                                 
+
 % Setup the dynamic obstacle map.
 tDisc = (params.tMax - params.tMin)/params.dt;
-planner.dynObsMap = OccupancyGrid(params.N(1), params.N(2), tDisc, ...
+predGrid2D = proj(params.predGrid, params.predGrid.xs, [0,0,1]);
+planner.dynObsMap = OccupancyGrid(params.xDisc, params.yDisc, params.tDisc, ...
                                   params.lowEnv(1), params.upEnv(1), ...
                                   params.lowEnv(2), params.upEnv(2), ...
-                                  params.tMin, params.tMax);
-predGrid2D = proj(params.predGrid, params.predGrid.xs, [0,0,1]);
-                              
+                                  params.tMin, params.tMax, predGrid2D);
+
+
 %% Simulation loop.
 hold on
 
@@ -58,10 +70,13 @@ planner.dynObsMap.fromValueFuns(predGrid2D, humanPreds{1}, predsTimes{1}, 0);
 
 % Initialize the planned trajectory.
 contStates = {};
-traj = Trajectory(contStates);
+% traj = Trajectory(contStates);
+traj = XYTTrajectory(contStates);
 
 % Initialize the robot state.
-xR = params.xR0(1:4, :);
+% xR = params.xR0(1:4, :);
+xR = params.xR0(1:2);
+xRLast = xR;
 
 % Get the initial state of the simulated human.
 xHnext = params.xH0(1:2);
@@ -71,11 +86,19 @@ rh = [];
 th = [];
 pIdx = 2;
 for t=0:params.T-1
+    xRLast = xR;
     % Update the state based on the planned trajectory / controls.
     if ~traj.isEmpty()
         if ~params.trajUseControl
-            xR = traj.getState(t * params.simDt);
+            if traj.inBounds(t * params.simDt)
+                xR = traj.getState(t * params.simDt);
+                xR = xR(1:2);
+            else
+                fprintf('(run) Warning: time %f not in planned trajectory\n', ...
+                        t * params.simDt);
+            end
         else
+            % NOTE The following will not work for the XYTPlanner.
             % Apply control to robot, and integrate the dynamics to get the next state.
             tspan = [0 params.simDt];
             [~, soln] = ode45(@(t_, x_) unicycleDynamics(t_, x_, ...
@@ -84,27 +107,29 @@ for t=0:params.T-1
         end
     end
 
+    fprintf('Robot speed is %f m/s\n', ...
+            norm(xR - xRLast) / params.simDt);
+
     % ----- plotting ------ %
     planner.staticObsMap.draw(staticGrid2D, 'k');           % draw the static obstacle
     planner.dynObsMap.draw(predGrid2D, params.predColor);   % draw the dynamic obstacle
-	
+
     % plot the robot goal and goal tolerance.
     info = [params.goalRXY(1)-params.goalTol params.goalRXY(2)-params.goalTol params.goalTol*2 params.goalTol*2];
     rectangle('Position',info,'Curvature',1, ...
         'FaceColor', [255, 222, 222]/255., 'EdgeColor', [255, 222, 222]/255.);
    	plot(params.goalRXY(1), params.goalRXY(2), ... 
             'ro','MarkerSize', 8);          % plot robot goal
-    
+
     if ~isempty(hh)
         delete(hh{1});
     end
     hh = plotAgent(xHnext, 'b');        % plot human
-    
+
     if ~isempty(rh)
         delete(rh{1});
-        delete(rh{2});
     end
-    
+
     if ~isempty(th)
         for i=1:length(th)
             delete(th{i});
@@ -112,7 +137,7 @@ for t=0:params.T-1
     end
     th = traj.draw();                   % plot trajectory
     rh = plotAgent(xR, 'r');            % plot robot
-    
+
     xlim([params.lowEnv(1),params.upEnv(1)]);
     ylim([params.lowEnv(2),params.upEnv(2)]);
     pause(0.1);
@@ -131,12 +156,13 @@ for t=0:params.T-1
     planner.dynObsMap.fromValueFuns(predGrid2D, humanPreds{pIdx}, ...
                 predsTimes{pIdx}, ...
                 t*params.simDt);
-	pIdx = pIdx + 1;
+    pIdx = pIdx + 1;
 
     xRStart = xR;
     tStart = t * params.simDt;
-    if ~traj.isEmpty()
+    if ~traj.isEmpty() && traj.inBounds(tStart)
         xRStart = traj.getState(tStart);
+        xRStart = xRStart(1:2);
     end
 
     if traj.isEmpty() || mod(t, params.replanAfterSteps) == 0
@@ -147,7 +173,6 @@ end
 
 %% Gets the 4D Unicycle dynamics.
 function dxdt = unicycleDynamics(t, x, u)
-    x(4) = min(x(4), 0.6)
     dxdt = [x(4) * cos(x(3));
             x(4) * sin(x(3));
             u(1);

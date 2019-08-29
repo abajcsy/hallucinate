@@ -12,10 +12,13 @@ classdef LatticePlanner
         states % Map of states.
         stateBounds % Bounds (i.e. box constraints) on the states.
         heurWeight % Heuristic weight / suboptimality bound for search.
+        minEdgeTimeSteps
+        maxEdgeTimeSteps
     end
 
     methods
-        function obj = LatticePlanner(xDisc, yDisc, thetaDisc, vDisc, tDisc, heurWeight)
+        function obj = LatticePlanner(xDisc, yDisc, thetaDisc, vDisc, tDisc, ...
+                                      heurWeight, minEdgeTimeSteps, maxEdgeTimeSteps)
             obj.xDisc = xDisc;
             obj.yDisc = yDisc;
             obj.thetaDisc = thetaDisc;
@@ -25,6 +28,19 @@ classdef LatticePlanner
             obj.states = containers.Map();
             obj.stateBounds = containers.Map();
             obj.heurWeight = heurWeight;
+
+            obj.staticObsMap = 0;
+            obj.dynObsMap = 0;
+
+            if nargin > 6
+                obj.minEdgeTimeSteps = minEdgeTimeSteps;
+                obj.maxEdgeTimeSteps = maxEdgeTimeSteps;
+            else
+                obj.minEdgeTimeSteps = 1;
+                obj.maxEdgeTimeSteps = 4;
+                fprintf('Using default edge time step range (%d, %d)\n', ...
+                        obj.minEdgeTimeSteps, obj.maxEdgeTimeSteps);
+            end
         end
 
         function state = getState(obj, xDisc, yDisc, thetaDisc, vDisc, tDisc)
@@ -156,13 +172,17 @@ classdef LatticePlanner
             costs = {};
 
             idx = 1;
-            deltaT = 1;
+            % deltaT = 1;
 
             % TODO These should be planner parameters.
             % localXRange = [1, 2];
             localXRange = [1, 3];
+            % localXRange = [2, 5];
             localYRange = [-2, 2];
             aRange = [-1, 1];
+            % deltaTRange = [1, 4];
+            deltaTRange = [obj.minEdgeTimeSteps, ...
+                           obj.maxEdgeTimeSteps];
 
             % TODO These should be parameters.
             f0 = 1;
@@ -170,78 +190,88 @@ classdef LatticePlanner
 
             for localX = localXRange(1):localXRange(2)
                 for localY = localYRange(1):localYRange(2)
-                    for a = aRange(1):aRange(2)
-                        % Get the state and successor coordinates in the
-                        % global frame.
-                        startCoords = [obj.discToCont(state.x, 1);
-                                       obj.discToCont(state.y, 2);
-                                       obj.discToCont(state.theta, 3);
-                                       obj.discToCont(state.v, 4)];
+                    for acc = aRange(1):aRange(2)
+                        for deltaT = deltaTRange(1):deltaTRange(2)
+                            % Get the state and successor coordinates in the
+                            % global frame.
+                            startCoords = [obj.discToCont(state.x, 1);
+                                           obj.discToCont(state.y, 2);
+                                           obj.discToCont(state.theta, 3);
+                                           obj.discToCont(state.v, 4)];
 
-                        R = [cos(startCoords(3)), -sin(startCoords(3));
-                             sin(startCoords(3)), cos(startCoords(3))];
+                            R = [cos(startCoords(3)), -sin(startCoords(3));
+                                 sin(startCoords(3)), cos(startCoords(3))];
 
-                        localXCont = obj.discToCont(localX, 1);
-                        localYCont = obj.discToCont(localY, 2);
+                            localXCont = obj.discToCont(localX, 1);
+                            localYCont = obj.discToCont(localY, 2);
 
-                        endCoords = startCoords + [R * [localXCont; localYCont]; ...
-                                            atan(localYCont / localXCont); ...
-                                            obj.discToCont(a, 4)];
+                            endCoords = startCoords + [R * [localXCont; localYCont]; ...
+                                                atan(localYCont / localXCont); ...
+                                                obj.discToCont(acc, 4)];
 
-                        % If the coordinates of the successor state are not
-                        % valid, do not generate the edge.
-                        if ~obj.isValid(endCoords(1), ...
-                                        endCoords(2), ...
-                                        endCoords(3), ...
-                                        endCoords(4), ...
-                                        obj.discToCont(state.t + deltaT, 5))
-                            continue;
+                            % If the coordinates of the successor state are not
+                            % valid, do not generate the edge.
+                            if ~obj.isValid(endCoords(1), ...
+                                            endCoords(2), ...
+                                            endCoords(3), ...
+                                            endCoords(4), ...
+                                            obj.discToCont(state.t + deltaT, 5))
+                                continue;
+                            end
+
+                            % Choose the free parameters of the spline heuristically.
+                            [f0, f1] = obj.getHeuristicFValues(startCoords(4), ...
+                                                               startCoords(1), ...
+                                                               startCoords(2), ...
+                                                               endCoords(1), ...
+                                                               endCoords(2));
+
+                            % Otherwise, generate motion primitive.
+                            [a, b, c, d] = unicycleThirdOrderTimeSpline(startCoords(1), ...
+                                                                        startCoords(2), ...
+                                                                        startCoords(3), ...
+                                                                        startCoords(4), ...
+                                                                        f0, ...
+                                                                        endCoords(1), ...
+                                                                        endCoords(2), ...
+                                                                        endCoords(3), ...
+                                                                        endCoords(4), ...
+                                                                        f1, ...
+                                                                        obj ...
+                                                                        .discToCont(deltaT, 5));
+
+                            % TODO Should be a planner parameter.
+                            numSamples = 50;
+
+                            % Velocity must be within bounds along the spline.
+                            if ~obj.isVelocityBounded(a, b, c, d, ...
+                                                      obj.discToCont(deltaT, 5), ...
+                                                      numSamples)
+                                continue;
+                            end
+
+                            edges{idx} = [a, b, c, d];
+
+                            if ~obj.isEdgeSafe(a, b, c, d, ...
+                                               obj.discToCont(state.t, 5), ...
+                                               obj.discToCont(state.t + deltaT, 5), ...
+                                               numSamples)
+                                continue;
+                            end
+
+                            % Add the successor state.
+                            succ = obj.getState(obj.contToDisc(endCoords(1), 1), ...
+                                                obj.contToDisc(endCoords(2), 2), ...
+                                                obj.contToDisc(endCoords(3), 3), ...
+                                                obj.contToDisc(endCoords(4), 4), ...
+                                                state.t + deltaT);
+
+                            costs{idx} = obj.getCost(state, succ, a, b, ...
+                                                            c, d);
+                            succs{idx} = succ;
+
+                            idx = idx + 1;
                         end
-
-                        % Choose the free parameters of the spline heuristically.
-                        [f0, f1] = obj.getHeuristicFValues(startCoords(4), ...
-                                                           startCoords(1), ...
-                                                           startCoords(2), ...
-                                                           endCoords(1), ...
-                                                           endCoords(2));
-
-                        % Otherwise, generate motion primitive.
-                        [a, b, c, d] = unicycleThirdOrderTimeSpline(startCoords(1), ...
-                                                                    startCoords(2), ...
-                                                                    startCoords(3), ...
-                                                                    startCoords(4), ...
-                                                                    f0, ...
-                                                                    endCoords(1), ...
-                                                                    endCoords(2), ...
-                                                                    endCoords(3), ...
-                                                                    endCoords(4), ...
-                                                                    f1, ...
-                                                                    obj ...
-                                                                    .discToCont(deltaT, 5));
-
-                        edges{idx} = [a, b, c, d];
-
-                        % TODO Should be a planner parameter.
-                        numSamples = 50;
-                        if ~obj.isEdgeSafe(a, b, c, d, ...
-                                           obj.discToCont(state.t, 5), ...
-                                           obj.discToCont(state.t + deltaT, 5), ...
-                                           numSamples)
-                            continue;
-                        end
-
-                        % Add the successor state.
-                        succ = obj.getState(obj.contToDisc(endCoords(1), 1), ...
-                                            obj.contToDisc(endCoords(2), 2), ...
-                                            obj.contToDisc(endCoords(3), 3), ...
-                                            obj.contToDisc(endCoords(4), 4), ...
-                                            state.t + deltaT);
-
-                        costs{idx} = obj.getCost(state, succ, a, b, ...
-                                                        c, d);
-                        succs{idx} = succ;
-
-                        idx = idx + 1;
                     end
                 end
             end
@@ -329,6 +359,7 @@ classdef LatticePlanner
                                [obj.discToCont(state.x, 1); obj.discToCont(state.y, ...
                                                               2)]);
 
+            % cost = cost + obj.discToCont(succ.t - state.t, 5);
             % TODO Add additional costs as needed
         end
 
@@ -355,7 +386,7 @@ classdef LatticePlanner
                 end
 
                 % Check against the dynamic obstacle map.
-                if obj.dynObsMap.getData(xsample, ysample, t0 + Tsample * t) ...
+                if obj.dynObsMap ~= 0 && obj.dynObsMap.getData(xsample, ysample, t0 + Tsample * t) ...
                         > 0
                     safe = 0;
                     break;
@@ -363,23 +394,22 @@ classdef LatticePlanner
             end
         end
 
-        function isVelocityBounded(obj, a, b, c, d, t0, t1, numSamples)
-        % TODO Finish implementing / testing this function.
+        function safe = isVelocityBounded(obj, a, b, c, d, T, numSamples)
             safe = 1;
-            vxfunc = @(t) 3 .* a(1) .* t.^2 + 2 .* b(1) .* t + ...
-                     c(1);
-            vyfunc = @(t) 3 .* a(2) .* t.^2 + 2 .* b(2) .* t + ...
-                     c(2);
 
-            T = t1 - t0;
+            pfunc = @(t) a(3) * t^3 + b(3) * t^2 + c(3) * t + d(3);
+
+            vpfunc = @(t) 3 * a(3) * t^2 + 2 * b(3) * t + c(3);
+            vxfunc = @(t) (3 * a(1) * pfunc(t)^2 + 2 * b(1) * pfunc(t) + c(1)) * vpfunc(t);
+            vyfunc = @(t) (3 * a(2) * pfunc(t)^2 + 2 * b(2) * pfunc(t) + c(2)) * vpfunc(t);
+            vfunc = @(t) norm([vxfunc(t); vyfunc(t)]);
+
             Tsample = T / numSamples;
-            for t = 1:(numSamples - 1)
-                vxsample = vxfunc(t * Tsample);
-                vysample = vyfunc(t * Tsample);
-
+            for k = 1:(numSamples - 1)
                 % Check the sampled velocity to ensure that it is in bounds.
-                vsample = sqrt(vxsample^2 + vysample^2);
+                vsample = vfunc(k * Tsample);
                 if ~obj.inBounds(vsample, 'v')
+                    % fprintf('Velocity of %f is too high!\n', vsample);
                     safe = 0;
                     break;
                 end

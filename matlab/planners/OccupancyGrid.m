@@ -13,16 +13,19 @@ classdef OccupancyGrid < handle
 
        data  % Cell array of grids (indexed by time).
        times % Array of times.
-       
+
        figh % figure handle.
+       hjiGrid;
    end
 
    methods
        function obj = OccupancyGrid(xDisc, yDisc, tDisc, xMin, xMax, yMin, ...
-                                    yMax, tMin, tMax)
+                                    yMax, tMin, tMax, hjiGrid)
            obj.xDisc = xDisc;
            obj.yDisc = yDisc;
            obj.tDisc = tDisc;
+           fprintf('Creating occupancy grid with disc (%f, %f, %f)\n', ...
+                   obj.xDisc, obj.yDisc, obj.tDisc);
 
            obj.xMin = xMin;
            obj.xMax = xMax;
@@ -31,23 +34,25 @@ classdef OccupancyGrid < handle
            obj.tMin = tMin;
            obj.tMax = tMax;
 
-           xExtent = ceil((xMax - xMin) / xDisc);
-           yExtent = ceil((yMax - yMin) / yDisc);
-           tExtent = ceil((tMax - tMin) / tDisc);
+           xExtent = round((xMax - xMin) / xDisc) + 1;
+           yExtent = round((yMax - yMin) / yDisc) + 1;
+           tExtent = round((tMax - tMin) / tDisc) + 1;
 
            obj.times = tMin:tDisc:tMax;
            obj.data = {};
            for t=1:length(obj.times)
               obj.data{t} = zeros(xExtent, yExtent);
            end
-           
+
            obj.figh = [];
+           obj.hjiGrid = hjiGrid;
        end
 
        function fromValueFuns(obj, grid, valueFuns, times, t0)
            obj.times = zeros(1,length(times));
            obj.data = cell(1,length(times));
            obj.tMin = t0;
+           obj.hjiGrid = grid;
 
            % We want to project all dimensions down into 2D.
            projDims = zeros(1,grid.dim);
@@ -72,10 +77,10 @@ classdef OccupancyGrid < handle
            else
                for i=1:length(times)
                    data2D = valueFuns(:,:,i);
-                    
+
                    % Convert to binary map.
                    data2D = 1*(data2D <= 0) + 0*(data2D > 0);
-                    
+
                    obj.data{i} = data2D;
                    obj.times(i) = t0 + times(i);
                end
@@ -86,7 +91,7 @@ classdef OccupancyGrid < handle
            [lowi, lowj] = obj.xyToIndex(lowXY(1), lowXY(2));
            [upi, upj] = obj.xyToIndex(upXY(1), upXY(2));
            k = obj.timeToIndex(t);
-           
+
            for i=lowi:upi
                for j=lowj:upj
                     obj.data{k}(i, j) = 1;
@@ -122,8 +127,18 @@ classdef OccupancyGrid < handle
        end
 
        function [i, j] = xyToIndex(obj, x, y)
-           i = floor((x - obj.xMin) / obj.xDisc) + 1;
-           j = floor((y - obj.yMin) / obj.yDisc) + 1;
+           % if isnan(obj.hjiGrid)
+           %     i = floor((x - obj.xMin) / obj.xDisc) + 1;
+           %     j = floor((y - obj.yMin) / obj.yDisc) + 1;
+           % else
+           %     error = sqrt((obj.hjiGrid.xs{1} - x(1)).^2 + (obj.hjiGrid.xs{2} - x(2)).^2);
+           %     [~,idx] = min(error(:));
+           %     [i, j] = ind2sub(size(error),idx);
+           % end
+
+           error = sqrt((obj.hjiGrid.xs{1} - x).^2 + (obj.hjiGrid.xs{2} - y).^2);
+           [~,idx] = min(error(:));
+           [i, j] = ind2sub(size(error),idx);
        end
 
        function [x, y] = indexToXY(obj, i, j)

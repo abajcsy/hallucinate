@@ -1,32 +1,16 @@
-% % xDisc = 0.25;
-% % yDisc = 0.25;
-% xDisc = 0.15;
-% yDisc = 0.15;
-% thetaDisc = pi / 45;
-% % vDisc = 0.5;
-% vDisc = 0.1;
-% tDisc = 0.25;
-
-% Discretization on 8/28/2019
-% xDisc = 0.1;
-% yDisc = 0.1;
+% Planner discretization parameters.
 xDisc = 0.25;
 yDisc = 0.25;
-thetaDisc = pi / 45;
-vDisc = 0.05;
-tDisc = 0.5;
+tDisc = 0.1;
+deltaTCont = 0.5;
 
-heurWeight = 1.25;
-% heurWeight = 3;
+heurWeight = 1;
 
-planner = LatticePlanner(xDisc, yDisc, thetaDisc, vDisc, tDisc, heurWeight);
+planner = XYTPlanner(xDisc, yDisc, tDisc, heurWeight, deltaTCont);
 
 % Set up the state bounds.
 planner.stateBounds('x') = [-0.1, 3];
 planner.stateBounds('y') = [-0.1, 3];
-% planner.stateBounds('v') = [0.1, 3];
-planner.stateBounds('v') = [0, 0.6];
-planner.stateBounds('theta') = [-pi, pi];
 planner.stateBounds('t') = [0, 15]; % Planning horizon.
 
 % Set up the occupancy grid.
@@ -49,7 +33,7 @@ obsBoundsY = [0.75, 1.5];
 % dynObsStartXY = [0; 2.5];
 dynObsStartXY = [0.3; 1];
 % dynObsVel = [0.25; -0.1];
-dynObsVel = [0.75; 0];
+dynObsVel = [0.2; 0];
 dynObsDim = [0.75; 0.75];
 
 planner.dynObsMap = OccupancyGrid(xDisc, yDisc, tDisc, ...
@@ -81,30 +65,18 @@ for t = tBounds(1):tDisc:tBounds(2)
     % end
 end
 
-contVal = 1.25;
-fprintf("cont = %f, disc = %f\n", contVal, planner.contToDisc(contVal, 5));
-
-% goalXY = [3; 0];
-% goalXY = [1; 1];
-% goalXY = [0.5; 2.5];
-% goalXY = [1.5; 2];
-% goalXY = [0.2; 2.8];
-% goalXY = [1.8; 1.25];
 goalXY = [1.8; 1.8];
 goalTol = 0.2;
 
 % Plan the trajectory.
-% startStateCont = [0; 0; 0; 0.5; 0];
-startStateCont = [0; 0; 0; 0.1; 0];
-% startStateCont = [0; 0; pi / 8; 0.1; 0];
-
+startStateCont = [0; 0; 0];
 traj = planner.plan(startStateCont, goalXY, goalTol);
 
 figure;
 hold on;
 axis equal;
 
-drawTriangle([startStateCont(1); startStateCont(2)], startStateCont(3), 0.1);
+% Draw the goal and goal tolerance.
 scatter([goalXY(1)], [goalXY(2)]);
 drawCircle(goalXY, goalTol);
 
@@ -124,48 +96,23 @@ dynObs.set('facealpha', 0.5);
 
 traj.draw(false);
 
-lastT = traj.contStates{end}(5);
+lastT = traj.contStates{end}(3);
 samplesX = [];
 samplesY = [];
 t = 0;
-% t = 0.01;
-% dt = 0.05;
-% dt = 0.01;
-dt = 0.005;
+dt = 0.01;
 state = traj.getState(t);
-stateWithCtrl = traj.getState(t);
-stateVis = drawTriangle([state(1); state(2)], state(3), 0.05);
-stateWithCtrlVis = drawTriangle([stateWithCtrl(1); stateWithCtrl(2)], ...
-                                stateWithCtrl(3), 0.05);
-
-kPropAngAcc = 1.5;
-kPropLinAcc = 0.25;
+stateVis = drawCircle(state(1:2), 0.05);
 
 while t < lastT
     state = traj.getState(t);
-    ctrl = traj.getControl(t)
-
-    % Euler integration.
-    % stateWithCtrl = stateWithCtrl + dt * ...
-    %     [stateWithCtrl(4) * cos(stateWithCtrl(3)); ...
-    %      stateWithCtrl(4) * sin(stateWithCtrl(3)); ...
-    %      ctrl(1); ...
-    %      ctrl(2)];
-
-    % Using ODE solver.
-    tspan = [0 dt];
-    [tt, soln] = ode45(@(t_, x_) unicycleDynamics(t_, x_, traj.getControl(t + t_)), ...
-                       tspan, ...
-                       stateWithCtrl);
-    stateWithCtrl = soln(end, :)';
 
     t = t + dt;
     samplesX = [samplesX, state(1)];
     samplesY = [samplesY, state(2)];
 
-    drawTriangle([state(1); state(2)], state(3), 0.05, stateVis);
-    drawTriangle([stateWithCtrl(1); stateWithCtrl(2)], ...
-                 stateWithCtrl(3), 0.05, stateWithCtrlVis);
+    % Update the state.
+    stateVis = drawCircle(state(1:2), 0.05);
 
     % Update the dynmaic obstacle.
     lowerBounds = dynObsStartXY + t * dynObsVel;
@@ -180,18 +127,6 @@ while t < lastT
 end
 
 scatter(samplesX, samplesY);
-
-if length(traj.splines) > 0
-    state = traj.contStates{end};
-    drawTriangle([state(1); state(2)], state(3), 0.1);
-end
-
-function dxdt = unicycleDynamics(t, x, u)
-    dxdt = [x(4) * cos(x(3));
-            x(4) * sin(x(3));
-            u(1);
-            u(2)];
-end
 
 function tri = drawTriangle(origin, rot, sideLength, lastTri)
     aLocal = [2*sideLength; 0; 1];

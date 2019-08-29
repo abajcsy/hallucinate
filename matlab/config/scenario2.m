@@ -81,25 +81,34 @@ params.predColor = [99., 180., 255.]/255.;
 %% Robot: Planning Params.
 
 % Discretization in (x,y,theta,v,time)
-params.xDisc = 0.15;
-params.yDisc = 0.15;
+params.xDisc = 0.25;
+params.yDisc = 0.25;
 params.thetaDisc = pi / 45;
-params.vDisc = 0.5;
-params.tDisc = 0.25;
+params.vDisc = 0.05;
+% params.tDisc = 0.5;
+params.tDisc = 1;
 
-% Heuristic and goal parameters.
-params.heurWeight = 1.25;
+% Heuristic and goal parameters.p
+% params.heurWeight = 1.25;
+% params.heurWeight = 5;
+params.heurWeight = 3;
+% params.heurWeight = 2;
 params.goalTol = 0.2;
+
+params.minEdgeTimeSteps = 2;
+params.maxEdgeTimeSteps = 2;
 
 % Setup the state bounds.
 params.xBounds = [params.lowEnv(1), params.upEnv(1)];
 params.yBounds = [params.lowEnv(2), params.upEnv(2)];
-params.vBounds = [0.1, 3];
-params.thetaBounds = [-2*pi, 2*pi];
+params.vBounds = [0, 1];
+% params.thetaBounds = [-2*pi, 2*pi];
+params.thetaBounds = [-pi, pi];
 params.timeBounds = [0, 15]; % Planning horizon.
 
 % Setup initial state of planner and goal state of planner.
 params.xR0 = [-1; -0.5; 0; 0.1; 0];
+% params.xR0 = [-1.5; -0.5; 0; 0; 0];
 params.goalRXY = [1.5; 1.5];
 
 %% Robot: Dynamical System Params.
@@ -118,6 +127,6 @@ params.replanAfterSteps = 1;
 
 % If set to true, uses the control from the trajectory; otherwise, uses the
 % state directly.
-params.trajUseControl = true;
+params.trajUseControl = false;
 
 end
