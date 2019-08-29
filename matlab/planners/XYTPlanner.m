@@ -11,6 +11,8 @@ classdef XYTPlanner
         states % Map of states.
         stateBounds % Bounds (i.e. box constraints) on the states.
         heurWeight % Heuristic weight / suboptimality bound for search.
+
+        debugDynObsPlot
     end
 
     methods
@@ -28,6 +30,8 @@ classdef XYTPlanner
 
             obj.staticObsMap = 0;
             obj.dynObsMap = 0;
+
+            obj.debugDynObsPlot = scatter([0], [0]);
         end
 
         function state = getState(obj, xDisc, yDisc, tDisc)
@@ -48,6 +52,51 @@ classdef XYTPlanner
                     startStateCont(3));
             % TODO (HACK) Need to clear the states.
             obj.states = containers.Map();
+
+            % NOTE The following is debugging for the dynamic obstacle map.
+            fprintf('(dynObsMap) tMin = %f, tMax = %f\n', ...
+                    obj.dynObsMap.tMin, obj.dynObsMap.tMax);
+            fprintf('(dynObsMap) times: ');
+            for i = 1:length(obj.dynObsMap.times)
+                fprintf('%f ', obj.dynObsMap.times(i));
+            end
+            fprintf('\n');
+
+            % For debugging, plot the dynamic obstacle occupancy in a region
+            % around the robot.
+            debugXMin = max(obj.dynObsMap.xMin, startStateCont(1) - 1.5)
+            debugXMax = min(obj.dynObsMap.xMax, startStateCont(1) + 1.5)
+            debugYMin = max(obj.dynObsMap.yMin, startStateCont(2) - 1.5)
+            debugYMax = min(obj.dynObsMap.yMax, startStateCont(2) + 1.5)
+            debugTMin = obj.dynObsMap.tMin;
+            debugTMax = obj.dynObsMap.tMax;
+            % obj.dynObsMap.xDisc
+            % obj.dynObsMap.yDisc
+            obj.dynObsMap.tDisc
+
+            xs = [];
+            ys = [];
+            for x = debugXMin:obj.dynObsMap.xDisc:debugXMax
+                for y = debugYMin:obj.dynObsMap.yDisc:debugYMax
+                    plotData = false;
+                    for t = debugTMin:obj.dynObsMap.tDisc:debugTMax
+                        data = obj.dynObsMap.getData(x, y, t);
+                        if data > 0
+                            plotData = true;
+                            break;
+                        end
+                    end
+
+                    if plotData
+                        xs = [xs, x];
+                        ys = [ys, y];
+                    end
+                end
+            end
+            xs
+            ys
+            obj.debugDynObsPlot.set('XData', xs);
+            obj.debugDynObsPlot.set('YData', ys);
 
             startStateDisc = [obj.contToDisc(startStateCont(1), 1);
                               obj.contToDisc(startStateCont(2), 2);
@@ -189,7 +238,7 @@ classdef XYTPlanner
         end
 
         function valid = isStateValid(obj, stateCoords)
-            valid = 1;
+            valid = true;
 
             % Check state bounds provided by the environment.
             valid = valid && obj.inBounds(stateCoords(1), 'x');
@@ -199,19 +248,25 @@ classdef XYTPlanner
 
         function valid = isEdgeValid(obj, stateCoords, succCoords, ...
                                      numSamples)
-            valid = 1;
+            valid = true;
 
             % Check against collisions with dynamic / static obstacles.
             totalDist = norm(succCoords(1:2) - stateCoords(1:2));
             sampleDist = totalDist / numSamples;
+            % fprintf('Checking edge between (%f, %f, %f) and (%f, %f, %f)\n', ...
+            %         stateCoords(1), stateCoords(2), stateCoords(3), ...
+            %         succCoords(1), succCoords(2), succCoords(3));
             for k = 0:(numSamples - 1)
-                sampleCoords = stateCoords + (sampleDist * k) * (succCoords - ...
-                                                                 stateCoords);
+                sampleCoords = stateCoords + (k / (numSamples - 1)) * (succCoords ...
+                                                                  - stateCoords);
+
+                % fprintf('  Sample at (%f, %f, %f)\n', ...
+                %         sampleCoords(1), sampleCoords(2), sampleCoords(3));
 
                 % Check against the static obstacle map.
                 if obj.staticObsMap ~= 0 && obj.staticObsMap.getData(sampleCoords(1), ...
                                                                      sampleCoords(2), 0) > 0
-                    valid = 0;
+                    valid = false;
                     break;
                 end
 
@@ -220,19 +275,21 @@ classdef XYTPlanner
                                                                sampleCoords(2), ...
                                                                sampleCoords(3)) ...
                         > 0
-                    valid = 0;
+                    fprintf('Collision with dynamic obstacle at sample (%f, %f, %f)\n', ...
+                            sampleCoords(1), sampleCoords(2), sampleCoords(3));
+                      valid = false;
                     break;
                 end
             end
         end
 
         function valid = inBounds(obj, value, stateName)
-            valid = 1;
+            valid = true;
 
             if obj.stateBounds.isKey(stateName)
                 bounds = obj.stateBounds(stateName);
                 if value < bounds(1) || value > bounds(2)
-                    valid = 0;
+                    valid = false;
                 end
             else
                 fprintf('Warning: no bounds found for state name %s!\n', ...

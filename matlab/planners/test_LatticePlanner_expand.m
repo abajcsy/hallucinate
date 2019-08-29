@@ -1,13 +1,18 @@
-xDisc = 0.1;
-yDisc = 0.1;
+% xDisc = 0.1;
+% yDisc = 0.1;
+xDisc = 0.25;
+yDisc = 0.25;
 thetaDisc = pi / 45;
 % vDisc = 0.05;
 vDisc = 0.05;
 tDisc = 0.5;
 
 heurWeight = 1.25;
+minEdgeTimeSteps = 2;
+maxEdgeTimeSteps = 2;
 
-planner = LatticePlanner(xDisc, yDisc, thetaDisc, vDisc, tDisc, heurWeight);
+planner = LatticePlanner(xDisc, yDisc, thetaDisc, vDisc, tDisc, heurWeight, ...
+                         minEdgeTimeSteps, maxEdgeTimeSteps);
 
 % Set up the state bounds.
 planner.stateBounds('x') = [-0.1, 3];
@@ -29,7 +34,7 @@ planner.dynObsMap = OccupancyGrid(xDisc, yDisc, tDisc, ...
                                   yBounds(1), yBounds(2), ...
                                   tBounds(1), tBounds(2));
 
-startState = LatticePlannerState(0, 0, 0, 1, 0);
+startState = LatticePlannerState(1, 1, 0, 1, 0);
 [succs, edges, costs] = planner.expand(startState);
 fprintf("expanded %d successors\n", length(succs));
 

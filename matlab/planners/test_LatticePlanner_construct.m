@@ -8,8 +8,10 @@
 % tDisc = 0.25;
 
 % Discretization on 8/28/2019
-xDisc = 0.1;
-yDisc = 0.1;
+% xDisc = 0.1;
+% yDisc = 0.1;
+xDisc = 0.25;
+yDisc = 0.25;
 thetaDisc = pi / 45;
 vDisc = 0.05;
 tDisc = 0.5;
