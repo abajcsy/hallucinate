@@ -114,8 +114,11 @@ params.goalRXY = [-1; 1];
 
 %% Robot: Dynamical System Params.
 wMax = 1;
-aRange = [0,0.1];
+%aRange = [0,0.1];
 vRange = params.vBounds;
+dMax = 0;
+params.simRobot = Plane(params.xR0(1:3), wMax, vRange, dMax);
+% params.simRobot = DubinsCar(params.xR0(1:3), wMax, speed, dMax);
 % params.simRobot = Unicycle4DRobot(params.xR0(1:4), wMax, aRange, vRange);
 
 %% Simulation Params.

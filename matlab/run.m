@@ -4,8 +4,8 @@ clc
 clear all
 
 %% Load the experimental setup.
-params = scenario1();
-%params = scenario2();
+%params = scenario1();
+params = scenario2();
 
 % Load the predictions.
 load('/home/abajcsy/hybrid_ws/src/hallucinate/matlab/data/fixed_human_ours_p05.mat');
@@ -25,7 +25,6 @@ predictor = HumanPredictor(params);
 
 planner = XYTPlanner(params.xDisc, params.yDisc, params.tDisc, ...
                      params.heurWeight, params.deltaTCont);
-
 
 % Set up the state bounds.
 planner.stateBounds('x') = params.xBounds;
@@ -57,7 +56,8 @@ planner.dynObsMap = OccupancyGrid(params.xDisc, params.yDisc, params.tDisc, ...
                                   params.lowEnv(1), params.upEnv(1), ...
                                   params.lowEnv(2), params.upEnv(2), ...
                                   params.tMin, params.tMax, predGrid2D);
-
+%% Controller.
+controller = PIDController(params.simRobot, params.simDt);
 
 %% Simulation loop.
 hold on
@@ -72,7 +72,7 @@ contStates = {};
 traj = XYTTrajectory(contStates);
 
 % Initialize the robot state.
-xRActual = params.xR0(1:4, :);
+xRActual = params.simRobot.x; 
 xR = params.xR0(1:2);
 xRLast = xR;
 
@@ -100,11 +100,15 @@ for t=0:params.T-1
             % Apply control to robot, and integrate the dynamics to get the
             % next state.
             fprintf('Applying a control...\n');
-            tspan = [0 params.simDt];
-            [~, soln] = ode45(@(t_, x_) unicycleDynamics(t_, x_, ...
-                getControl((t - 1) * params.simDt + t_, x_, traj)), tspan, xRActual);
-            xRActual = soln(end, :)';
-            xR = xRActual(1:2);
+            u = controller.getControl(t, xRActual);
+            
+            % Update *simulated* robot state based on control input. 
+            params.simRobot.updateState(u, params.simDt, params.simRobot.x);
+            xRActual = params.simRobot.x;
+            
+            % Get the *planned* state at this time for visualization. 
+            xR = traj.getState(t * params.simDt);
+            xR = xR(1:2);
         end
     end
 
@@ -160,6 +164,9 @@ for t=0:params.T-1
 
     % Planning step.
     %[preds, times] = predictor.getPredictions();
+    if pIdx > length(humanPreds)
+        pIdx = length(humanPreds);
+    end
     planner.dynObsMap.fromValueFuns(predGrid2D, humanPreds{pIdx}, ...
                 predsTimes{pIdx}, ...
                 t*params.simDt);
@@ -175,6 +182,7 @@ for t=0:params.T-1
     if traj.isEmpty() || mod(t, params.replanAfterSteps) == 0
         traj = planner.plan([xRStart; tStart], params.goalRXY, ...
                             params.goalTol);
+        controller.updatePath(traj.contStates, tStart, true);
     end
 end
 
