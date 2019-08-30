@@ -1,17 +1,17 @@
 % Planner discretization parameters.
 xDisc = 0.25;
 yDisc = 0.25;
-tDisc = 0.1;
-deltaTCont = 0.5;
+tDisc = 0.001;
+edgeVel = 0.5;
 
-heurWeight = 1;
+heurWeight = 5;
 
-planner = XYTPlanner(xDisc, yDisc, tDisc, heurWeight, deltaTCont);
+planner = XYTPlanner(xDisc, yDisc, tDisc, heurWeight, edgeVel);
 
 % Set up the state bounds.
 planner.stateBounds('x') = [-0.1, 3];
 planner.stateBounds('y') = [-0.1, 3];
-planner.stateBounds('t') = [0, 15]; % Planning horizon.
+planner.stateBounds('t') = [0, 12]; % Planning horizon.
 
 % Set up the occupancy grid.
 xBounds = planner.stateBounds('x');
@@ -127,30 +127,6 @@ while t < lastT
 end
 
 scatter(samplesX, samplesY);
-
-function tri = drawTriangle(origin, rot, sideLength, lastTri)
-    aLocal = [2*sideLength; 0; 1];
-    bLocal = [0; -sideLength / sqrt(2); 1];
-    cLocal = [0; sideLength / sqrt(2); 1];
-
-    T = [cos(rot), -sin(rot), origin(1);
-         sin(rot), cos(rot), origin(2);
-         0, 0, 1];
-    a = T * aLocal;
-    b = T * bLocal;
-    c = T * cLocal;
-
-    if nargin > 3
-        lastTri.set('XData', [a(1), b(1), c(1)]);
-        lastTri.set('YData', [a(2), b(2), c(2)]);
-        tri = lastTri;
-    else
-        tri = fill([a(1), b(1), c(1)], ...
-                   [a(2), b(2), c(2)], ...
-                   'b');
-        set(tri, 'facealpha', 0.5);
-    end
-end
 
 function circ = drawCircle(origin, radius)
     th = 0:pi/50:2*pi;

@@ -15,7 +15,6 @@ load(['/home/eratner/Documents/hallucinate/matlab/data/' ...
       'fixed_human_rss_p05.mat']);
 
 
-
 %% Create human predictor.
 predictor = HumanPredictor(params);
 
@@ -74,7 +73,7 @@ contStates = {};
 traj = XYTTrajectory(contStates);
 
 % Initialize the robot state.
-% xR = params.xR0(1:4, :);
+xRActual = params.xR0(1:4, :);
 xR = params.xR0(1:2);
 xRLast = xR;
 
@@ -83,6 +82,7 @@ xHnext = params.xH0(1:2);
 
 hh = [];
 rh = [];
+arh = [];
 th = [];
 pIdx = 2;
 for t=0:params.T-1
@@ -98,12 +98,14 @@ for t=0:params.T-1
                         t * params.simDt);
             end
         else
-            % NOTE The following will not work for the XYTPlanner.
-            % Apply control to robot, and integrate the dynamics to get the next state.
+            % Apply control to robot, and integrate the dynamics to get the
+            % next state.
+            fprintf('Applying a control...\n');
             tspan = [0 params.simDt];
             [~, soln] = ode45(@(t_, x_) unicycleDynamics(t_, x_, ...
-                traj.getControl((t - 1) * params.simDt + t_)), tspan, xR);
-            xR = soln(end, :)';
+                getControl((t - 1) * params.simDt + t_, x_, traj)), tspan, xRActual);
+            xRActual = soln(end, :)';
+            xR = xRActual(1:2);
         end
     end
 
@@ -130,6 +132,11 @@ for t=0:params.T-1
         delete(rh{1});
     end
 
+    if ~isempty(arh)
+        delete(arh{1});
+        delete(arh{2});
+    end
+
     if ~isempty(th)
         for i=1:length(th)
             delete(th{i});
@@ -137,6 +144,7 @@ for t=0:params.T-1
     end
     th = traj.draw();                   % plot trajectory
     rh = plotAgent(xR, 'r');            % plot robot
+    arh = plotAgent(xRActual, 'g');
 
     xlim([params.lowEnv(1),params.upEnv(1)]);
     ylim([params.lowEnv(2),params.upEnv(2)]);
@@ -177,6 +185,34 @@ function dxdt = unicycleDynamics(t, x, u)
             x(4) * sin(x(3));
             u(1);
             u(2)];
+end
+
+%% Gets the 3D Dubins car dynamics.
+function dxdt = dubinsCarDynamics(t, x, u, v)
+    dxdt = [v * cos(x(3));
+            v * sin(x(3));
+            u];
+end
+
+%% Simple controller.
+function u = getControl(t, x, trajRef)
+    kPropLinAcc = 2;
+    kPropAngAcc = 0.5;
+
+    xRef = trajRef.getState(t);
+    posErr = [xRef(1) - x(1);
+              xRef(2) - x(2)];
+
+    % Acceleration is proportional to position error along current
+    % direction of travel.
+    dir = [cos(x(3)); sin(x(3))];
+    a = kPropLinAcc * (posErr' * dir);
+
+    % Angular velocity is proportional to the difference between the
+    % current heading and the reference heading.
+    headingErr = xRef(3) - x(3);
+    omega = kPropAngAcc * headingErr;
+    u = [omega; a];
 end
 
 %% Plots human or robot.

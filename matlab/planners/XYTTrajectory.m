@@ -11,7 +11,7 @@ classdef XYTTrajectory < handle
         end
 
         function empty = isEmpty(obj)
-            empty = (length(obj.contStates) == 0);
+            empty = isempty(obj.contStates);
         end
 
         function valid = inBounds(obj, t)

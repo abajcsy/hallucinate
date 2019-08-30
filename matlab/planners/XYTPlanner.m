@@ -3,8 +3,8 @@ classdef XYTPlanner
         xDisc     % Discretization in x (m / unit).
         yDisc     % Discretization in y (m / unit).
         tDisc     % Discretization in t (s / unit).
-        deltaT    % Number of discrete time steps between a state and it's successor.
-
+        edgeVel   % Constant velocity along each edge.
+        
         staticObsMap % Occupancy grid of the static obstacles.
         dynObsMap % Time-dependent occupancy grid of the dynamic obstacles.
 
@@ -16,17 +16,17 @@ classdef XYTPlanner
     end
 
     methods
-        function obj = XYTPlanner(xDisc, yDisc, tDisc, heurWeight, deltaTCont)
+        function obj = XYTPlanner(xDisc, yDisc, tDisc, heurWeight, edgeVel)
             obj.xDisc = xDisc;
             obj.yDisc = yDisc;
             obj.tDisc = tDisc;
+            obj.edgeVel = edgeVel;
+            fprintf('Planner using edge vel of %f m/s\n', obj.edgeVel);
 
             obj.states = containers.Map();
             obj.stateBounds = containers.Map();
 
             obj.heurWeight = heurWeight;
-            obj.deltaT = obj.contToDisc(deltaTCont, 3);
-            fprintf('%f s (%d units)\n', deltaTCont, obj.deltaT);
 
             obj.staticObsMap = 0;
             obj.dynObsMap = 0;
@@ -34,12 +34,12 @@ classdef XYTPlanner
             obj.debugDynObsPlot = scatter([0], [0]);
         end
 
-        function state = getState(obj, xDisc, yDisc, tDisc)
-            key = mat2str([xDisc, yDisc, tDisc]);
+        function state = getState(obj, xDisc, yDisc, tCont)
+            key = mat2str([xDisc, yDisc, obj.contToDisc(tCont, 3)]);
             if obj.states.isKey(key)
                 state = obj.states(key);
             else
-                state = XYTState(xDisc, yDisc, tDisc);
+                state = XYTState(xDisc, yDisc, tCont);
                 state.costToCome = 1e9;
                 obj.states(key) = state;
             end
@@ -54,53 +54,54 @@ classdef XYTPlanner
             obj.states = containers.Map();
 
             % NOTE The following is debugging for the dynamic obstacle map.
-            fprintf('(dynObsMap) tMin = %f, tMax = %f\n', ...
-                    obj.dynObsMap.tMin, obj.dynObsMap.tMax);
-            fprintf('(dynObsMap) times: ');
-            for i = 1:length(obj.dynObsMap.times)
-                fprintf('%f ', obj.dynObsMap.times(i));
-            end
-            fprintf('\n');
+%             fprintf('(dynObsMap) tMin = %f, tMax = %f\n', ...
+%                     obj.dynObsMap.tMin, obj.dynObsMap.tMax);
+%             fprintf('(dynObsMap) times: ');
+%             for i = 1:length(obj.dynObsMap.times)
+%                 fprintf('%f ', obj.dynObsMap.times(i));
+%             end
+%             fprintf('\n');
 
-            % For debugging, plot the dynamic obstacle occupancy in a region
-            % around the robot.
-            debugXMin = max(obj.dynObsMap.xMin, startStateCont(1) - 1.5)
-            debugXMax = min(obj.dynObsMap.xMax, startStateCont(1) + 1.5)
-            debugYMin = max(obj.dynObsMap.yMin, startStateCont(2) - 1.5)
-            debugYMax = min(obj.dynObsMap.yMax, startStateCont(2) + 1.5)
-            debugTMin = obj.dynObsMap.tMin;
-            debugTMax = obj.dynObsMap.tMax;
-            % obj.dynObsMap.xDisc
-            % obj.dynObsMap.yDisc
-            obj.dynObsMap.tDisc
+%             % For debugging, plot the dynamic obstacle occupancy in a region
+%             % around the robot.
+%             debugXMin = max(obj.dynObsMap.xMin, startStateCont(1) - 1.5)
+%             debugXMax = min(obj.dynObsMap.xMax, startStateCont(1) + 1.5)
+%             debugYMin = max(obj.dynObsMap.yMin, startStateCont(2) - 1.5)
+%             debugYMax = min(obj.dynObsMap.yMax, startStateCont(2) + 1.5)
+%             debugTMin = obj.dynObsMap.tMin;
+%             debugTMax = obj.dynObsMap.tMax;
+%             % obj.dynObsMap.xDisc
+%             % obj.dynObsMap.yDisc
+%             obj.dynObsMap.tDisc
+% 
+%             xs = [];
+%             ys = [];
+%             for x = debugXMin:obj.dynObsMap.xDisc:debugXMax
+%                 for y = debugYMin:obj.dynObsMap.yDisc:debugYMax
+%                     plotData = false;
+%                     for t = debugTMin:obj.dynObsMap.tDisc:debugTMax
+%                         data = obj.dynObsMap.getData(x, y, t);
+%                         if data > 0
+%                             plotData = true;
+%                             break;
+%                         end
+%                     end
+% 
+%                     if plotData
+%                         xs = [xs, x];
+%                         ys = [ys, y];
+%                     end
+%                 end
+%             end
+%             xs
+%             ys
+%             obj.debugDynObsPlot.set('XData', xs);
+%             obj.debugDynObsPlot.set('YData', ys);
 
-            xs = [];
-            ys = [];
-            for x = debugXMin:obj.dynObsMap.xDisc:debugXMax
-                for y = debugYMin:obj.dynObsMap.yDisc:debugYMax
-                    plotData = false;
-                    for t = debugTMin:obj.dynObsMap.tDisc:debugTMax
-                        data = obj.dynObsMap.getData(x, y, t);
-                        if data > 0
-                            plotData = true;
-                            break;
-                        end
-                    end
-
-                    if plotData
-                        xs = [xs, x];
-                        ys = [ys, y];
-                    end
-                end
-            end
-            xs
-            ys
-            obj.debugDynObsPlot.set('XData', xs);
-            obj.debugDynObsPlot.set('YData', ys);
-
+            % NOTE: Not discretizing the time.
             startStateDisc = [obj.contToDisc(startStateCont(1), 1);
                               obj.contToDisc(startStateCont(2), 2);
-                              obj.contToDisc(startStateCont(3), 3)];
+                              startStateCont(3)];
 
             % TODO Priority queue???
             startState = obj.getState(startStateDisc(1), ...
@@ -113,7 +114,7 @@ classdef XYTPlanner
             expansions = 0;
             foundPath = 0;
 
-            while length(openList) > 0
+            while ~isempty(openList)
                 % Search for the state with the smallest evaluation function.
                 bestIdx = -1;
                 bestEvalFunc = 1e9;
@@ -146,7 +147,7 @@ classdef XYTPlanner
                     for idx = 1:length(path)
                         contStates{idx} = [obj.discToCont(path{idx}.x, 1);
                                            obj.discToCont(path{idx}.y, 2);
-                                           obj.discToCont(path{idx}.t, 3)];
+                                           path{idx}.t];
                         fprintf('State at t: %f is (%f, %f)\n', ...
                                 contStates{idx}(3), contStates{idx}(1), ...
                                 contStates{idx}(2));
@@ -206,11 +207,15 @@ classdef XYTPlanner
 
                     startCoords = [obj.discToCont(state.x, 1);
                                    obj.discToCont(state.y, 2);
-                                   obj.discToCont(state.t, 3)];
+                                   state.t];
 
                     endCoords = [obj.discToCont(state.x + deltaX, 1);
                                  obj.discToCont(state.y + deltaY, 2);
-                                 obj.discToCont(state.t + obj.deltaT, 3)];
+                                 0];
+                             
+                    % Assign a next time assuming a constant edge velocity.
+                    endCoords(3) = state.t + norm(endCoords(1:2) - ...
+                        startCoords(1:2)) / obj.edgeVel;
 
                     numSamples = 20;
 
@@ -227,7 +232,7 @@ classdef XYTPlanner
                     % Add the successor state.
                     succ = obj.getState(obj.contToDisc(endCoords(1), 1), ...
                                         obj.contToDisc(endCoords(2), 2), ...
-                                        obj.contToDisc(endCoords(3), 3));
+                                        endCoords(3));
 
                     costs{idx} = obj.getCost(state, succ);
                     succs{idx} = succ;
@@ -275,8 +280,8 @@ classdef XYTPlanner
                                                                sampleCoords(2), ...
                                                                sampleCoords(3)) ...
                         > 0
-                    fprintf('Collision with dynamic obstacle at sample (%f, %f, %f)\n', ...
-                            sampleCoords(1), sampleCoords(2), sampleCoords(3));
+                    % fprintf('Collision with dynamic obstacle at sample (%f, %f, %f)\n', ...
+                    %         sampleCoords(1), sampleCoords(2), sampleCoords(3));
                       valid = false;
                     break;
                 end

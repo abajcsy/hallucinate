@@ -45,7 +45,11 @@ classdef OccupancyGrid < handle
            end
 
            obj.figh = [];
-           obj.hjiGrid = hjiGrid;
+           if nargin > 9
+               obj.hjiGrid = hjiGrid;
+           else
+               obj.hjiGrid = [];
+           end
        end
 
        function fromValueFuns(obj, grid, valueFuns, times, t0)
@@ -122,23 +126,23 @@ classdef OccupancyGrid < handle
 
                val = valBelow + alpha * (valAbove - valBelow);
            else
-               val = obj.data{k}(i, j);
+               if k > 0 && k <= length(obj.data)
+                   val = obj.data{k}(i, j);
+               else
+                   val = 0;
+               end
            end
        end
 
        function [i, j] = xyToIndex(obj, x, y)
-           % if isnan(obj.hjiGrid)
-           %     i = floor((x - obj.xMin) / obj.xDisc) + 1;
-           %     j = floor((y - obj.yMin) / obj.yDisc) + 1;
-           % else
-           %     error = sqrt((obj.hjiGrid.xs{1} - x(1)).^2 + (obj.hjiGrid.xs{2} - x(2)).^2);
-           %     [~,idx] = min(error(:));
-           %     [i, j] = ind2sub(size(error),idx);
-           % end
-
-           error = sqrt((obj.hjiGrid.xs{1} - x).^2 + (obj.hjiGrid.xs{2} - y).^2);
-           [~,idx] = min(error(:));
-           [i, j] = ind2sub(size(error),idx);
+           if isempty(obj.hjiGrid)
+               i = floor((x - obj.xMin) / obj.xDisc) + 1;
+               j = floor((y - obj.yMin) / obj.yDisc) + 1;
+           else
+               error = sqrt((obj.hjiGrid.xs{1} - x).^2 + (obj.hjiGrid.xs{2} - y).^2);
+               [~,idx] = min(error(:));
+               [i, j] = ind2sub(size(error),idx);
+           end
        end
 
        function [x, y] = indexToXY(obj, i, j)
