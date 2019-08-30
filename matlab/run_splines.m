@@ -124,6 +124,7 @@ for t=0:params.T-1
 
     if ~isempty(rh)
         delete(rh{1});
+        delete(rh{2});
     end
 
     if ~isempty(arh)
@@ -147,7 +148,9 @@ for t=0:params.T-1
 
     % Get most recent measurement of where the person is and what action
     % they applied.
-    [xHnext, uHcurr] = params.simHuman.simulate(xHnext, t*params.simDt, params.simDt);
+    [xHnext, uHcurr] = params.simHuman.simulate(xHnext, ...
+        (t + 1) * params.simDt, ...
+        params.simDt);
 
     % Prediction step.
     %predictor.updateState(xHnext, uHcurr);
@@ -173,6 +176,8 @@ for t=0:params.T-1
         traj = planner.plan([xRStart; tStart], params.goalRXY, ...
                             params.goalTol);
     end
+    
+    pause(params.simDt);
 end
 
 %% Gets the 4D Unicycle dynamics.

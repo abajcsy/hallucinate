@@ -120,7 +120,8 @@ params.simRobot = Plane(params.xR0(1:3), wMax, vRange, dMax);
 %% Simulation Params.
 % Timestep for computation and simulation.
 % params.simDt = 0.05;
-params.simDt = 0.1;
+% params.simDt = 0.1;
+params.simDt = 1;
 params.T = 200;
 
 % Number of steps after which to replan.

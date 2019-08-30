@@ -29,8 +29,8 @@ classdef LatticePlanner
             obj.stateBounds = containers.Map();
             obj.heurWeight = heurWeight;
 
-            obj.staticObsMap = 0;
-            obj.dynObsMap = 0;
+            obj.staticObsMap = [];
+            obj.dynObsMap = [];
 
             if nargin > 6
                 obj.minEdgeTimeSteps = minEdgeTimeSteps;
@@ -83,7 +83,7 @@ classdef LatticePlanner
             expansions = 0;
             foundPath = 0;
 
-            while length(openList) > 0
+            while ~isempty(openList)
                 % Search for the state with the smallest evaluation function.
                 bestIdx = -1;
                 bestEvalFunc = 1e9;
@@ -175,18 +175,16 @@ classdef LatticePlanner
             % deltaT = 1;
 
             % TODO These should be planner parameters.
-            % localXRange = [1, 2];
-            localXRange = [1, 3];
+            localXRange = [2, 3];
+%             localXRange = [1, 2];
+%             localXRange = [2, 5];
             % localXRange = [2, 5];
-            localYRange = [-2, 2];
+%             localYRange = [-1, 1];
+            localYRange = [-1, 1];
             aRange = [-1, 1];
             % deltaTRange = [1, 4];
             deltaTRange = [obj.minEdgeTimeSteps, ...
                            obj.maxEdgeTimeSteps];
-
-            % TODO These should be parameters.
-            f0 = 1;
-            f1 = 1;
 
             for localX = localXRange(1):localXRange(2)
                 for localY = localYRange(1):localYRange(2)
@@ -241,7 +239,7 @@ classdef LatticePlanner
                                                                         .discToCont(deltaT, 5));
 
                             % TODO Should be a planner parameter.
-                            numSamples = 50;
+                            numSamples = 25;
 
                             % Velocity must be within bounds along the spline.
                             if ~obj.isVelocityBounded(a, b, c, d, ...
@@ -250,14 +248,12 @@ classdef LatticePlanner
                                 continue;
                             end
 
-                            edges{idx} = [a, b, c, d];
-
                             if ~obj.isEdgeSafe(a, b, c, d, ...
                                                obj.discToCont(state.t, 5), ...
                                                obj.discToCont(state.t + deltaT, 5), ...
                                                numSamples)
                                 continue;
-                            end
+                            end                        
 
                             % Add the successor state.
                             succ = obj.getState(obj.contToDisc(endCoords(1), 1), ...
@@ -269,6 +265,7 @@ classdef LatticePlanner
                             costs{idx} = obj.getCost(state, succ, a, b, ...
                                                             c, d);
                             succs{idx} = succ;
+                            edges{idx} = [a, b, c, d];
 
                             idx = idx + 1;
                         end
@@ -278,7 +275,7 @@ classdef LatticePlanner
         end
 
         function valid = isValid(obj, x, y, theta, v, t)
-            valid = 1;
+            valid = true;
 
             % Check state bounds provided by the environment.
             valid = valid && obj.inBounds(x, 'x');
@@ -289,12 +286,12 @@ classdef LatticePlanner
         end
 
         function valid = inBounds(obj, value, stateName)
-            valid = 1;
+            valid = true;
 
             if obj.stateBounds.isKey(stateName)
                 bounds = obj.stateBounds(stateName);
                 if value < bounds(1) || value > bounds(2)
-                    valid = 0;
+                    valid = false;
                 end
             else
                 fprintf('Warning: no bounds found for state name %s!\n', ...
@@ -364,7 +361,7 @@ classdef LatticePlanner
         end
 
         function safe = isEdgeSafe(obj, a, b, c, d, t0, t1, numSamples)
-            safe = 1;
+            safe = true;
 
             pfunc = @(t) a(3) .* t.^3 + b(3) .* t.^2 + c(3) .* t + d(3);
 
@@ -375,27 +372,30 @@ classdef LatticePlanner
 
             T = t1 - t0;
             Tsample = T / numSamples;
-            for t = 1:(numSamples - 1)
-                xsample = xfunc(t * Tsample);
-                ysample = yfunc(t * Tsample);
+            for k = 0:(numSamples - 1)
+                xsample = xfunc(k * Tsample);
+                ysample = yfunc(k * Tsample);
 
                 % Check against the static obstacle map.
-                if obj.staticObsMap.getData(xsample, ysample, 0) > 0
-                    safe = 0;
+                if ~isempty(obj.staticObsMap) && ...
+                        obj.staticObsMap.getData(xsample, ysample, 0) > 0
+                    safe = false;
                     break;
                 end
 
                 % Check against the dynamic obstacle map.
-                if obj.dynObsMap ~= 0 && obj.dynObsMap.getData(xsample, ysample, t0 + Tsample * t) ...
-                        > 0
-                    safe = 0;
+                if ~isempty(obj.dynObsMap) && ...
+                        obj.dynObsMap.getData(xsample, ...
+                        ysample, ...
+                        t0 + Tsample * k) > 0
+                    safe = false;
                     break;
                 end
             end
         end
 
         function safe = isVelocityBounded(obj, a, b, c, d, T, numSamples)
-            safe = 1;
+            safe = true;
 
             pfunc = @(t) a(3) * t^3 + b(3) * t^2 + c(3) * t + d(3);
 
@@ -410,15 +410,19 @@ classdef LatticePlanner
                 vsample = vfunc(k * Tsample);
                 if ~obj.inBounds(vsample, 'v')
                     % fprintf('Velocity of %f is too high!\n', vsample);
-                    safe = 0;
+                    safe = false;
                     break;
                 end
             end
         end
 
         function [f0, f1] = getHeuristicFValues(obj, v0, x0, y0, x1, y1)
-            f0 = v0 + norm([x1 - x0; y1 - y0]);
-            f1 = v0 + norm([x1 - x0; y1 - y0]);
+%             f0 = v0 + norm([x1 - x0; y1 - y0]);
+%             f1 = v0 + norm([x1 - x0; y1 - y0]);
+
+            % TODO Find a better way to compute this.
+            f0 = 0.5;
+            f1 = 0.5;
         end
     end
 end

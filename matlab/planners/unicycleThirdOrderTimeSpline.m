@@ -1,7 +1,7 @@
 function [a, b, c, d] = unicycleThirdOrderTimeSpline(x0, y0, th0, v0, f0, x1, ...
                                                      y1, th1, v1, f1, T)
-    % fprintf("Computing spline from (%f, %f, %f, %f) to (%f, %f, %f, %f)\n", ...
-    %         x0, y0, th0, v0, x1, y1, th1, v1);
+%     fprintf("Computing spline from (%f, %f, %f, %f) to (%f, %f, %f, %f) over %f s\n", ...
+%             x0, y0, th0, v0, x1, y1, th1, v1, T);
 
     d = [x0;
          y0;
