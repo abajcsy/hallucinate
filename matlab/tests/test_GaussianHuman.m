@@ -33,7 +33,7 @@ extraArgs.alpha = 0.5;
 extraArgs.DeltaB0 = 0.5; 
 
 % Setup dynamical system
-Pbeta0 = 0.9; 
+Pbeta0 = 0.98; 
 x0 = [0; 0; Pbeta0];
 human = GaussianHuman(x0, v, uRange, gamma, K, m, sigma, uThresh, numCtrls, ...
     betaModel, extraArgs);
