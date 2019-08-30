@@ -108,7 +108,7 @@ params.thetaBounds = [-2*pi, 2*pi];
 params.timeBounds = [0, 15]; % Planning horizon.
 
 % Setup initial state of planner and goal state of planner.
-params.xR0 = [0.5; -1; (3*pi)/4; 0.1; 0];
+params.xR0 = [0.1; -1; (3*pi)/4; 0.1; 0];
 % params.xR0 = [0.5; -1; 0];
 params.goalRXY = [-1; 1];
 

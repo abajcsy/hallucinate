@@ -4,12 +4,12 @@ clc
 clear all
 
 %% Load the experimental setup.
-%params = scenario1();
-params = scenario2();
+params = scenario1();
+%params = scenario2();
 
 % Load the predictions.
 load('/home/abajcsy/hybrid_ws/src/hallucinate/matlab/data/fixed_human_ours_p05.mat');
-% load('/home/abajcsy/hybrid_ws/src/hallucinate/matlab/data/fixed_human_rss_p05.mat');
+%load('/home/abajcsy/hybrid_ws/src/hallucinate/matlab/data/fixed_human_rss_p05.mat');
 
 % load(['/home/eratner/Documents/hallucinate/matlab/data/' ...
 %       'fixed_human_ours_p05.mat']);
