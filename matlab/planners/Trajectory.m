@@ -37,12 +37,24 @@ classdef Trajectory < handle
         end
 
         function empty = isEmpty(obj)
-            empty = (length(obj.splines) == 0);
+            empty = isempty(obj.splines);
         end
 
         function [f0, f1] = getHeuristicFValues(obj, v0, x0, y0, x1, y1)
             f0 = v0 + norm([x1 - x0; y1 - y0]);
             f1 = v0 + norm([x1 - x0; y1 - y0]);
+        end
+        
+        function splineIdx = splineIndex(obj, t)
+            splineIdx = 0;
+
+            for idx = 1:(length(obj.contStates) - 1)
+                if obj.contStates{idx}(5) <= t && t <= obj.contStates{idx + ...
+                                        1}(5)
+                    splineIdx = idx;
+                    break;
+                end
+            end
         end
 
         function [a, b, c, d, tLow] = getSpline(obj, t)
