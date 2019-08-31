@@ -181,7 +181,7 @@ end
 
 scatter(samplesX, samplesY);
 
-if length(traj.splines) > 0
+if ~isempty(traj.splines)
     state = traj.contStates{end};
     drawTriangle([state(1); state(2)], state(3), 0.1);
 end

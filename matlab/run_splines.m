@@ -81,6 +81,9 @@ arh = [];
 th = [];
 pIdx = 2;
 for t=0:params.T-1
+    fprintf('At time step %d, robot is at (%f, %f, %f, %f)\n', ...
+            t, xR(1), xR(2), xR(3), xR(4));
+    
     xRLast = xR;
     % Update the state based on the planned trajectory / controls.
     if ~traj.isEmpty()
@@ -143,7 +146,7 @@ for t=0:params.T-1
 
     xlim([params.lowEnv(1),params.upEnv(1)]);
     ylim([params.lowEnv(2),params.upEnv(2)]);
-    pause(0.1);
+    pause(0.1*params.simDt);
     % --------------------- %
 
     % Get most recent measurement of where the person is and what action
@@ -173,11 +176,13 @@ for t=0:params.T-1
     end
 
     if traj.isEmpty() || mod(t, params.replanAfterSteps) == 0
-        traj = planner.plan([xRStart; tStart], params.goalRXY, ...
-                            params.goalTol);
+%         traj = planner.plan([xRStart; tStart], params.goalRXY, ...
+%                             params.goalTol);
+        if traj.isEmpty()
+            traj = planner.plan([xRStart; tStart], params.goalRXY, ...
+                                params.goalTol);
+        end
     end
-    
-    pause(params.simDt);
 end
 
 %% Gets the 4D Unicycle dynamics.

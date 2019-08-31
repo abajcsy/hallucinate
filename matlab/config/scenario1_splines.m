@@ -1,4 +1,4 @@
-function params = scenario1()
+function params = scenario1_splines()
 %% Scenario 1
 %  Robot needs to cross paths with human to get to its goal. If it trusts
 %  that the human will continue to move forward, it will overconfidently
@@ -85,7 +85,8 @@ params.yDisc = 0.15;
 % params.xDisc = 0.25;
 % params.yDisc = 0.25;
 params.thetaDisc = pi / 45;
-params.vDisc = 0.5;
+% params.vDisc = 0.5;
+params.vDisc = 0.1;
 params.tDisc = 0.5;
 
 % Heuristic and goal parameters.
@@ -100,7 +101,7 @@ params.maxEdgeTimeSteps = 2;
 % Setup the state bounds.
 params.xBounds = [params.lowEnv(1), params.upEnv(1)];
 params.yBounds = [params.lowEnv(2), params.upEnv(2)];
-params.vBounds = [0.1, 1];
+params.vBounds = [0, 0.6];
 params.thetaBounds = [-2*pi, 2*pi];
 params.timeBounds = [0, 15]; % Planning horizon.
 
@@ -120,8 +121,11 @@ params.simRobot = Plane(params.xR0(1:3), wMax, vRange, dMax);
 %% Simulation Params.
 % Timestep for computation and simulation.
 % params.simDt = 0.05;
+params.simDt = 0.045;
 % params.simDt = 0.1;
-params.simDt = 1;
+% params.simDt = 1;
+% params.simDt = 0.5;
+% params.simDt = 0.11;
 params.T = 200;
 
 % Number of steps after which to replan.

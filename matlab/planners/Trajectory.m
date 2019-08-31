@@ -49,8 +49,8 @@ classdef Trajectory < handle
             splineIdx = 0;
 
             for idx = 1:(length(obj.contStates) - 1)
-                if obj.contStates{idx}(5) <= t && t <= obj.contStates{idx + ...
-                                        1}(5)
+                if obj.contStates{idx}(5) <= t && ...
+                        t < obj.contStates{idx + 1}(5)
                     splineIdx = idx;
                     break;
                 end
@@ -62,8 +62,8 @@ classdef Trajectory < handle
             tLow = 0;
 
             for idx = 1:(length(obj.contStates) - 1)
-                if obj.contStates{idx}(5) <= t && t <= obj.contStates{idx + ...
-                                        1}(5)
+                if obj.contStates{idx}(5) <= t && ...
+                        t < obj.contStates{idx + 1}(5)
                     splineIdx = idx;
                     tLow = obj.contStates{idx}(5);
                     break;
