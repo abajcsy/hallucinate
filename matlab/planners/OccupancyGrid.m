@@ -16,11 +16,15 @@ classdef OccupancyGrid < handle
 
        figh % figure handle.
        hjiGrid;
+       
+       pathToFRSDir % Path to the directory containing the precomputed sets.
+       
+       xH;
    end
 
    methods
        function obj = OccupancyGrid(xDisc, yDisc, tDisc, xMin, xMax, yMin, ...
-                                    yMax, tMin, tMax, hjiGrid)
+                                    yMax, tMin, tMax, hjiGrid, pathToFRSDir)
            obj.xDisc = xDisc;
            obj.yDisc = yDisc;
            obj.tDisc = tDisc;
@@ -50,6 +54,17 @@ classdef OccupancyGrid < handle
            else
                obj.hjiGrid = [];
            end
+           
+           if nargin > 10
+               obj.pathToFRSDir = pathToFRSDir;
+               fprintf('Path to FRS directory set to %s\n', ...
+                   obj.pathToFRSDir);
+           else
+               fprintf('Warning: no path to FRS directory specified\n');
+               obj.pathToFRSDir = '.';
+           end
+           
+           obj.xH = [];
        end
 
        function fromValueFuns(obj, grid, valueFuns, times, t0)
@@ -112,24 +127,30 @@ classdef OccupancyGrid < handle
 
        function val = getData(obj, x, y, t, interpolateInTime)
            [i, j] = obj.xyToIndex(x, y);
-           k = obj.timeToIndex(t);
-
-           if nargin > 4 && interpolateInTime
-               % Interpolate in time.
-               [kBelow, kAbove] = obj.closestIndexToTime(t);
-               tBelow = obj.indexToTime(kBelow);
-               tAbove = obj.indexToTime(kAbove);
-
-               alpha = (t - tBelow) / (tAbove - tBelow);
-               valBelow = obj.data{kBelow}(i, j);
-               valAbove = obj.data{kAbove}(i, j);
-
-               val = valBelow + alpha * (valAbove - valBelow);
+           
+           % If out-of-bounds, then assume val == 0.
+           if i == 0 || j == 0
+               val = 0;
            else
-               if k > 0 && k <= length(obj.data)
-                   val = obj.data{k}(i, j);
+               k = obj.timeToIndex(t);
+
+               if nargin > 4 && interpolateInTime
+                   % Interpolate in time.
+                   [kBelow, kAbove] = obj.closestIndexToTime(t);
+                   tBelow = obj.indexToTime(kBelow);
+                   tAbove = obj.indexToTime(kAbove);
+
+                   alpha = (t - tBelow) / (tAbove - tBelow);
+                   valBelow = obj.data{kBelow}(i, j);
+                   valAbove = obj.data{kAbove}(i, j);
+
+                   val = valBelow + alpha * (valAbove - valBelow);
                else
-                   val = 0;
+                   if k > 0 && k <= length(obj.data)
+                       val = obj.data{k}(i, j);
+                   else
+                       val = 0;
+                   end
                end
            end
        end
@@ -139,9 +160,29 @@ classdef OccupancyGrid < handle
                i = floor((x - obj.xMin) / obj.xDisc) + 1;
                j = floor((y - obj.yMin) / obj.yDisc) + 1;
            else
-               error = sqrt((obj.hjiGrid.xs{1} - x).^2 + (obj.hjiGrid.xs{2} - y).^2);
-               [~,idx] = min(error(:));
-               [i, j] = ind2sub(size(error),idx);
+               % If the human state is set, then the center of the grid
+               % should centered on this human state.
+               xRel = x;
+               yRel = y;
+               
+               if ~isempty(obj.xH)
+                   gridOrigin = [obj.xH(1) - (obj.hjiGrid.max(1) - obj.hjiGrid.min(1)) / 2;
+                                 obj.xH(2) - (obj.hjiGrid.max(2) - obj.hjiGrid.min(2)) / 2];
+                   xRel = x - gridOrigin(1);
+                   yRel = y - gridOrigin(2);
+               end
+               
+               % Check if the relative coordinate is out-of-bounds.
+               if xRel < obj.hjiGrid.min(1) || xRel > obj.hjiGrid.max(1) || ...
+                  yRel < obj.hjiGrid.min(2) || yRel > obj.hjiGrid.max(2)
+                   i = 0;
+                   j = 0;
+               else
+                   error = sqrt((obj.hjiGrid.xs{1} - xRel).^2 + ...
+                       (obj.hjiGrid.xs{2} - yRel).^2);
+                   [~,idx] = min(error(:));
+                   [i, j] = ind2sub(size(error),idx);
+               end
            end
        end
 
@@ -225,6 +266,36 @@ classdef OccupancyGrid < handle
             end
             colormap('gray');
         end
-
+        
+        function updateHumanState(obj, xH)
+            obj.xH = xH;
+        end
+        
+        function success = loadFromFile(obj, priorProb, horizon)
+            success = true;
+                    
+            % Load the data file.
+            pathToFile = fullfile(obj.pathToFRSDir, ...
+                strcat('pb', num2str(priorProb)), ...
+                strcat('h', num2str(horizon)), ...
+                'occuMap.mat');
+            if isfile(pathToFile)
+                fprintf('Loading data from %s\n', pathToFile);
+                d = load(pathToFile);
+            else
+                fprintf('File %s does not exist!\n', pathToFile);
+                d = {};
+                success = false;
+            end
+            
+            if success
+                obj.data = d.preds;
+                obj.hjiGrid = d.predGrid;
+                obj.times = d.predTimes;
+                obj.tDisc = d.predDt;
+                obj.tMin = d.predTMin;
+                obj.tMax = d.predTMax;
+            end
+        end
    end
 end
