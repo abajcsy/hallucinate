@@ -37,12 +37,24 @@ classdef Trajectory < handle
         end
 
         function empty = isEmpty(obj)
-            empty = (length(obj.splines) == 0);
+            empty = isempty(obj.splines);
         end
 
         function [f0, f1] = getHeuristicFValues(obj, v0, x0, y0, x1, y1)
             f0 = v0 + norm([x1 - x0; y1 - y0]);
             f1 = v0 + norm([x1 - x0; y1 - y0]);
+        end
+        
+        function splineIdx = splineIndex(obj, t)
+            splineIdx = 0;
+
+            for idx = 1:(length(obj.contStates) - 1)
+                if obj.contStates{idx}(5) <= t && ...
+                        t < obj.contStates{idx + 1}(5)
+                    splineIdx = idx;
+                    break;
+                end
+            end
         end
 
         function [a, b, c, d, tLow] = getSpline(obj, t)
@@ -50,8 +62,8 @@ classdef Trajectory < handle
             tLow = 0;
 
             for idx = 1:(length(obj.contStates) - 1)
-                if obj.contStates{idx}(5) <= t && t <= obj.contStates{idx + ...
-                                        1}(5)
+                if obj.contStates{idx}(5) <= t && ...
+                        t < obj.contStates{idx + 1}(5)
                     splineIdx = idx;
                     tLow = obj.contStates{idx}(5);
                     break;
@@ -158,7 +170,7 @@ classdef Trajectory < handle
             for idx = 1:length(obj.splines)
                 s = obj.contStates{idx};
                 sNext = obj.contStates{idx + 1};
-                tDisc = sNext(5) - s(5);
+                T = sNext(5) - s(5);
 
                 if nargin > 1 && showStates
                     obj.drawTriangle([s(1); s(2)], s(3), 0.1);
@@ -175,7 +187,7 @@ classdef Trajectory < handle
                 xfunc = @(t) a(1) .* pfunc(t).^3 + b(1) .* pfunc(t).^2 + c(1) .* pfunc(t) + d(1);
                 yfunc = @(t) a(2) .* pfunc(t).^3 + b(2) .* pfunc(t).^2 + c(2) .* pfunc(t) + d(2);
 
-                h{end+1} = fplot(xfunc, yfunc, [0 tDisc], ...
+                h{end+1} = fplot(xfunc, yfunc, [0 T], ...
                     'Color', [255, 148, 148]/255., 'Linewidth', 2);
             end
         end

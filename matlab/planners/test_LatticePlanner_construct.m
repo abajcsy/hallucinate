@@ -10,10 +10,10 @@
 % Discretization on 8/28/2019
 % xDisc = 0.1;
 % yDisc = 0.1;
-xDisc = 0.25;
-yDisc = 0.25;
+xDisc = 0.15;
+yDisc = 0.15;
 thetaDisc = pi / 45;
-vDisc = 0.05;
+vDisc = 0.5;
 tDisc = 0.5;
 
 heurWeight = 1.25;
@@ -25,7 +25,7 @@ planner = LatticePlanner(xDisc, yDisc, thetaDisc, vDisc, tDisc, heurWeight);
 planner.stateBounds('x') = [-0.1, 3];
 planner.stateBounds('y') = [-0.1, 3];
 % planner.stateBounds('v') = [0.1, 3];
-planner.stateBounds('v') = [0, 0.6];
+planner.stateBounds('v') = [0, 1];
 planner.stateBounds('theta') = [-pi, pi];
 planner.stateBounds('t') = [0, 15]; % Planning horizon.
 
@@ -181,7 +181,7 @@ end
 
 scatter(samplesX, samplesY);
 
-if length(traj.splines) > 0
+if ~isempty(traj.splines)
     state = traj.contStates{end};
     drawTriangle([state(1); state(2)], state(3), 0.1);
 end
