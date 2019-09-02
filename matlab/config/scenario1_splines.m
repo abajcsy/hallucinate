@@ -33,6 +33,10 @@ params.humanModel = GaussianHuman(params.z0, vH, uHRange, gamma, K, m, ...
 params.hamFunc = @gaussianHuman_ham;
 params.partialFunc = @gaussianHuman_partial;
 
+% Path to FRS directory (assuming the root directory is set to the project
+% root directory in MATLAB).
+params.pathToFRSDir = './matlab/frs';
+
 %% Human Simluator: Parameters for simulating human measurements. 
 
 x0Sim = params.xH0;

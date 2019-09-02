@@ -168,10 +168,8 @@ classdef OccupancyGrid < handle
                yRel = y;
                
                if ~isempty(obj.xH)
-                   gridOrigin = [obj.xH(1) - (obj.hjiGrid.max(1) - obj.hjiGrid.min(1)) / 2;
-                                 obj.xH(2) - (obj.hjiGrid.max(2) - obj.hjiGrid.min(2)) / 2];
-                   xRel = x - gridOrigin(1);
-                   yRel = y - gridOrigin(2);
+                   xRel = x - obj.xH(1);
+                   yRel = y - obj.xH(2);
                end
                
                % Check if the relative coordinate is out-of-bounds.
@@ -269,7 +267,7 @@ classdef OccupancyGrid < handle
             colormap('gray');
         end
         
-        function updateHumanState(obj, xH)
+        function setHumanState(obj, xH)
             obj.xH = xH;
         end
         

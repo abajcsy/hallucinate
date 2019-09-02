@@ -53,14 +53,11 @@ predGrid2D = proj(params.predGrid, params.predGrid.xs, [0,0,1]);
 planner.dynObsMap = OccupancyGrid(params.xDisc, params.yDisc, params.dt, ...
                                   params.lowEnv(1), params.upEnv(1), ...
                                   params.lowEnv(2), params.upEnv(2), ...
-                                  params.tMin, params.tMax, predGrid2D);
+                                  params.tMin, params.tMax, predGrid2D, ...
+                                  params.pathToFRSDir);
 
 %% Simulation loop.
 hold on
-
-% predictor.updatePredictions();
-% [preds, times] = predictor.getPredictions();
-planner.dynObsMap.fromValueFuns(predGrid2D, humanPreds{1}, predsTimes{1}, 0);
 
 % Initialize the planned trajectory.
 contStates = {};
@@ -154,12 +151,7 @@ for t=0:params.T-1
         (t + 1) * params.simDt, ...
         params.simDt);
 
-    % Prediction step.
-    %predictor.updateState(xHnext, uHcurr);
-    %predictor.updatePredictions();
-
     % Planning step.
-    %[preds, times] = predictor.getPredictions();
     if pIdx > length(humanPreds)
         pIdx = length(humanPreds);
     end
@@ -186,34 +178,6 @@ function dxdt = unicycleDynamics(t, x, u)
             x(4) * sin(x(3));
             u(1);
             u(2)];
-end
-
-%% Gets the 3D Dubins car dynamics.
-function dxdt = dubinsCarDynamics(t, x, u, v)
-    dxdt = [v * cos(x(3));
-            v * sin(x(3));
-            u];
-end
-
-%% Simple controller.
-function u = getControl(t, x, trajRef)
-    kPropLinAcc = 2;
-    kPropAngAcc = 0.5;
-
-    xRef = trajRef.getState(t);
-    posErr = [xRef(1) - x(1);
-              xRef(2) - x(2)];
-
-    % Acceleration is proportional to position error along current
-    % direction of travel.
-    dir = [cos(x(3)); sin(x(3))];
-    a = kPropLinAcc * (posErr' * dir);
-
-    % Angular velocity is proportional to the difference between the
-    % current heading and the reference heading.
-    headingErr = xRef(3) - x(3);
-    omega = kPropAngAcc * headingErr;
-    u = [omega; a];
 end
 
 %% Plots human or robot.
