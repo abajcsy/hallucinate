@@ -175,12 +175,8 @@ for t=0:params.T-1
     end
 
     if traj.isEmpty() || mod(t, params.replanAfterSteps) == 0
-%         traj = planner.plan([xRStart; tStart], params.goalRXY, ...
-%                             params.goalTol);
-        if traj.isEmpty()
-            traj = planner.plan([xRStart; tStart], params.goalRXY, ...
-                                params.goalTol);
-        end
+        traj = planner.plan([xRStart; tStart], params.goalRXY, ...
+                            params.goalTol);
     end
 end
 

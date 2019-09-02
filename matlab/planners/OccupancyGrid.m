@@ -130,6 +130,8 @@ classdef OccupancyGrid < handle
            
            % If out-of-bounds, then assume val == 0.
            if i == 0 || j == 0
+               fprintf('Coordinate (%f, %f, %f) is out of bounds!\n', ...
+                        x, y, t);
                val = 0;
            else
                k = obj.timeToIndex(t);
@@ -289,12 +291,17 @@ classdef OccupancyGrid < handle
             end
             
             if success
-                obj.data = d.preds;
+                [~, ~, K] = size(d.predictions);
+                obj.data = {};
+                for k = 1:K
+                    obj.data{k} = d.predictions(:, :, k);
+                end
+                
                 obj.hjiGrid = d.predGrid;
                 obj.times = d.predTimes;
                 obj.tDisc = d.predDt;
-                obj.tMin = d.predTMin;
-                obj.tMax = d.predTMax;
+                obj.tMin = d.predTmin;
+                obj.tMax = d.predTmax;
             end
         end
    end

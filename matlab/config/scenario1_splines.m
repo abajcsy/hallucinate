@@ -120,8 +120,8 @@ params.simRobot = Plane(params.xR0(1:3), wMax, vRange, dMax);
 
 %% Simulation Params.
 % Timestep for computation and simulation.
-% params.simDt = 0.05;
-params.simDt = 0.045;
+params.simDt = 0.05;
+% params.simDt = 0.045;
 % params.simDt = 0.1;
 % params.simDt = 1;
 % params.simDt = 0.5;
@@ -129,10 +129,12 @@ params.simDt = 0.045;
 params.T = 200;
 
 % Number of steps after which to replan.
-params.replanAfterSteps = 1;
+% params.replanAfterSteps = 1;
+% params.replanAfterSteps = 3;
+params.replanAfterSteps = params.T + 1;
 
 % If set to true, uses the control from the trajectory; otherwise, uses the
 % state directly.
-params.trajUseControl = true;
+params.trajUseControl = false;
 
 end
