@@ -144,4 +144,10 @@ params.replanAfterSteps = 5;
 % state directly.
 params.trajUseControl = false;
 
+% If set to true, saves a GIF of the simulation out to file.
+params.writeAnimToFile = true;
+params.pathToAnimFile = './sim.gif';
+
+params.pauseEachStep = false;
+
 end

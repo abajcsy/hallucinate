@@ -41,7 +41,6 @@ planner.staticObsMap = OccupancyGrid(params.xDisc, params.yDisc, params.tDisc, .
                                      params.lowEnv(2), params.upEnv(2), ...
                                      params.tMin, params.tMax, staticGrid2D);
 % Setup the static obstacles.
-% TODO (Ellis): This may not work anymore
 for t=params.tMin:params.tDisc:params.tMax
     for r = params.staticObsBounds
         rect = r{1};
@@ -58,6 +57,7 @@ planner.dynObsMap = OccupancyGrid(params.xDisc, params.yDisc, params.dt, ...
                                   params.pathToFRSDir);
 
 %% Simulation loop.
+figHandle = figure;
 hold on
 
 % Initialize the planned trajectory.
@@ -145,8 +145,10 @@ for t=0:params.T-1
 
     xlim([params.lowEnv(1),params.upEnv(1)]);
     ylim([params.lowEnv(2),params.upEnv(2)]);
-%     pause(0.1*params.simDt);
-    pause(1);
+    
+    if params.pauseEachStep
+        pause(params.simDt);
+    end
     % --------------------- %
 
     % Get most recent measurement of where the person is and what action
@@ -201,6 +203,21 @@ for t=0:params.T-1
     if traj.isEmpty() || mod(t, params.replanAfterSteps) == 0
         traj = planner.plan([xRStart; tStart], params.goalRXY, ...
                             params.goalTol);
+    end
+    
+    % Write animation to file.
+    if params.writeAnimToFile
+        frame = getframe(figHandle);
+        im = frame2im(frame);
+        [imind, cm] = rgb2ind(im, 256);
+        
+        if t == 0
+            imwrite(imind, cm, params.pathToAnimFile, ...
+                'gif', 'Loopcount', inf);
+        else
+            imwrite(imind, cm, params.pathToAnimFile, ...
+                'gif', 'WriteMode', 'append');
+        end
     end
 end
 
