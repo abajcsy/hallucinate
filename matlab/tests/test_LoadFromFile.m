@@ -3,7 +3,7 @@ params = scenario1_splines();
 % FRS loading parameters.
 % Assuming starting in the root directory of the project.
 pathToFRSDir = './matlab/frs';
-priorProb = 0.1;
+priorProb = 0;
 horizon = 2;
 
 predGrid2D = proj(params.predGrid, params.predGrid.xs, [0,0,1]);

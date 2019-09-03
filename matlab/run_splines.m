@@ -79,6 +79,7 @@ th = [];
 
 staticMapHandle = [];
 dynMapHandle = [];
+betaProbHandle = [];
 
 % pIdx = 2;
 for t=0:params.T-1
@@ -144,7 +145,8 @@ for t=0:params.T-1
 
     xlim([params.lowEnv(1),params.upEnv(1)]);
     ylim([params.lowEnv(2),params.upEnv(2)]);
-    pause(0.1*params.simDt);
+%     pause(0.1*params.simDt);
+    pause(1);
     % --------------------- %
 
     % Get most recent measurement of where the person is and what action
@@ -155,10 +157,22 @@ for t=0:params.T-1
     
     % Prediction step.
     predictor.updateState(xHnext, uHcurr);
-    betaProb = round(predictor.zcurr(end), 1);
+    betaProb = predictor.zcurr(end);
+    betaProbStr = strcat('P(\beta) = ', num2str(betaProb));
+    if isempty(betaProbHandle)
+        betaProbHandle = text(params.lowEnv(1) + 0.05, ...
+            params.upEnv(2) - 0.6, ...
+            betaProbStr);
+    else
+        betaProbHandle.set('String', betaProbStr);
+    end
+    
+    betaProb = round(betaProb, 1);
     
     % Load the predictions from the appropriate file.
-    planner.dynObsMap.loadFromFile(betaProb, params.predHorizon);
+    planner.dynObsMap.loadFromFile(betaProb, ...
+        params.predHorizon, ...
+        t * params.simDt);
     planner.dynObsMap.setHumanState(xHnext);
     
     % Plot the occupancy maps.

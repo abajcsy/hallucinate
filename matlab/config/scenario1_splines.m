@@ -111,7 +111,8 @@ params.thetaBounds = [-2*pi, 2*pi];
 params.timeBounds = [0, 15]; % Planning horizon.
 
 % Setup initial state of planner and goal state of planner.
-params.xR0 = [0.1; -1; (3*pi)/4; 0.1];
+% params.xR0 = [0.1; -1; (3*pi)/4; 0.1];
+params.xR0 = [1; -1; (3*pi)/4; 0.1];
 params.goalRXY = [-1; 1];
 
 %% Robot: Dynamical System Params.
@@ -135,8 +136,9 @@ params.T = 200;
 
 % Number of steps after which to replan.
 % params.replanAfterSteps = 1;
+params.replanAfterSteps = 5;
 % params.replanAfterSteps = 3;
-params.replanAfterSteps = params.T + 1;
+% params.replanAfterSteps = params.T + 1;
 
 % If set to true, uses the control from the trajectory; otherwise, uses the
 % state directly.

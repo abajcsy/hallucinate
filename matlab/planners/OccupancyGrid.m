@@ -250,8 +250,10 @@ classdef OccupancyGrid < handle
         end
         
         function handles = draw(obj, color, prevHandles)
+            numSlicesToSkip = 10;
+            
             if nargin < 3
-                for k = 1:5:length(obj.times)
+                for k = 1:numSlicesToSkip:length(obj.times)
                     handles{k} = scatter([], [], 30);
                 end
             else
@@ -272,7 +274,7 @@ classdef OccupancyGrid < handle
                 yUB = yUB + obj.xH(2);
             end
             
-            for k = 1:5:length(obj.times)
+            for k = 1:numSlicesToSkip:length(obj.times)
                 xs = [];
                 ys = [];
                 
@@ -281,7 +283,7 @@ classdef OccupancyGrid < handle
                 for x = xLB:obj.xDisc:xUB
                     for y = yLB:obj.yDisc:yUB
                         % Get the occupancy at this (x, y).
-                        if obj.getData(x, y, k * obj.tDisc) > 0
+                        if obj.getData(x, y, obj.tMin + k * obj.tDisc) > 0
                             xs = [xs, x];
                             ys = [ys, y];
                         end
@@ -301,7 +303,7 @@ classdef OccupancyGrid < handle
             obj.xH = xH;
         end
         
-        function success = loadFromFile(obj, priorProb, horizon)
+        function success = loadFromFile(obj, priorProb, horizon, currTime)
             success = true;
             
             % Load the data file.
@@ -325,11 +327,16 @@ classdef OccupancyGrid < handle
                     obj.data{k} = d.predictions(:, :, k);
                 end
                 
+                obj.xDisc = (d.predGrid.max(1) - d.predGrid.min(1)) / ...
+                    (d.predGrid.N(1) - 1);
+                obj.yDisc = (d.predGrid.max(2) - d.predGrid.min(2)) / ...
+                    (d.predGrid.N(2) - 1);
+                
                 obj.hjiGrid = d.predGrid;
-                obj.times = d.predTimes;
+                obj.times = currTime + d.predTimes;
                 obj.tDisc = d.predDt;
-                obj.tMin = d.predTmin;
-                obj.tMax = d.predTmax;
+                obj.tMin = currTime + d.predTmin;
+                obj.tMax = currTime + d.predTmax;
             end
         end
     end
