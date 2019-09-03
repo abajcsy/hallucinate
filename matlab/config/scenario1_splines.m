@@ -36,6 +36,7 @@ params.partialFunc = @gaussianHuman_partial;
 % Path to FRS directory (assuming the root directory is set to the project
 % root directory in MATLAB).
 params.pathToFRSDir = './matlab/frs';
+params.predHorizon = 2;
 
 %% Human Simluator: Parameters for simulating human measurements. 
 

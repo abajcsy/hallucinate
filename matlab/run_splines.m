@@ -41,6 +41,7 @@ planner.staticObsMap = OccupancyGrid(params.xDisc, params.yDisc, params.tDisc, .
                                      params.lowEnv(2), params.upEnv(2), ...
                                      params.tMin, params.tMax, staticGrid2D);
 % Setup the static obstacles.
+% TODO (Ellis): This may not work anymore
 for t=params.tMin:params.tDisc:params.tMax
     for r = params.staticObsBounds
         rect = r{1};
@@ -75,7 +76,11 @@ hh = [];
 rh = [];
 arh = [];
 th = [];
-pIdx = 2;
+
+staticMapHandle = [];
+dynMapHandle = [];
+
+% pIdx = 2;
 for t=0:params.T-1
     fprintf('At time step %d, robot is at (%f, %f, %f, %f)\n', ...
             t, xR(1), xR(2), xR(3), xR(4));
@@ -106,9 +111,6 @@ for t=0:params.T-1
             norm(xR(1:2) - xRLast(1:2)) / params.simDt);
 
     % ----- plotting ------ %
-    planner.staticObsMap.draw(staticGrid2D, 'k');           % draw the static obstacle
-    planner.dynObsMap.draw(predGrid2D, params.predColor);   % draw the dynamic obstacle
-
     % plot the robot goal and goal tolerance.
     info = [params.goalRXY(1)-params.goalTol params.goalRXY(2)-params.goalTol params.goalTol*2 params.goalTol*2];
     rectangle('Position',info,'Curvature',1, ...
@@ -150,16 +152,32 @@ for t=0:params.T-1
     [xHnext, uHcurr] = params.simHuman.simulate(xHnext, ...
         (t + 1) * params.simDt, ...
         params.simDt);
+    
+    % Prediction step.
+    predictor.updateState(xHnext, uHcurr);
+    betaProb = round(predictor.zcurr(end), 1);
+    
+    % Load the predictions from the appropriate file.
+    planner.dynObsMap.loadFromFile(betaProb, params.predHorizon);
+    planner.dynObsMap.setHumanState(xHnext);
+    
+    % Plot the occupancy maps.
+    fprintf('Plotting static obs map...\n');
+    if isempty(staticMapHandle)
+        staticMapHandle = planner.staticObsMap.draw('k');
+    else
+        staticMapHandle = planner.staticObsMap.draw('k', staticMapHandle);
+    end
+    
+    fprintf('Plotting dyn obs map...\n');
+    if isempty(dynMapHandle)
+        dynMapHandle = planner.dynObsMap.draw(params.predColor);
+    else
+        dynMapHandle = planner.dynObsMap.draw(params.predColor, ...
+            dynMapHandle);
+    end
 
     % Planning step.
-    if pIdx > length(humanPreds)
-        pIdx = length(humanPreds);
-    end
-    planner.dynObsMap.fromValueFuns(predGrid2D, humanPreds{pIdx}, ...
-                predsTimes{pIdx}, ...
-                t*params.simDt);
-    pIdx = pIdx + 1;
-
     xRStart = xR;
     tStart = t * params.simDt;
     if ~traj.isEmpty() && traj.splineIndex(tStart) > 0
