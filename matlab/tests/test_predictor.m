@@ -24,7 +24,9 @@ predictor = BoltzmannPredictor(xinit, goal, gridDims, betas, P_betas);
 
 H = 5; % prediction horizon
 ctrlThresh = 0.01;
-predGrids = predictor.predictDeterministic(xinit, H, ctrlThresh);
+%predGrids = predictor.predictDeterministic(xinit, H, ctrlThresh);
+
+predGrids = predictor.predictStochastic(xinit, H);
 
 % Plot beta distribution and the state preds.
 predictor.plot(predGrids, 1:H+1);
