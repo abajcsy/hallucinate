@@ -33,6 +33,11 @@ params.humanModel = GaussianHuman(params.z0, vH, uHRange, gamma, K, m, ...
 params.hamFunc = @gaussianHuman_ham;
 params.partialFunc = @gaussianHuman_partial;
 
+% Path to FRS directory (assuming the root directory is set to the project
+% root directory in MATLAB).
+params.pathToFRSDir = './matlab/frs';
+params.predHorizon = 2;
+
 %% Human Simluator: Parameters for simulating human measurements. 
 
 x0Sim = params.xH0;
@@ -106,7 +111,8 @@ params.thetaBounds = [-2*pi, 2*pi];
 params.timeBounds = [0, 15]; % Planning horizon.
 
 % Setup initial state of planner and goal state of planner.
-params.xR0 = [0.1; -1; (3*pi)/4; 0.1];
+% params.xR0 = [0.1; -1; (3*pi)/4; 0.1];
+params.xR0 = [1; -1; (3*pi)/4; 0.1];
 params.goalRXY = [-1; 1];
 
 %% Robot: Dynamical System Params.
@@ -120,8 +126,8 @@ params.simRobot = Plane(params.xR0(1:3), wMax, vRange, dMax);
 
 %% Simulation Params.
 % Timestep for computation and simulation.
-% params.simDt = 0.05;
-params.simDt = 0.045;
+params.simDt = 0.05;
+% params.simDt = 0.045;
 % params.simDt = 0.1;
 % params.simDt = 1;
 % params.simDt = 0.5;
@@ -129,10 +135,13 @@ params.simDt = 0.045;
 params.T = 200;
 
 % Number of steps after which to replan.
-params.replanAfterSteps = 1;
+% params.replanAfterSteps = 1;
+params.replanAfterSteps = 5;
+% params.replanAfterSteps = 3;
+% params.replanAfterSteps = params.T + 1;
 
 % If set to true, uses the control from the trajectory; otherwise, uses the
 % state directly.
-params.trajUseControl = true;
+params.trajUseControl = false;
 
 end
