@@ -46,7 +46,7 @@ classdef BayesPredictor
                     
                     % Compute CDF for each state for goal 1
                     g1 = obj.goals{1};
-                    mu1 = atan2(g1(2)- x(2), g1(1) - x(1)); 
+                    mu1 = atan2(g1(2) - x(2), g1(1) - x(1)); 
                     pd1 = makedist('Normal','mu',mu1,'sigma',obj.sigma1);
                     trunc1 = truncate(pd1, -pi, pi);
                     
