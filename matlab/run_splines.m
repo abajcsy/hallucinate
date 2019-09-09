@@ -41,6 +41,7 @@ planner.staticObsMap = OccupancyGrid(params.xDisc, params.yDisc, params.tDisc, .
                                      params.lowEnv(2), params.upEnv(2), ...
                                      params.tMin, params.tMax, staticGrid2D);
 % Setup the static obstacles.
+% TODO (Ellis): This may not work anymore
 for t=params.tMin:params.tDisc:params.tMax
     for r = params.staticObsBounds
         rect = r{1};
@@ -49,19 +50,15 @@ for t=params.tMin:params.tDisc:params.tMax
 end
 
 % Setup the dynamic obstacle map.
-tDisc = (params.tMax - params.tMin)/params.dt;
 predGrid2D = proj(params.predGrid, params.predGrid.xs, [0,0,1]);
-planner.dynObsMap = OccupancyGrid(params.xDisc, params.yDisc, params.tDisc, ...
+planner.dynObsMap = OccupancyGrid(params.xDisc, params.yDisc, params.dt, ...
                                   params.lowEnv(1), params.upEnv(1), ...
                                   params.lowEnv(2), params.upEnv(2), ...
-                                  params.tMin, params.tMax, predGrid2D);
+                                  params.tMin, params.tMax, predGrid2D, ...
+                                  params.pathToFRSDir);
 
 %% Simulation loop.
 hold on
-
-% predictor.updatePredictions();
-% [preds, times] = predictor.getPredictions();
-planner.dynObsMap.fromValueFuns(predGrid2D, humanPreds{1}, predsTimes{1}, 0);
 
 % Initialize the planned trajectory.
 contStates = {};
@@ -79,7 +76,12 @@ hh = [];
 rh = [];
 arh = [];
 th = [];
-pIdx = 2;
+
+staticMapHandle = [];
+dynMapHandle = [];
+betaProbHandle = [];
+
+% pIdx = 2;
 for t=0:params.T-1
     fprintf('At time step %d, robot is at (%f, %f, %f, %f)\n', ...
             t, xR(1), xR(2), xR(3), xR(4));
@@ -110,9 +112,6 @@ for t=0:params.T-1
             norm(xR(1:2) - xRLast(1:2)) / params.simDt);
 
     % ----- plotting ------ %
-    planner.staticObsMap.draw(staticGrid2D, 'k');           % draw the static obstacle
-    planner.dynObsMap.draw(predGrid2D, params.predColor);   % draw the dynamic obstacle
-
     % plot the robot goal and goal tolerance.
     info = [params.goalRXY(1)-params.goalTol params.goalRXY(2)-params.goalTol params.goalTol*2 params.goalTol*2];
     rectangle('Position',info,'Curvature',1, ...
@@ -146,7 +145,8 @@ for t=0:params.T-1
 
     xlim([params.lowEnv(1),params.upEnv(1)]);
     ylim([params.lowEnv(2),params.upEnv(2)]);
-    pause(0.1*params.simDt);
+%     pause(0.1*params.simDt);
+    pause(1);
     % --------------------- %
 
     % Get most recent measurement of where the person is and what action
@@ -154,21 +154,44 @@ for t=0:params.T-1
     [xHnext, uHcurr] = params.simHuman.simulate(xHnext, ...
         (t + 1) * params.simDt, ...
         params.simDt);
-
+    
     % Prediction step.
-    %predictor.updateState(xHnext, uHcurr);
-    %predictor.updatePredictions();
+    predictor.updateState(xHnext, uHcurr);
+    betaProb = predictor.zcurr(end);
+    betaProbStr = strcat('P(\beta) = ', num2str(betaProb));
+    if isempty(betaProbHandle)
+        betaProbHandle = text(params.lowEnv(1) + 0.05, ...
+            params.upEnv(2) - 0.6, ...
+            betaProbStr);
+    else
+        betaProbHandle.set('String', betaProbStr);
+    end
+    
+    betaProb = round(betaProb, 1);
+    
+    % Load the predictions from the appropriate file.
+    planner.dynObsMap.loadFromFile(betaProb, ...
+        params.predHorizon, ...
+        t * params.simDt);
+    planner.dynObsMap.setHumanState(xHnext);
+    
+    % Plot the occupancy maps.
+    fprintf('Plotting static obs map...\n');
+    if isempty(staticMapHandle)
+        staticMapHandle = planner.staticObsMap.draw('k');
+    else
+        staticMapHandle = planner.staticObsMap.draw('k', staticMapHandle);
+    end
+    
+    fprintf('Plotting dyn obs map...\n');
+    if isempty(dynMapHandle)
+        dynMapHandle = planner.dynObsMap.draw(params.predColor);
+    else
+        dynMapHandle = planner.dynObsMap.draw(params.predColor, ...
+            dynMapHandle);
+    end
 
     % Planning step.
-    %[preds, times] = predictor.getPredictions();
-    if pIdx > length(humanPreds)
-        pIdx = length(humanPreds);
-    end
-    planner.dynObsMap.fromValueFuns(predGrid2D, humanPreds{pIdx}, ...
-                predsTimes{pIdx}, ...
-                t*params.simDt);
-    pIdx = pIdx + 1;
-
     xRStart = xR;
     tStart = t * params.simDt;
     if ~traj.isEmpty() && traj.splineIndex(tStart) > 0
@@ -176,12 +199,8 @@ for t=0:params.T-1
     end
 
     if traj.isEmpty() || mod(t, params.replanAfterSteps) == 0
-%         traj = planner.plan([xRStart; tStart], params.goalRXY, ...
-%                             params.goalTol);
-        if traj.isEmpty()
-            traj = planner.plan([xRStart; tStart], params.goalRXY, ...
-                                params.goalTol);
-        end
+        traj = planner.plan([xRStart; tStart], params.goalRXY, ...
+                            params.goalTol);
     end
 end
 
@@ -191,34 +210,6 @@ function dxdt = unicycleDynamics(t, x, u)
             x(4) * sin(x(3));
             u(1);
             u(2)];
-end
-
-%% Gets the 3D Dubins car dynamics.
-function dxdt = dubinsCarDynamics(t, x, u, v)
-    dxdt = [v * cos(x(3));
-            v * sin(x(3));
-            u];
-end
-
-%% Simple controller.
-function u = getControl(t, x, trajRef)
-    kPropLinAcc = 2;
-    kPropAngAcc = 0.5;
-
-    xRef = trajRef.getState(t);
-    posErr = [xRef(1) - x(1);
-              xRef(2) - x(2)];
-
-    % Acceleration is proportional to position error along current
-    % direction of travel.
-    dir = [cos(x(3)); sin(x(3))];
-    a = kPropLinAcc * (posErr' * dir);
-
-    % Angular velocity is proportional to the difference between the
-    % current heading and the reference heading.
-    headingErr = xRef(3) - x(3);
-    omega = kPropAngAcc * headingErr;
-    u = [omega; a];
 end
 
 %% Plots human or robot.
