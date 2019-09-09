@@ -74,6 +74,11 @@ classdef HumanPredictor < handle
         %% Predicts the FRS of the human.
         function updatePredictions(obj)
             
+            fprintf('--------- Predictions Setup ----------\n');
+            fprintf('   z0: [%d, %d, %d]\n', obj.zcurr(1), obj.zcurr(2), obj.zcurr(3));
+            fprintf('   target radius: %d\n', obj.targetR);
+            fprintf('--------------------------------------\n');
+            
             % Target set.
             data = shapeSphere(obj.grid, obj.zcurr, obj.targetR);
             

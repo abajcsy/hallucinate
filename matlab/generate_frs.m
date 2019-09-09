@@ -10,22 +10,26 @@ params = frsPrecompute();
 predictor = HumanPredictor(params);
 
 %% Discretize probability of beta
-Pbetas = linspace(0,1,10);
+Pbetas = linspace(0,1,11);
 
 %% File structure for saving
-frsDir = '/home/abajcsy/hybrid_ws/src/hallucinate/matlab/frs/';
+%frsDir = '/home/abajcsy/hybrid_ws/src/hallucinate/matlab/frs/';
+frsDir = '/home/andreabajcsy/hybrid_ws/src/hallucinate/matlab/frs/';
 
 for pb = Pbetas
     % Set the new initial condition
     initz = [params.xH0; pb];
-    params.humanModel.zcurr = params.z0;
+   
+    predictor.human.x = initz;
+    predictor.human.xhist = initz;
+    predictor.zcurr = initz;
     
     % Compute the predictions
     predictor.updatePredictions();
 	[preds, times] = predictor.getPredictions();
     
     % Project to 2D.
-    [grid2D, preds2D] = proj(params.predGrid, preds, [0,0,1]);
+    [grid2D, preds2D] = proj(params.predGrid, preds, [0,0,1], 'min');
     
     % Convert to binary map.
     occuMap2D = preds2D;
@@ -43,14 +47,44 @@ for pb = Pbetas
     occuMat = 'occuMap.mat';
     
     % Save full horizon FRS.
-    save(strcat(horiz6, frsMat), preds, times);
-    save(strcat(horiz6, occuMat), occyMap2D, times);
+    predictions = preds;
+    predGrid = params.predGrid;
+    predTmin = params.tMin;
+    predTmax = params.tMax;
+    predDt = params.dt;
+    predTimes = times;
     
+    % 6 second full pred.
+    save(strcat(horiz6, frsMat), 'predictions', 'predGrid', 'predTimes', 'predDt', 'predTmin', 'predTmax');
+    
+    % 6 second occupancy map.
+    predictions = occuMap2D;
+    predGrid = grid2D;
+    save(strcat(horiz6, occuMat), 'predictions', 'predGrid', 'predTimes', 'predDt', 'predTmin', 'predTmax');
+    
+    % 4 second full pred.
     idx4sec = 4/params.dt;
-    save(strcat(horiz4, frsMat), preds(:,:,:,1:idx4sec), times(1:idx4sec));
-    save(strcat(horiz4, frsMat), occuMap2D(:,:,1:idx4sec), times(1:idx4sec));
+    predictions = preds(:,:,:,1:idx4sec);
+	predTmax = 4;
+    predTimes = times(1:idx4sec);
+    predGrid = params.predGrid;
+    save(strcat(horiz4, frsMat), 'predictions', 'predGrid', 'predTimes', 'predDt', 'predTmin', 'predTmax');
     
+    % 4 second occupancy map.
+    predictions = occuMap2D(:,:,1:idx4sec);
+    predGrid = grid2D;
+    save(strcat(horiz4, occuMat), 'predictions', 'predGrid', 'predTimes', 'predDt', 'predTmin', 'predTmax');
+    
+    % 2 second full pred.
     idx2sec = 2/params.dt;
-    save(strcat(horiz2, frsMat), preds(:,:,:,1:idx2sec), times(1:idx2sec));
-    save(strcat(horiz2, frsMat), occuMap2D(:,:,1:idx2sec), times(1:idx2sec));
+    predictions = preds(:,:,:,1:idx2sec);
+    predTmax = 2;
+    predTimes = times(1:idx2sec);
+    predGrid = params.predGrid;
+    save(strcat(horiz2, frsMat), 'predictions', 'predGrid', 'predTimes', 'predDt', 'predTmin', 'predTmax');
+    
+    % 2 second occupancy map.
+    predictions = occuMap2D(:,:,1:idx2sec);
+    predGrid = grid2D;
+    save(strcat(horiz2, occuMat), 'predictions', 'predGrid', 'predTimes', 'predDt', 'predTmin', 'predTmax');
 end
