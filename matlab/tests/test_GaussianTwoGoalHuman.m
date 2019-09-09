@@ -10,7 +10,7 @@ v = 0.6;
 uRange = [-pi+1e-2; pi];
 
 % gamma in continuous-time P(beta = 0) dynamics
-gamma = 0;
+gamma = 1;
 
 % Number of discrete controls
 numCtrls = 11;
@@ -61,8 +61,8 @@ data0 = shapeSphere(g, x0, R);
 
 %% time vector
 t0 = 0;
-tMax = 5;
-dt = 0.1;
+tMax = 3;
+dt = 0.05;
 tau = t0:dt:tMax;
 uMode = 'max';
 

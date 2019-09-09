@@ -149,7 +149,6 @@ classdef Beta1or0Human < DynSys
             %  Output: 
             %       likelyCtrls -- (cell arr) valid controls at each state    
             
-            %TBD
             if obj.beta == 0 % u drawn from Normal Distribution
                 upperBound = 0*x{3};
                 lowerBound = 0*x{3};
@@ -165,8 +164,6 @@ classdef Beta1or0Human < DynSys
                 %       need to ensure that the result of the log is > 0 and < 1. 
                 C = sqrt(-2*obj.sigma^2 .* log(innerLog)) .* (innerLog > 0) .* (innerLog <= 1) + ...
                     1e6 * (innerLog <= 0) + 1e6 * (innerLog > 1);
-            
-                % TODO: need to make this size of state space???
                 
                 % Compute the bounds on the likley controls.
                 upperBound = min(upperBound + optCtrl + C, obj.uRange(2));

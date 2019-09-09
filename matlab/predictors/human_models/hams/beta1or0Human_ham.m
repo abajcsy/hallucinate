@@ -22,17 +22,21 @@ else
 	hamValue = max(pdot_f, [], 4);
 end
 
-% Compare against the Hamiltonian obtained by just maximizing the first
-% two terms
-uOpt_nobeta = atan2(deriv{2}, deriv{1});
-xdot_nobeta = human.dynamics(x, uOpt_nobeta);
-hamU_nobeta = deriv{1} .* xdot_nobeta{1} + deriv{2} .* xdot_nobeta{2} + deriv{3} .* xdot_nobeta{3};
-if strcmp(uMode, 'max')
-    condition = (human.likelyCtrls{1} - uOpt_nobeta < 0) + (human.likelyCtrls{end} - uOpt_nobeta > 0) - 1e-2;
-    
-    hamValue = max(hamValue, hamU_nobeta) .* (sign(condition) <= 0) + ...
-        hamValue .* (sign(condition) > 0);
+if strcmp(schemeData.tMode, 'backward')
+    hamValue = -hamValue;
 end
+
+% % Compare against the Hamiltonian obtained by just maximizing the first
+% % two terms
+% uOpt_nobeta = atan2(deriv{2}, deriv{1});
+% xdot_nobeta = human.dynamics(x, uOpt_nobeta);
+% hamU_nobeta = deriv{1} .* xdot_nobeta{1} + deriv{2} .* xdot_nobeta{2} + deriv{3} .* xdot_nobeta{3};
+% if strcmp(uMode, 'max')
+%     condition = (human.likelyCtrls{1} - uOpt_nobeta < 0) + (human.likelyCtrls{end} - uOpt_nobeta > 0) - 1e-2;
+%     
+%     hamValue = max(hamValue, hamU_nobeta) .* (sign(condition) <= 0) + ...
+%         hamValue .* (sign(condition) > 0);
+% end
 
 % for i=1:human.numCtrls
 %     % Get dynamics at each state given current control.
