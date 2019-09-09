@@ -19,13 +19,13 @@ classdef BayesPredictor
         states      % (cell arr) indicies of all states in grid
         controls    % (cell arr) all controls
         
-        cdfs        % (Map) indexed by string that has 'goalNum, i, j'
+        truncG1
+        truncG2
     end
     
     methods
         function obj = BayesPredictor(prior, goals, sigma1, sigma2, gridMin, gridMax, gridDims)
             obj.prior = containers.Map([1:length(prior)], prior);
-            obj.cdfs = containers.Map();
             obj.goals = goals;
             obj.sigma1 = sigma1;
             obj.sigma2 = sigma2;
@@ -42,27 +42,13 @@ classdef BayesPredictor
             for i=1:obj.gridDims(1)
                 for j=1:obj.gridDims(2)
                     obj.states{end+1} = [i, j];
-                    x = obj.simToReal([i, j]);
-                    
-                    % Compute CDF for each state for goal 1
-                    g1 = obj.goals{1};
-                    mu1 = atan2(g1(2) - x(2), g1(1) - x(1)); 
-                    pd1 = makedist('Normal','mu',mu1,'sigma',obj.sigma1);
-                    trunc1 = truncate(pd1, -pi, pi);
-                    
-                    key1 = strcat(num2str(1), ',', num2str(i), ',', num2str(j));
-                    obj.cdfs(key1) = trunc1;
-                    
-                    % Compute CDF for each state for goal 2
-                    g2 = obj.goals{2};
-                    mu2 = atan2(g2(2)- x(2), g2(1) - x(1)); 
-                    pd2 = makedist('Normal','mu',mu2,'sigma',obj.sigma2);
-                    trunc2 = truncate(pd2, -pi, pi);
-                    
-                    key2 = strcat(num2str(2), ',', num2str(i), ',', num2str(j));
-                    obj.cdfs(key2) = trunc2;
                 end
             end
+            
+            pd1 = makedist('Normal','mu',0,'sigma',obj.sigma1);
+            pd2 = makedist('Normal','mu',0,'sigma',obj.sigma2);
+            obj.truncG1 = truncate(pd1, -pi, pi);
+            obj.truncG2 = truncate(pd2, -pi, pi);
             
             % Enumerate all the controls
             % UP=1, RIGHT=2, DOWN=3, LEFT=4,
@@ -72,52 +58,95 @@ classdef BayesPredictor
         end
         
         %% Mega prediction loop for up to timestep H.
-        function preds = predict(obj, x0, H)
+        function fullPreds = predict(obj, x0, H)
             
             % Convert into (i,j) index
             coor = obj.realToSim(x0);
             
+            % Make a map with keys being goals and values being
+            % predictions.
+            twoGoalPreds = containers.Map('KeyType', 'char', 'ValueType', 'any');
+            
             % Initialize empty prediction grids forward in time.
             % Assume P(xt | x0) = 0 for all xt
-            preds = cell([1,H+1]);
-            preds(:) = {zeros(obj.gridDims)};
+            for g=1:length(obj.goals)
+                predsG = cell([1,H+1]);
+                predsG(:) = {zeros(obj.gridDims)};
+                
+            	% At current timestep, the measured state has 
+                % probability = 1, zeros elsewhere.
+                predsG{1}(coor(1), coor(2)) = 1;
+                
+                twoGoalPreds(num2str(g)) = predsG;
+            end
             
-            % At current timestep, the measured state has 
-            % probability = 1, zeros elsewhere.
-            preds{1}(coor(1), coor(2)) = 1;
-            
-            for t=2:H+1
-                fprintf('Predicting for t=%d\n', t);
-                for g = 1:length(obj.goals)
+            % First compute all the predictions for goal 1.
+            for g = 1:length(obj.goals)
+                preds = twoGoalPreds(num2str(g));
+                for t=2:H+1
+                    fprintf('Predicting for g=%d for t=%d\n', g, t);
                     for scurr = obj.states
                         for u = obj.controls
                             % Unpack the [i,j] coords.
                             s = scurr{1};
-                            
+
                             % Optimization!
                             if preds{t-1}(s(1), s(2)) == 0
                                 continue;
                             end
-                            
+
                             % now we are cookin' with gas!
                             [snext, isValid] = obj.dynamics(s, u);
-                            
+
                             % if u can take us to a valid state in the
                             % world
                             if isValid
                                 pug = obj.Pu_given_x_g(u, s, g);
-                                
+
                                 % P(u|x,g) * P(g) * P(x)
                                 preds{t}(snext(1), snext(2)) = ...
                                     preds{t}(snext(1), snext(2)) + ...
-                                    pug * obj.prior(g) *  preds{t-1}(s(1), s(2));
+                                    pug *  preds{t-1}(s(1), s(2));
                             end
                         end
-                        
                     end
                 end
+                twoGoalPreds(num2str(g)) = preds;
             end
             
+            
+            % Combine the two predictions for each goal by multiplying with
+            % the prior over each goal. 
+            predsG1 = twoGoalPreds(num2str(1));
+            predsG2 = twoGoalPreds(num2str(2));
+            
+            fullPreds = cell([1,H+1]);
+            fullPreds(:) = {zeros(obj.gridDims)};
+            fullPreds{1}(coor(1), coor(2)) = 1;
+            for t=2:H+1
+                fullPreds{t} = predsG1{t}*obj.prior(1) + predsG2{t}*obj.prior(2);
+            end
+        end
+        
+        %% Helper function. 
+        function plot_Pu_given_x(obj)
+            
+            gString = createGrid(obj.gridMin, obj.gridMax, obj.gridDims);
+            
+            for u = obj.controls
+                grid = zeros(obj.gridDims);
+                for scurr = obj.states
+                    s = scurr{1};
+                    pug1 = obj.Pu_given_x_g(u, s, 1);
+                    pug2 = obj.Pu_given_x_g(u, s, 2);
+                    grid(s(1), s(2)) = pug1*obj.prior(1) + pug2*obj.prior(2);
+                end
+                pcolor(gString.xs{2}, gString.xs{1}, grid);
+                title(strcat('P(u=', num2str(u), '|x)'));
+                colorbar
+                caxis([0,1])
+            end
+
         end
         
         %% Compute the probability of a specific action given a state and beta value.
@@ -130,19 +159,43 @@ classdef BayesPredictor
         %       P(u | x0; g2) = N(atan2(g2(y) - y, g2(x) - x), sigma_2^2)
         %
         function prob = Pu_given_x_g(obj, u, s0, goal)
+            % Get the lower and upper bounds to integrate the Gaussian 
+            % PDF over.
+            bounds = obj.uToThetaBounds(u);
+            x = obj.simToReal(s0);        
             
             if goal == 1
-                key1 = strcat(num2str(goal), ',', num2str(s0(1)), ',', num2str(s0(2)));
-                trunc1 = obj.cdfs(key1);
-                prob = obj.cdfOfU(trunc1, u);
+                % Compute optimal control (i.e. mean of Gaussian) 
+                g1 = obj.goals{1};
+                mu1 = atan2(g1(2) - x(2), g1(1) - x(1)); 
+                
+                % Find the integration bounds. 
+                bound1 = wrapToPi(mu1 - bounds(1));
+                bound2 = wrapToPi(mu1 - bounds(2));
+                
+                % Integrate on bounds. 
+                p = cdf(obj.truncG1, [bound1, bound2]);
+                prob = abs(p(2) - p(1));
             elseif goal == 2
-                key2 = strcat(num2str(goal), ',', num2str(s0(1)), ',', num2str(s0(2)));
-                trunc2 = obj.cdfs(key2);
-                prob = obj.cdfOfU(trunc2, u);
+                % Compute optimal control (i.e. mean of Gaussian) 
+                g2 = obj.goals{2};
+                mu2 = atan2(g2(2) - x(2), g2(1) - x(1)); 
+                
+                % Find the integration bounds. 
+                bound1 = wrapToPi(mu2 - bounds(1));
+                bound2 = wrapToPi(mu2 - bounds(2));
+                
+                % Integrate on bounds. 
+                p = cdf(obj.truncG2, [bound1, bound2]);
+                prob = abs(p(2) - p(1));
             else
                 error("In PuGivenGoal(): goal is invalid: %d\n", goal);
             end
             
+            
+            if abs(bound1 - bound2) > pi
+                prob = 1 - prob;
+            end
         end
         
         %% Converts from real state (m) to coordinate (i,j)
@@ -157,60 +210,24 @@ classdef BayesPredictor
                  obj.gridMin(2) + (coor(1) - 1)*obj.dy];
         end
         
-        %% Computes the cdf of the normal distribution with mean mu and ...
-        %  standard deviation sigma, evaluated at the values in the interval.
-        function prob = cdfOfU(obj, truncatedDist, u)
-            p = [0; 0];
+        %% Converts from fake discrete controls into lower and upper theta
+        function bounds = uToThetaBounds(obj, u)
             if u == 1 % UP
-                p = cdf(truncatedDist,[(3*pi)/8, (5*pi)/8]);
-                %p = normcdf([(3*pi)/8, (5*pi)/8],mu,sigma);
+                bounds = [(3*pi)/8, (5*pi)/8];
             elseif u == 2 % RIGHT
-                p = cdf(truncatedDist,[-pi/8, pi/8]);
-                %p = normcdf([-pi/8, pi/8],mu,sigma);
+                bounds = [-pi/8, pi/8];
             elseif u == 3 % DOWN
-                p = cdf(truncatedDist,[-(5*pi)/8, -(3*pi)/8]);
-                %p = normcdf([-(5*pi)/8, -(3*pi)/8],mu,sigma);
+                bounds = [-(5*pi)/8, -(3*pi)/8];
             elseif u == 4 % LEFT
-                pa = cdf(truncatedDist,[(7*pi)/8, pi]);
-                pb = cdf(truncatedDist,[-pi, -(7*pi)/8]);
-                p = [pa(1) + pb(1), pa(2) + pb(2)];
-                %p = normcdf([(7*pi)/8, pi],mu,sigma) + ...
-                %    normcdf([-pi, -(7*pi)/8],mu,sigma);
+                bounds = [(7*pi)/8, -(7*pi)/8];
             elseif u == 5 % UP RIGHT
-                p = cdf(truncatedDist,[pi/8, (3*pi)/8]);
-                %p = normcdf([pi/8, (3*pi)/8],mu,sigma);
+                bounds = [pi/8, (3*pi)/8];
             elseif u == 6 % DOWN RIGHT
-                p = cdf(truncatedDist,[-(3*pi)/8, -pi/8]);
-                %p = normcdf([-(3*pi)/8, -pi/8],mu,sigma);
+                bounds = [-(3*pi)/8, -pi/8];
             elseif u == 7 % DOWN LEFT
-                p = cdf(truncatedDist,[-(7*pi)/8, -(5*pi)/8]);
-                %p = normcdf([-(7*pi)/8, -(5*pi)/8],mu,sigma);
+                bounds = [-(7*pi)/8, -(5*pi)/8];
             elseif u == 8 % UP LEFT
-                p = cdf(truncatedDist,[(5*pi)/8, (7*pi)/8]);
-                %p = normcdf([(5*pi)/8, (7*pi)/8],mu,sigma);
-            end
-            
-            prob = p(2)-p(1);
-        end
-        
-        %% Converts from fake discrete controls into theta controls
-        function theta = uToTheta(obj, u)
-            if u == 1 % UP
-                theta = pi/2;
-            elseif u == 2 % RIGHT
-                theta = 0;
-            elseif u == 3 % DOWN
-                theta = -pi/2;
-            elseif u == 4 % LEFT
-                theta = pi;
-            elseif u == 5 % UP RIGHT
-                theta = pi/4;
-            elseif u == 6 % DOWN RIGHT
-                theta = -pi/4;
-            elseif u == 7 % DOWN LEFT
-                theta = -(3*pi)/4;
-            elseif u == 8 % UP LEFT
-                theta = (3*pi)/4;
+                bounds = [(5*pi)/8, (7*pi)/8];
             end
         end
         
