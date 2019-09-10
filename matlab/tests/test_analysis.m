@@ -62,10 +62,10 @@ trueBeta = 0;
 centerBeta = 1;
 
 % For Analysis 1.1 (min time)
-uMode = 'min';
+%uMode = 'min';
 
 % For Analysis 1.2 (max time)
-%uMode = 'max';
+uMode = 'max';
 % -------------------------- %
 
 % % ---- Setup for Case 2 ---- %
@@ -177,7 +177,7 @@ tmin = -Inf;
 for t=1:length(tau2)
     v = eval_u(g, data(:,:,:,t), x0); 
     if v <= 0
-        tmin = t*dt;
+        tmin = (t-1)*dt;
         break;
     end
 end

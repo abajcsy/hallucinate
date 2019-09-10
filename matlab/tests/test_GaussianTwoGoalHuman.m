@@ -4,7 +4,7 @@ clear all
 %% Create human dynamical system
 
 % Velocity
-v = 0.6;
+v = 0.1;
 
 % Control bounds
 uRange = [-pi+1e-2; pi];
@@ -38,7 +38,7 @@ human = GaussianTwoGoalHuman(x0, v, uRange, gamma, goals, sigma, uThresh, numCtr
 
 %% Grid
 grid_min = [-2; -2; -0.1];  % Lower corner of computation domain
-grid_max = [2; 2; 1.1];     % Upper corner of computation domain
+grid_max = [5; 2; 1.1];     % Upper corner of computation domain
 N = [81; 81; 41];           % Number of grid points per dimension
 g = createGrid(grid_min, grid_max, N);
 
@@ -61,7 +61,7 @@ data0 = shapeSphere(g, x0, R);
 
 %% time vector
 t0 = 0;
-tMax = 3;
+tMax = 50;
 dt = 0.05;
 tau = t0:dt:tMax;
 uMode = 'max';
@@ -83,10 +83,10 @@ HJIextraArgs.visualize.initialValueSet = 0;
 HJIextraArgs.visualize.figNum = 1; %set figure number
 HJIextraArgs.visualize.deleteLastPlot = true; %delete previous plot as you update
 HJIextraArgs.visualize.viewGrid = true;
-HJIextraArgs.visualize.viewAxis = [-2 2 -2 2 -0.1 1.1];
+HJIextraArgs.visualize.viewAxis = [-2 5 -2 2 -0.1 1.1];
 HJIextraArgs.visualize.xTitle = '$p^x$';
 HJIextraArgs.visualize.yTitle = '$p^y$';
-HJIextraArgs.visualize.zTitle = '$P(\beta = 0)$';
+HJIextraArgs.visualize.zTitle = '$P(goal_1)$';
 HJIextraArgs.visualize.fontSize = 15;
 %HJIextraArgs.visualize.camlightPosition = [0 0 0];
 
