@@ -45,7 +45,7 @@ g = createGrid(grid_min, grid_max, N);
 %% Let the human have access to the grid for debugging.
 human.setGrid(g);
 
-%% Pre-compute the likely controls and dynamics over the entire state-space.
+%% Pre-compute the optimal control over the entire state-space.
 human.computeUOptGoals(g.xs);
 
 %% Pre-compute the likely controls and dynamics over the entire state-space.
