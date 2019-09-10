@@ -62,10 +62,10 @@ trueBeta = 0;
 centerBeta = 1;
 
 % For Analysis 1.1 (min time)
-%uMode = 'min';
+uMode = 'min';
 
 % For Analysis 1.2 (max time)
-uMode = 'max';
+%uMode = 'max';
 % -------------------------- %
 
 % % ---- Setup for Case 2 ---- %

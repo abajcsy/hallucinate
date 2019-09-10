@@ -4,7 +4,7 @@ clear all
 %% Create human dynamical system
 
 % Velocity
-v = 0.1;
+v = 0.6;
 
 % Control bounds
 uRange = [-pi+1e-2; pi];
@@ -31,14 +31,14 @@ betaModel = 'static';
 extraArgs = [];
 
 % Setup dynamical system
-Pgoal1 = 0.5; 
+Pgoal1 = 0.1; 
 x0 = [0; 0; Pgoal1];
 human = GaussianTwoGoalHuman(x0, v, uRange, gamma, goals, sigma, uThresh, numCtrls, ...
     betaModel, extraArgs);
 
 %% Grid
 grid_min = [-2; -2; -0.1];  % Lower corner of computation domain
-grid_max = [5; 2; 1.1];     % Upper corner of computation domain
+grid_max = [2; 2; 1.1];     % Upper corner of computation domain
 N = [81; 81; 41];           % Number of grid points per dimension
 g = createGrid(grid_min, grid_max, N);
 
@@ -81,9 +81,9 @@ schemeData.partialFunc = @gaussianTwoGoalHuman_partial;
 HJIextraArgs.visualize.valueSet = 1;
 HJIextraArgs.visualize.initialValueSet = 0;
 HJIextraArgs.visualize.figNum = 1; %set figure number
-HJIextraArgs.visualize.deleteLastPlot = true; %delete previous plot as you update
+HJIextraArgs.visualize.deleteLastPlot = false; %delete previous plot as you update
 HJIextraArgs.visualize.viewGrid = true;
-HJIextraArgs.visualize.viewAxis = [-2 5 -2 2 -0.1 1.1];
+HJIextraArgs.visualize.viewAxis = [-2 2 -2 2 -0.1 1.1];
 HJIextraArgs.visualize.xTitle = '$p^x$';
 HJIextraArgs.visualize.yTitle = '$p^y$';
 HJIextraArgs.visualize.zTitle = '$P(goal_1)$';

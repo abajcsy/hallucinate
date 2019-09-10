@@ -15,7 +15,7 @@ gridMax = [2,2];
 gridDims = [41,41];         % Num grid cells in X and Y dimension. 
 
 % Set the prior over goal 1 and goal 2.
-prior = [0.5, 0.5];
+prior = [0.1, 0.9];
 
 % Create the predictor. 
 predictor = BayesPredictor(prior, goals, sigma1, sigma2, gridMin, gridMax, gridDims);
@@ -42,7 +42,7 @@ gString = createGrid(gridMin, gridMax, gridDims);
 figure(2)
 set(gcf,'color','w');
 
-epsilon = 0;
+epsilon = 0.05;
 for t=1:H+1
     p = preds{t};
     sum(sum(p))
