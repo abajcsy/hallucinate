@@ -13,15 +13,15 @@ classdef LatticeBayesPredictor
         gridMax
         
         r
-        dxEven
-        dxOdd
-        dy
         
         states      % (cell arr) indicies of all states in grid
         controls    % (cell arr) all controls
         
         truncG1
         truncG2
+        
+        rows
+        cols
     end
     
     methods
@@ -36,25 +36,44 @@ classdef LatticeBayesPredictor
             obj.gridMax = gridMax;
             
             obj.r = r;
-            obj.dxEven = obj.r;
-            obj.dxOdd = obj.r/2;
-            obj.dy = (obj.r*sqrt(3))/2.;
                         
             % Enumerate all the state indicies
             obj.states = {};
-             for y = obj.gridMin(2):obj.dy:obj.gridMax(2)
-                i = round((y - obj.gridMin(2))/obj.dy);
-                if mod(i,2) == 0
-                    for x = obj.gridMin(1):obj.dxEven:obj.gridMax(1)
-                        obj.states{end+1} = obj.realToSim([x,y]);
-                    end
-                else
-                    for x = obj.gridMin(1):obj.dxOdd:obj.gridMax(1)
-                        obj.states{end+1} = obj.realToSim([x,y]);
-                    end
+            
+            % Number of cells along y (i.e. number of rows).
+            obj.rows = round((obj.gridMax(2) - obj.gridMin(2)) / ...
+                (0.5 * obj.r * sqrt(3)));
+            
+            % Number of cells along x (i.e. number of columns).
+            obj.cols = round((obj.gridMax(1) - obj.gridMin(1)) / ...
+                obj.r); 
+            
+            for i = 1:obj.rows
+                for j = 1:obj.cols
+                    obj.states{end + 1} = [i, j];
                 end
             end
             
+            % Debugging.
+%             xs = [];
+%             ys = [];
+%             
+%             for s = obj.states
+%                 ss = s{1};
+%                 [x, y] = obj.simToReal(ss);
+%                 [i, j] = obj.realToSim([x, y]);
+%                 fprintf('(%d, %d) maps to (%f, %f) maps to (%d, %d)\n', ...
+%                         ss(1), ss(2), x, y, i, j);
+%                 xs = [xs, x];
+%                 ys = [ys, y];
+%             end
+%             
+%             figure;
+%             hold on;
+%             scatter(xs, ys, 25, 'b');
+%             hold off;
+            %%%%%%%%%%%%%%%
+                        
             pd1 = makedist('Normal','mu',0,'sigma',obj.sigma1);
             pd2 = makedist('Normal','mu',0,'sigma',obj.sigma2);
             obj.truncG1 = truncate(pd1, -pi, pi);
@@ -74,7 +93,7 @@ classdef LatticeBayesPredictor
         function fullPreds = predict(obj, x0, H)
             
             % Convert into (i,j) index
-            coor = obj.realToSim(x0);
+            [i0, j0] = obj.realToSim(x0);
             
             % Make a map with keys being goals and values being
             % predictions.
@@ -84,11 +103,11 @@ classdef LatticeBayesPredictor
             % Assume P(xt | x0) = 0 for all xt
             for g=1:length(obj.goals)
                 predsG = cell([1,H+1]);
-                predsG(:) = {zeros(obj.gridDims)};
+                predsG(:) = {zeros(obj.rows, obj.cols)};
                 
             	% At current timestep, the measured state has 
                 % probability = 1, zeros elsewhere.
-                predsG{1}(coor(1), coor(2)) = 1;
+                predsG{1}(i0, j0) = 1;
                 
                 twoGoalPreds(num2str(g)) = predsG;
             end
@@ -115,6 +134,7 @@ classdef LatticeBayesPredictor
                             % world
                             if isValid
                                 pug = obj.Pu_given_x_g(u, s, g);
+%                                 pug = 1;
 
                                 % P(u|x,g) * P(g) * P(x)
                                 preds{t}(snext(1), snext(2)) = ...
@@ -133,8 +153,8 @@ classdef LatticeBayesPredictor
             predsG2 = twoGoalPreds(num2str(2));
             
             fullPreds = cell([1,H+1]);
-            fullPreds(:) = {zeros(obj.gridDims)};
-            fullPreds{1}(coor(1), coor(2)) = 1;
+            fullPreds(:) = {zeros(obj.rows, obj.cols)};
+            fullPreds{1}(i0, j0) = 1;
             for t=2:H+1
                 fullPreds{t} = predsG1{t}*obj.prior(1) + predsG2{t}*obj.prior(2);
             end
@@ -174,12 +194,12 @@ classdef LatticeBayesPredictor
             % Get the lower and upper bounds to integrate the Gaussian 
             % PDF over.
             bounds = obj.uToThetaBounds(u);
-            x = obj.simToReal(s0);        
+            [x, y] = obj.simToReal(s0);        
             
             if goal == 1
                 % Compute optimal control (i.e. mean of Gaussian) 
                 g1 = obj.goals{1};
-                mu1 = atan2(g1(2) - x(2), g1(1) - x(1)); 
+                mu1 = atan2(g1(2) - y, g1(1) - x); 
                 
                 % Find the integration bounds. 
                 bound1 = wrapToPi(mu1 - bounds(1));
@@ -191,7 +211,7 @@ classdef LatticeBayesPredictor
             elseif goal == 2
                 % Compute optimal control (i.e. mean of Gaussian) 
                 g2 = obj.goals{2};
-                mu2 = atan2(g2(2) - x(2), g2(1) - x(1)); 
+                mu2 = atan2(g2(2) - y, g2(1) - x); 
                 
                 % Find the integration bounds. 
                 bound1 = wrapToPi(mu2 - bounds(1));
@@ -211,28 +231,30 @@ classdef LatticeBayesPredictor
         end
         
         %% Converts from real state (m) to coordinate (i,j)
-        function  coor = realToSim(obj, x)
-            i = round((x(2) - obj.gridMin(2))/(obj.r*sqrt(3)/2.));
-            j = round((x(1) - obj.gridMin(1))/obj.r);
+        function  [i, j] = realToSim(obj, x)
+            i = round((2 * (x(2) - obj.gridMin(2))) / (obj.r * sqrt(3))) + 1;
             
-            if mod(i,2) ~= 0 % if odd, need to shift by r/2
-                j = j + obj.r/2.;
+            if mod(i, 2) == 1
+                % Case where i is odd.
+                j = round((x(1) - obj.gridMin(1)) / obj.r) + 1;
+            else
+                % Case where i is even.
+                j = round((x(1) - obj.gridMin(1) - 0.5 * obj.r) / obj.r) + 2;
             end
-            
-            coor = [i,j];
         end
         
         %% Converts from coordinate (i,j) to real state (m)
-        function real = simToReal(obj, coor)
-            y = coor(1)*(obj.r * sqrt(3)/2.) + obj.gridMin(2);
+        function [x, y] = simToReal(obj, coor)
+            i = coor(1);
+            j = coor(2);
             
-            if mod(coor(1), 2) == 0
-                x = coor(2)*obj.r + obj.gridMin(1);
+            y = obj.gridMin(2) + (i - 1) * (obj.r * 0.5 * sqrt(3));
+            
+            if mod(i, 2) == 1
+                x = obj.gridMin(1) + (j - 1) * obj.r;
             else
-                x = (coor(2) - obj.r/2.)*obj.r + obj.gridMin(1);
+                x = obj.gridMin(1) + 0.5 * obj.r + obj.r * (j - 2);
             end
-            
-            real = [x,y];
         end
         
         %% Converts from fake discrete controls into lower and upper theta
@@ -240,13 +262,13 @@ classdef LatticeBayesPredictor
             if u == 1 % UP_RIGHT
                 bounds = [pi/6, pi/2];
             elseif u == 2 % RIGHT
-                bounds = [-pi/6, pi/2];
+                bounds = [-pi/6, pi/6];
             elseif u == 3 % DOWN_RIGHT
-                bounds = [-pi/6, -pi/2];
+                bounds = [-pi/2, -pi/6];
             elseif u == 4 % DOWN_LEFT
-                bounds = [-pi/2, -(5*pi)/6];
+                bounds = [-(5*pi)/6, -pi/2];
             elseif u == 5 % LEFT
-                bounds = [(5*pi)/6, -(5*pi)/6];
+                bounds = [-(5*pi)/6, (5*pi)/6];
             elseif u == 6 % UP_LEFT
                 bounds = [pi/2, (5*pi)/6];
             end
@@ -258,23 +280,41 @@ classdef LatticeBayesPredictor
             
             % Note: s = [i, j] 
             % where i represents "rows" (y), j represents "columns" (x)
+            i = s0(1);
+            j = s0(2);
             
             if u == 1 % UP_RIGHT
-                snext = [s0(1)+1; s0(2)+1];
+                if mod(i, 2) == 0
+                    snext = [i + 1, j];
+                else
+                    snext = [i + 1, j + 1];
+                end
             elseif u == 2 % RIGHT
-                snext = [s0(1); s0(2)+1];
+                snext = [i, j + 1];
             elseif u == 3 % DOWN_RIGHT
-                snext = [s0(1)-1; s0(2)];
+                if mod(i, 2) == 0
+                    snext = [i - 1, j];
+                else
+                    snext = [i - 1, j + 1];
+                end
             elseif u == 4 % DOWN_LEFT
-                snext = [s0(1)-1; s0(2)-1];
+                if mod(i, 2) == 0
+                    snext = [i - 1, j - 1];
+                else
+                    snext = [i - 1, j];
+                end
             elseif u == 5 % LEFT
-                snext = [s0(1); s0(2)-1];
+                snext = [i, j - 1];
             elseif u == 6 % UP_LEFT
-                snext = [s0(1); s0(2)-1];
+                if mod(i, 2) == 0
+                    snext = [i + 1, j - 1];
+                else
+                    snext = [i + 1, j];
+                end
             end
             
-            if snext(1) < 1 || snext(1) > obj.gridDims(1) || ...
-                    snext(2) < 1 || snext(2) > obj.gridDims(2)  
+            if snext(1) < 1 || snext(1) > obj.rows || ...
+                    snext(2) < 1 || snext(2) > obj.cols  
                 snext = s0;
                 isValid = false;
             end
