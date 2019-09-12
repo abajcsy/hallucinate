@@ -68,17 +68,15 @@ classdef OptimizedLatticeBayesPredictor
             
             predsGoal = {};
             for goalIdx = 1:length(obj.goals)
-                predsGoal{goalIdx} = zeros(horizon, obj.numStates);
+                predsGoal{goalIdx} = zeros(horizon, obj.numStates, 'single');
                 predsGoal{goalIdx}(1, s0) = 1;
             end
             
             parfor goalIdx = 1:length(obj.goals)
                 for t = 1:(horizon - 1)
-                    Us = reshape(repelem(obj.U{goalIdx}, 1, obj.numStates), ...
-                        [obj.numStates, obj.numStates, obj.numControls]);
-                    TU = Us .* obj.T;
-                    TUs = squeeze(sum(TU, 3));
-                    predsGoal{goalIdx}(t+1, :) = predsGoal{goalIdx}(t, :) * TUs;                    
+                    predsGoal{goalIdx}(t+1, :) = predsGoal{goalIdx}(t, :) * ...
+                        squeeze(sum(reshape(repelem(obj.U{goalIdx}, 1, obj.numStates), ...
+                        [obj.numStates, obj.numStates, obj.numControls]) .* obj.T, 3));
                 end
             end
                         
@@ -90,7 +88,7 @@ classdef OptimizedLatticeBayesPredictor
         
         function U = computeControlProbMatrix(obj, goalIdx)
             % Compute the state-conditioned control probability matrix.
-            U = zeros(obj.numStates, obj.numControls);
+            U = zeros(obj.numStates, obj.numControls, 'single');
             
             for i = 1:obj.numRows
                 for j = 1:obj.numCols
@@ -106,7 +104,7 @@ classdef OptimizedLatticeBayesPredictor
         
         function T = computeTransitionMatrix(obj)
             % Compute the transition matrix.
-            T = zeros(obj.numStates, obj.numStates, obj.numControls);
+            T = zeros(obj.numStates, obj.numStates, obj.numControls, 'single');
             
             for i = 1:obj.numRows
                 for j = 1:obj.numCols

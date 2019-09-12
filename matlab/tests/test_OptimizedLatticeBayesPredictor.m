@@ -10,8 +10,8 @@ sigmas = [pi/8, pi/8];
 goals = {[1, 1], [1, -1]};
 
 % Grid structure definitions
-latticeMin = [-2, -2];          
-latticeMax = [2, 2];
+latticeMin = [-4, -4];          
+latticeMax = [4, 4];
 
 % Set the prior over goal 1 and goal 2.
 goalPriors = [0.5, 0.5];
@@ -20,7 +20,7 @@ goalPriors = [0.5, 0.5];
 % Equilateral triangle side length.
 sideLength = 0.1;
 
-predictionHorizon = 124;
+predictionHorizon = 125;
 x0 = 0;
 y0 = 0;
 

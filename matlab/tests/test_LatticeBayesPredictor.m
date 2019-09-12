@@ -30,7 +30,7 @@ dt = r / v;
 % Prediction horizon. 
 % gString = createGrid(gridMin, gridMax, gridDims);
 % dt = gString.dx(1)/v;
-T = 2;                                  % horizon in (seconds)
+T = 6;                                  % horizon in (seconds)
 H = floor(T/dt);                % horizon in (timesteps)
 
 % Predict!
