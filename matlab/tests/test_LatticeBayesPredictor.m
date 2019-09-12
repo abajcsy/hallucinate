@@ -55,22 +55,23 @@ for t=1:H+1
         [x, y] = predictor.simToReal(ss);
         xs = [xs, x];
         ys = [ys, y];
-%         ps = [ps, p(ss(1), ss(2))];
-        if p(ss(1), ss(2)) > eps
-            ps = [ps, 1];
-            fprintf('(%d, %d) --> (%f, %f)\n', ...
-                    ss(1), ss(2), x, y);
-        else
-            ps = [ps, 0];
-        end
+        ps = [ps, p(ss(1), ss(2))];
+%         if p(ss(1), ss(2)) > eps
+%             ps = [ps, 1];
+%             fprintf('(%d, %d) --> (%f, %f)\n', ...
+%                     ss(1), ss(2), x, y);
+%         else
+%             ps = [ps, 0];
+%         end
     end
     
     sum(ps)
     
     figure(1);
-%     scatter(xs, ys, 30 * ones(1, length(ys)), 1 - ps, 'filled', 'MarkerEdgeColor', 'k');
-%     colormap('gray');
-
+    scatter(xs, ys, 30 * ones(1, length(ys)), 1 - ps, 'filled', 'MarkerEdgeColor', 'k');
+    colormap('gray');
+    continue;
+    
     X = zeros(predictor.rows, predictor.cols);
     Y = zeros(predictor.rows, predictor.cols);
     for i = 1:predictor.rows

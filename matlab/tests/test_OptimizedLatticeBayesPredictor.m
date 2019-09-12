@@ -1,0 +1,34 @@
+%% Testing the optimized version of Bayesian prediction on a equilateral 
+%% triangular lattice.
+clf
+clear all
+
+% Variance on Gaussian observation model.
+sigmas = [pi/8, pi/8];
+
+% Known goal locations (in m). 
+goals = {[1, 1], [1, -1]};
+
+% Grid structure definitions
+latticeMin = [-2, -2];          
+latticeMax = [2, 2];
+
+% Set the prior over goal 1 and goal 2.
+goalPriors = [0.5, 0.5];
+% goalPriors = [1, 0];
+
+% Equilateral triangle side length.
+sideLength = 0.1;
+
+predictionHorizon = 124;
+x0 = 0;
+y0 = 0;
+
+% Create the predictor. 
+predictor = OptimizedLatticeBayesPredictor(latticeMin, latticeMax, sideLength, ...
+    goals, sigmas, goalPriors);
+
+preds = predictor.predict(x0, y0, predictionHorizon);
+
+
+
