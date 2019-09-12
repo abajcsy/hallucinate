@@ -3,19 +3,18 @@ clf
 clear all
 
 % Variance on Gaussian observation model.
-sigma1 = pi/8;
-sigma2 = pi/8;
+sigma1 = pi/4;
+sigma2 = pi/4;
 
 % Known goal locations (in m). 
-goals = {[1, 1], [1, -1]}; %{[1, tan(sigma1)], [1, -tan(sigma2)]};
+goals = {[2, 2], [2, -2]}; %{[1, tan(sigma1)], [1, -tan(sigma2)]};
 
 % Grid structure definitions
-gridMin = [-2,-2];          % Lower & upper bounds of grid (in m)
-gridMax = [2,2];
-% gridDims = [41,41];         % Num grid cells in X and Y dimension. 
+gridMin = [-4,-4];          % Lower & upper bounds of grid (in m)
+gridMax = [4,4];
 
 % Set the prior over goal 1 and goal 2.
-prior = [0.5, 0.5];
+prior = [0.9, 0.1];
 
 % Grid cell size.
 r = 0.1;
@@ -23,13 +22,8 @@ r = 0.1;
 % Create the predictor. 
 predictor = LatticeBayesPredictor(prior, goals, sigma1, sigma2, gridMin, gridMax, r);
 
-% --- debugging ------ %
-%predictor.plot_Pu_given_x();
-% -------------------- %
-
 % Initial human state (in m).
 x0 = [0,0];
-% x0 = [-2, -2];
 v = 0.6;
 dt = r / v;
 
@@ -43,7 +37,7 @@ H = floor(T/dt);                % horizon in (timesteps)
 preds = predictor.predict(x0, H);
 
 % eps = 0.0000000001;
-eps = 0;
+eps = 0.0001;
 
 for t=1:H+1
     xs = [];
@@ -68,19 +62,10 @@ for t=1:H+1
     sum(ps)
     
     figure(1);
-    scatter(xs, ys, 30 * ones(1, length(ys)), 1 - ps, 'filled', 'MarkerEdgeColor', 'k');
-    colormap('gray');
-    continue;
-    
-    X = zeros(predictor.rows, predictor.cols);
-    Y = zeros(predictor.rows, predictor.cols);
-    for i = 1:predictor.rows
-        for j = 1:predictor.cols
-            [x, y] = predictor.simToReal([i, j]);
-            X(i, j) = x;
-            Y(i, j) = y;
-        end
-    end
+%     scatter(xs, ys, 30 * ones(1, length(ys)), 1 - ps, 'filled', 'MarkerEdgeColor', 'k');
+%     colormap('gray');
+
+    [X, Y] = predictor.getLatticeMeshgrid();
     
     P = zeros(size(X));
     for i = 1:predictor.rows
@@ -93,8 +78,8 @@ for t=1:H+1
     c.LineWidth = 2;
     c.EdgeColor = 'b';
     grid on
+    pause(0.1);
 end
-
 
 
 % % Normalize preds

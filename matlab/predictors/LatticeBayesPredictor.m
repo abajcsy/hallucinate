@@ -320,6 +320,19 @@ classdef LatticeBayesPredictor
             end
         end
         
+        %% Gets the meshgrid that represents the real-world coords.
+        function [X, Y] = getLatticeMeshgrid(obj)
+            X = zeros(obj.rows, obj.cols);
+            Y = zeros(obj.rows, obj.cols);
+            for i = 1:obj.rows
+                for j = 1:obj.cols
+                    [x, y] = obj.simToReal([i, j]);
+                    X(i, j) = x;
+                    Y(i, j) = y;
+                end
+            end
+        end
+        
     end
 end
 
