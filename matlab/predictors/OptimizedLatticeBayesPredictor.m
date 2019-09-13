@@ -72,7 +72,8 @@ classdef OptimizedLatticeBayesPredictor
                 predsGoal{goalIdx}(1, s0) = 1;
             end
             
-            parfor goalIdx = 1:length(obj.goals)
+            % TODO Can use parfor
+            for goalIdx = 1:length(obj.goals)
                 for t = 1:(horizon - 1)
                     predsGoal{goalIdx}(t+1, :) = predsGoal{goalIdx}(t, :) * ...
                         squeeze(sum(reshape(repelem(obj.U{goalIdx}, 1, obj.numStates), ...
@@ -259,6 +260,19 @@ classdef OptimizedLatticeBayesPredictor
             scatter(xs, ys, 30 * ones(1, length(ys)), 1 - ps, 'filled', 'MarkerEdgeColor', 'k');
             colormap('gray');            
         end
+        
+        %% Gets the meshgrid that represents the real-world coords.
+        function [X, Y] = getLatticeMeshgrid(obj)
+            X = zeros(obj.numRows, obj.numCols);
+            Y = zeros(obj.numRows, obj.numCols);
+            for i = 1:obj.numRows
+                for j = 1:obj.numCols
+                    [x, y] = obj.simToReal(i, j);
+                    X(i, j) = x;
+                    Y(i, j) = y;
+                end
+            end
+        end        
     end
 end
 
