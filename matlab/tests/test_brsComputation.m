@@ -11,7 +11,7 @@ uRange = [-pi+1e-2; pi];
 
 % Control bounds for the robot
 vRRange = [0., 0.6];
-wRRange = [-1.1, 1.1];
+wRRange = [-1.1, 0.1];
 
 % gamma in continuous-time P(beta = 0) dynamics
 gamma = 1;
@@ -68,7 +68,7 @@ dMode = 'min';
 % Put grid and dynamic systems into schemeData
 schemeData.grid = g;
 schemeData.dynSys = human;
-schemeData.accuracy = 'high'; %set accuracy
+schemeData.accuracy = 'medium'; %set accuracy
 schemeData.uMode = uMode;
 schemeData.dMode = dMode;
 schemeData.tMode = 'backward';
@@ -82,10 +82,10 @@ HJIextraArgs.visualize.initialValueSet = 0;
 HJIextraArgs.visualize.figNum = 1; %set figure number
 HJIextraArgs.visualize.deleteLastPlot = true; %delete previous plot as you update
 HJIextraArgs.visualize.viewGrid = true;
-HJIextraArgs.visualize.viewAxis = [-2 2 -2 2 -0.1 1.1];
+HJIextraArgs.visualize.viewAxis = [-2 2 -2 2 -pi pi];
 HJIextraArgs.visualize.xTitle = '$p^x$';
 HJIextraArgs.visualize.yTitle = '$p^y$';
-HJIextraArgs.visualize.zTitle = '$P(\beta = 0)$';
+HJIextraArgs.visualize.zTitle = '$\theta$';
 HJIextraArgs.visualize.fontSize = 15;
 %HJIextraArgs.visualize.camlightPosition = [0 0 0];
 
@@ -94,8 +94,8 @@ HJIextraArgs.visualize.fontSize = 15;
 HJIextraArgs.ignoreBoundary = 0; 
 
 %uncomment if you want to see a 2D slice
-HJIextraArgs.visualize.plotData.plotDims = [1 1 0, 0]; %plot x, y
-HJIextraArgs.visualize.plotData.projpt = {'min', 'min'}; %project pt
+HJIextraArgs.visualize.plotData.plotDims = [1 1 0 1]; %plot x, y
+HJIextraArgs.visualize.plotData.projpt = {0.1}; %project pt
 HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
 
 %HJIextraArgs.targets = data0;
