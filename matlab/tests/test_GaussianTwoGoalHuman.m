@@ -61,7 +61,7 @@ data0 = shapeSphere(g, x0, R);
 
 %% time vector
 t0 = 0;
-tMax = 6.2;
+tMax = 3.0;
 dt = 0.05;
 tau = t0:dt:tMax;
 uMode = 'max';

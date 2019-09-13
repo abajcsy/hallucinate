@@ -4,10 +4,10 @@ clf
 clear all
 
 % Variance on Gaussian observation model.
-sigmas = [pi/8, pi/8];
+sigmas = [pi/4, pi/4];
 
 % Known goal locations (in m). 
-goals = {[1, 1], [1, -1]};
+goals = {[2, 2], [2, -2]};
 
 % Grid structure definitions
 latticeMin = [-4, -4];          
@@ -20,7 +20,11 @@ goalPriors = [0.5, 0.5];
 % Equilateral triangle side length.
 sideLength = 0.1;
 
-predictionHorizon = 125;
+time_s = 3;
+v = 0.6;
+dt = sideLength/v;
+
+predictionHorizon = ceil(time_s/dt);
 x0 = 0;
 y0 = 0;
 
@@ -31,4 +35,5 @@ predictor = OptimizedLatticeBayesPredictor(latticeMin, latticeMax, sideLength, .
 preds = predictor.predict(x0, y0, predictionHorizon);
 
 
+% 
 
