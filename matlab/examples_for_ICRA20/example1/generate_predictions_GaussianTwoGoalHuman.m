@@ -16,7 +16,7 @@ gamma = 1;
 numCtrls = 11;
 
 % Threshold to determine likely controls
-uThresh = 0.05; 
+uThresh = 0.2; 
 
 % Variance in normal distributions
 sigma = pi/4;
@@ -31,7 +31,7 @@ betaModel = 'static';
 extraArgs = [];
 
 % Setup dynamical system
-Pgoal1 = 0.8; 
+Pgoal1 = 0.9; 
 x0 = [0; 0; Pgoal1];
 human = GaussianTwoGoalHuman(x0, v, uRange, gamma, goals, sigma, uThresh, numCtrls, ...
     betaModel, extraArgs);
@@ -61,7 +61,7 @@ data0 = shapeSphere(g, x0, R);
 
 %% time vector
 t0 = 0;
-tMax = 3.0;
+tMax = 1.5;
 dt = 0.05;
 tau = t0:dt:tMax;
 uMode = 'max';
@@ -109,7 +109,8 @@ minWith = 'set';
 
 
 % Save projected FRS and the projected grid
+path = '/home/abajcsy/hybrid_ws/src/hallucinate';
 [g2D, pred2D] = proj(g, data(:,:,:,end), [0,0,1], 'min');
-filename = strcat('./data_for_paper/example1/', 'predictions_reahcability_prior_', num2str(Pgoal1), '_delta_', num2str(uThresh), '.mat');
+filename = strcat(path, '/data_for_paper/example1/', 'predictions_reahcability_prior_', num2str(Pgoal1), '_delta_', num2str(uThresh), '.mat');
 save(filename, 'g2D', 'pred2D', '-v7.3');
 
