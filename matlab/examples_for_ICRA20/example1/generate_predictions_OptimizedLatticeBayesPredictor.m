@@ -14,8 +14,8 @@ latticeMin = [-4, -4];
 latticeMax = [4, 4];
 
 % Set the prior over goal 1 and goal 2.
-goalPriors = [0.5, 0.5];
-% goalPriors = [1, 0];
+% goalPriors = [0.5, 0.5];
+goalPriors = [0.8, 0.2];
 
 % Equilateral triangle side length.
 sideLength = 0.1;
@@ -34,6 +34,7 @@ predictor = OptimizedLatticeBayesPredictor(latticeMin, latticeMax, sideLength, .
 
 preds = predictor.predict(x0, y0, predictionHorizon);
 
-
-% 
+% Save the predictions
+filename = strcat('./data_for_paper/example1/', 'predictions_bayesian_prior_', num2str(goalPriors(1)), '.mat');
+save(filename, 'preds', 'predictor', 'v', 'time_s', 'dt', 'goals', '-v7.3');
 

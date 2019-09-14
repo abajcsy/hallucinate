@@ -31,7 +31,7 @@ betaModel = 'static';
 extraArgs = [];
 
 % Setup dynamical system
-Pgoal1 = 0.5; 
+Pgoal1 = 0.8; 
 x0 = [0; 0; Pgoal1];
 human = GaussianTwoGoalHuman(x0, v, uRange, gamma, goals, sigma, uThresh, numCtrls, ...
     betaModel, extraArgs);
@@ -56,7 +56,7 @@ human.computeUAndXDot(g.xs);
 % could just be numerical issues. (2) Increasing the grid resolution for
 % R=0.1 also reduces the gap between the two extremes so that is other
 % evidence that it is just numerical error.
-R = 0.1;
+R = 0.2;
 data0 = shapeSphere(g, x0, R);
 
 %% time vector
@@ -70,7 +70,7 @@ uMode = 'max';
 % Put grid and dynamic systems into schemeData
 schemeData.grid = g;
 schemeData.dynSys = human;
-schemeData.accuracy = 'medium'; %set accuracy
+schemeData.accuracy = 'high'; %set accuracy
 schemeData.uMode = uMode;
 schemeData.tMode = 'forward';
 schemeData.hamFunc = @gaussianTwoGoalHuman_ham;
@@ -94,10 +94,10 @@ HJIextraArgs.visualize.fontSize = 15;
 % trust values near the boundary of grid
 HJIextraArgs.ignoreBoundary = 0; 
 
-% %uncomment if you want to see a 2D slice
-% HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
-% HJIextraArgs.visualize.plotData.projpt = {'min'}; %project pt
-% HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
+%uncomment if you want to see a 2D slice
+HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
+HJIextraArgs.visualize.plotData.projpt = {'min'}; %project pt
+HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
 
 %HJIextraArgs.targets = data0;
 
@@ -106,4 +106,10 @@ minWith = 'set';
 %minWith = 'minVwithL';
 [data, tau2, ~] = ...
   HJIPDE_solve_pred(data0, tau, schemeData, minWith, HJIextraArgs);
+
+
+% Save projected FRS and the projected grid
+[g2D, pred2D] = proj(g, data(:,:,:,end), [0,0,1], 'min');
+filename = strcat('./data_for_paper/example1/', 'predictions_reahcability_prior_', num2str(Pgoal1), '_delta_', num2str(uThresh), '.mat');
+save(filename, 'g2D', 'pred2D', '-v7.3');
 

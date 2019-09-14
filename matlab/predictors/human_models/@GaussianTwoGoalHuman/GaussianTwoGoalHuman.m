@@ -107,7 +107,7 @@ classdef GaussianTwoGoalHuman < DynSys
                   warning('Setting alpha to default: 0.1\n');
               end
           elseif ~strcmp(betaModel, 'static')
-              error("No support for beta model %s\n", betaModel);
+              error('No support for beta model %s\n', betaModel);
           end
         end
         
@@ -147,8 +147,8 @@ classdef GaussianTwoGoalHuman < DynSys
         %  where N stands for the normal distribution. 
         function pu = PuGivenGoal(obj, u, goal)
             if isempty(obj.uOptG1) || isempty(obj.uOptG2)
-                error("Optimal controls for the observation model have not been precomputed!\n");
-                error("Make sure to first run computeUOptGoals(x).\n");
+                error('Optimal controls for the observation model have not been precomputed!\n');
+                error('Make sure to first run computeUOptGoals(x).\n');
             end
             
             c0 = 1/(sqrt(2*pi*obj.sigma^2));
@@ -159,7 +159,7 @@ classdef GaussianTwoGoalHuman < DynSys
                 uG2Diff = -(u - obj.uOptG2).^2;
                 pu = c0 .* exp(uG2Diff ./ (2*obj.sigma^2));
             else
-                error("In PuGivenGoal(): goal is invalid: %d\n", goal);
+                error('In PuGivenGoal(): goal is invalid: %d\n', goal);
             end
         end
         
