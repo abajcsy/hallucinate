@@ -31,7 +31,7 @@ betaModel = 'static';
 extraArgs = [];
 
 % Setup dynamical system
-Pgoal1 = 0.8; 
+Pgoal1 = 0.5; 
 x0 = [0; 0; Pgoal1];
 human = GaussianTwoGoalHuman(x0, v, uRange, gamma, goals, sigma, uThresh, numCtrls, ...
     betaModel, extraArgs);
@@ -94,10 +94,10 @@ HJIextraArgs.visualize.fontSize = 15;
 % trust values near the boundary of grid
 HJIextraArgs.ignoreBoundary = 0; 
 
-%uncomment if you want to see a 2D slice
-HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
-HJIextraArgs.visualize.plotData.projpt = {'min'}; %project pt
-HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
+% %uncomment if you want to see a 2D slice
+% HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
+% HJIextraArgs.visualize.plotData.projpt = {'min'}; %project pt
+% HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
 
 %HJIextraArgs.targets = data0;
 
