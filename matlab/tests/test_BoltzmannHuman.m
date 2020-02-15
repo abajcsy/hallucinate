@@ -25,12 +25,12 @@ delta_t = 1;
 sigma = 0.1;
 
 % Threshold to determine likely controls
-uThresh = 0.05; 
+uThresh = 0.1;
 
 % Are we using dynamic of static beta model?
 betaModel = 'static';
 
-theta = [10 10];
+theta = [1 1];
 
 % Dynamic beta parameters
 extraArgs.alpha = 0.5;
@@ -73,8 +73,8 @@ schemeData.dynSys = human;
 schemeData.accuracy = 'high'; %set accuracy
 schemeData.uMode = uMode;
 schemeData.tMode = 'forward';
-schemeData.hamFunc = @gaussianHuman_ham;
-schemeData.partialFunc = @gaussianHuman_partial;
+schemeData.hamFunc = @boltzmannHuman_ham;
+schemeData.partialFunc = @boltzmannHuman_partial;
 
 %% Compute value function
 % HJIextraArgs.visualize = true; %show plot
@@ -95,14 +95,16 @@ HJIextraArgs.visualize.fontSize = 15;
 HJIextraArgs.ignoreBoundary = 0; 
 
 %uncomment if you want to see a 2D slice
-HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
+HJIextraArgs.visualize.plotData.plotDims = [1 1 1]; %plot x, y
 HJIextraArgs.visualize.plotData.projpt = {'min'}; %project pt
 HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
 
 %HJIextraArgs.targets = data0;
 
+HJIextraArgs.stopConverge = true;
+
 minWith = 'set';
-%minWith = 'zero';
+% minWith = 'zero';
 %minWith = 'minVwithL';
 [data, tau2, ~] = ...
   HJIPDE_solve_pred(data0, tau, schemeData, minWith, HJIextraArgs);

@@ -36,7 +36,9 @@ end
 
 % for i=1:human.numCtrls
 %     % Get dynamics at each state given current control.
-%     xdot = human.xdot{i};
+%     %xdot = human.xdot{i};
+%     u = human.likelyCtrls{i};
+%     xdot = human.dynamics(x,u);
 %     
 %     % Compute Hamiltonian: 
 %     %   \grad_x V(x,t) * f(x,u).

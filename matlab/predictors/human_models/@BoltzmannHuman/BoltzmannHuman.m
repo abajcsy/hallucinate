@@ -30,6 +30,7 @@ classdef BoltzmannHuman < DynSys
         
         % Store the likelyCtrls and dynamics for all states.
         likelyCtrls
+        likelyMasks
         xdot
         
         % Mixing parameter and mixing distribution 
@@ -113,16 +114,27 @@ classdef BoltzmannHuman < DynSys
         end
         
         function intControls = sumDiscControls(obj, x, inc)
-            %% Approximate integral with summation
-            lb = -1*obj.uRange(1);
+            %% Approximate integral with summation: \int_{U} e^{-\| (x_t + \Delat t f(x_t,u_t)) - \theta \|_2}
+            lb = obj.uRange(1);
             ub = obj.uRange(2);
             
             intControls = 0.0;
-            for u = lb:inc:(ub-inc)
+            for i = 1:obj.numCtrls
+                
+                % Find control
+                u = lb + (i-1)*inc;
+                
+                % Find next x by forward euler
                 x1 = x{1} + obj.deltaT .* obj.v .* cos(u);
                 x2 = x{2} + obj.deltaT .* obj.v .* sin(u);
+                
+                % Evaluate distance of next x to goal theta under L2 norm
                 nrm = ((x1 - obj.theta(1)).^2 + (x2 - obj.theta(2)).^2).^(0.5);
+                
+                % Calculate value in summation: e^{-\| (x_t + \Delat t f(x_t,u_t)) - \theta \|_2}
                 val = exp(1).^(-1.*nrm);
+                
+                % Add to running value of summation
                 intControls = intControls + inc*val;
             end
         end
@@ -135,20 +147,19 @@ classdef BoltzmannHuman < DynSys
             
             % Posterior update in the valid range of beta
             numerator = x{3};
-
-            % denominator = x{3} + ((sqrt(2*pi*obj.sigma^2)*obj.gaussianNorm)/(2*pi)) * ...
-            %   (1 - x{3}) .* (exp(((u - uOpt).^2) / (2*obj.sigma^2)));
             
             % Approximation of integral of e^Q(x,u) over space of controls
-            lb = -1*obj.uRange(1);
+            lb = obj.uRange(1);
             ub = obj.uRange(2);
-            inc = (ub-lb)/obj.numCtrls;
+            inc = (ub-lb)/(obj.numCtrls-1);
             intControls = obj.sumDiscControls(x,inc);
             
+            % x_{t+1} = x_t + \Delta t * f(x_t)
             x1 = x{1} + obj.deltaT .* obj.v .* cos(u);
             x2 = x{2} + obj.deltaT .* obj.v .* sin(u);
+            
             nrm = ((x1 - obj.theta(1)).^2 + (x2 - obj.theta(2)).^2).^(0.5);
-            val = exp(1).^(-1.*nrm);
+            val = (ub-lb) * exp(1).^(-1.*nrm);
             
             denominator = x{3} + (((1-x{3}) ./ val) .* intControls);
             
@@ -159,49 +170,23 @@ classdef BoltzmannHuman < DynSys
             pb = (pb .* (x{3} >= 0) .* (x{3} <= 1)) + (x{3} .* (x{3} < 0)) + (x{3} .* (x{3} > 1));
         end
         
-        function likelyCtrls = getLikelyControls(obj, x)
+        function [likelyCtrls, likelyMasks] = getLikelyControls(obj, x)
             %% Gets the set of controls that are more likely than uThresh
-%             %                   P(u_t | x_t) >= uThresh
-%             %  Input: 
-%             %       x           -- (cell arr) discretized states in each
-%             %                                 dimension
-%             %  Output: 
-%             %       likelyCtrls -- (cell arr) valid controls at each state    
-%             
-%             % Compute optimal control: u* = Kx + m
-%             optCtrl = obj.K(1)*x{1} + obj.K(2)*x{2} + obj.m;
-%             
-%             % Compute the inner part that we are going to take log of.
-%             % TODO: Safeguard against x{3} being zero.
-%             innerLog = (sqrt(2*pi*obj.sigma^2))*((obj.uThresh - (1/(2*pi))*(1 - x{3}))./x{3});
-%             
-%             % NOTE: We need to safeguard against cases where we are taking 
-%             %       a square-root of a negative number. To do this, we 
-%             %       need to ensure that the result of the log is > 0 and < 1. 
-%             C = sqrt(-2*obj.sigma^2 .* log(innerLog)) .* (innerLog > 0) .* (innerLog <= 1) + ...
-%                 1e6 * (innerLog <= 0) + 1e6 * (innerLog > 1) + ...
-%                 1e6 * (x{3} < 0) + 1e6 * (x{3} > 1);
-%             
-%             % Compute the bounds on the likley controls.
-%             upperBound = min(optCtrl + C, obj.uRange(2));
-%             lowerBound = max(optCtrl - C, obj.uRange(1));
-%             
-%             % Based on N number of discrete contrls, partition controls
-%             % between lower and upper bound state-wise
-%             likelyCtrls = cell(1, obj.numCtrls);
-%             linNums = linspace(0,1,obj.numCtrls);
-%             parfor i=1:obj.numCtrls
-%                 likelyCtrls{i} = linNums(i)*lowerBound + (1-linNums(i))*upperBound;
-%             end
-            lb = -1*obj.uRange(1);
-            ub = obj.uRange(2);
-            inc = (ub-lb)/obj.numCtrls;
+            %                   P(u_t | x_t) >= uThresh
+            %  Input: 
+            %       x           -- (cell arr) discretized states in each
+            %                                 dimension
+            %  Output: 
+            %       likelyCtrls -- (cell arr) valid controls at each state    
             
-            likelyCtrls = cell(1, obj.numCtrls);
-%             
-%             for u = lb:inc:ub
-            parfor i = 1:obj.numCtrls
-                numerator = x{3};
+            lb = obj.uRange(1);
+            ub = obj.uRange(2);
+            inc = (ub-lb)/(obj.numCtrls-1);
+            
+            likelyCtrls = cell(1, obj.numCtrls); % Contain all likely controls
+            likelyMasks = containers.Map; % Map for likely control (str) to boolean matrix
+            
+            for i = 1:obj.numCtrls
                 
                 intControls = obj.sumDiscControls(x,inc);
                 
@@ -212,14 +197,11 @@ classdef BoltzmannHuman < DynSys
                 nrm = ((x1 - obj.theta(1)).^2 + (x2 - obj.theta(2)).^2).^(0.5);
                 val = exp(1).^(-1.*nrm);
 
-                denominator = x{3} + (((1-x{3}) ./ val) .* intControls);
-
-                pb = numerator./denominator;
+                pb = (val ./ intControls) .*  x{3} + (1/(2*pi)) * (1 - x{3});
                 pb = max(min(pb, 1), 0);
-%                 likelyCtrls{i} = u;
-                if pb >= obj.uThresh
-                    likelyCtrls{i} = u;
-                end
+                
+                likelyMasks(num2str(u)) = pb >= obj.uThresh; % Mask of same dimension as x{1}, which is 1 if coordinate is likely, 0 otherwise
+                likelyCtrls{i} = u; % Consider all controls as likely controls
             end
         end
         
@@ -227,7 +209,7 @@ classdef BoltzmannHuman < DynSys
             %% Computes and stores the likley state-dependant control and state deriv.
             % Get the likely state-dependant control for the ith discrete control: 
             %   P(u_i | x)
-            obj.likelyCtrls = obj.getLikelyControls(x);
+            [obj.likelyCtrls, obj.likelyMasks] = obj.getLikelyControls(x);
 
             % Compute and store the corresponding dynamics.
             obj.xdot = {};

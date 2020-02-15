@@ -81,7 +81,7 @@ HJIextraArgs.visualize.fontSize = 15;
 %HJIextraArgs.videoFilename = "frs_beta.mp4";
 
 %uncomment if you want to see a 2D slice
-HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
+HJIextraArgs.visualize.plotData.plotDims = [1 1 1]; %plot x, y
 HJIextraArgs.visualize.plotData.projpt = {'min'}; %project pt
 HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
 
