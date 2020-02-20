@@ -10,7 +10,7 @@ v = 0.6;
 uRange = [-pi+1e-2; pi];
 
 % gamma in continuous-time P(beta = 0) dynamics
-gamma = 1;
+gamma = 0.01;
 
 % Control gains
 K = [0, 0];
@@ -21,11 +21,8 @@ numCtrls = 20;
 
 delta_t = 1;
 
-% Variance in normal distribution
-sigma = 0.1;
-
 % Threshold to determine likely controls
-uThresh = 0.1;
+uThresh = 0.5;
 
 % Are we using dynamic of static beta model?
 betaModel = 'static';
@@ -37,7 +34,7 @@ extraArgs.alpha = 0.5;
 extraArgs.DeltaB0 = 0.5; 
 
 % Setup dynamical system
-Pbeta0 = 0.98; 
+Pbeta0 = 0.8; 
 x0 = [0; 0; Pbeta0];
 human = BoltzmannHuman(x0, v, uRange, gamma, K, m, theta, delta_t, uThresh, ...
     numCtrls, betaModel, extraArgs);
