@@ -10,39 +10,44 @@ v = 0.6;
 uRange = [-pi+1e-2; pi];
 
 % gamma in continuous-time P(beta = 0) dynamics
-gamma = 1;
-
-% Control gains
-K = [0, 0];
-m = 0;
+gamma = 0.01;
 
 % Number of discrete controls
 numCtrls = 11;
 
-% Variance in normal distribution
-sigma = 0.1;
-
 % Threshold to determine likely controls
 uThresh = 0.05; 
 
+% Variance in normal distributions
+sigma = pi/4;
+
+% Known human goal locations. 
+goals = {[2,2], [2,-2]}; %{[1, tan(pi/4)], [1, -tan(pi/4)]};
+
 % Are we using dynamic of static beta model?
-betaModel = 'static';
+betaModel = 'dynamic';
 
 % Dynamic beta parameters
-extraArgs.alpha = 0.5;
-extraArgs.DeltaB0 = 0.5; 
+extraArgs.DeltaB0 = 0.5;
+extraArgs.alpha = 0.6;
 
 % Setup dynamical system
-Pbeta0 = 0.98; 
-x0 = [0; 0; Pbeta0];
-human = GaussianHuman(x0, v, uRange, gamma, K, m, sigma, uThresh, numCtrls, ...
+Pgoal1 = 0.9; 
+x0 = [0; 0; Pgoal1];
+human = GaussianTwoGoalHuman(x0, v, uRange, gamma, goals, sigma, uThresh, numCtrls, ...
     betaModel, extraArgs);
 
 %% Grid
-grid_min = [-2; -2; -0.1];  % Lower corner of computation domain
-grid_max = [2; 2; 1.1];     % Upper corner of computation domain
+grid_min = [-4; -4; -0.1];  % Lower corner of computation domain
+grid_max = [4; 4; 1.1];     % Upper corner of computation domain
 N = [81; 81; 41];           % Number of grid points per dimension
 g = createGrid(grid_min, grid_max, N);
+
+%% Let the human have access to the grid for debugging.
+human.setGrid(g);
+
+%% Pre-compute the optimal control over the entire state-space.
+human.computeUOptGoals(g.xs);
 
 %% Pre-compute the likely controls and dynamics over the entire state-space.
 human.computeUAndXDot(g.xs);
@@ -57,8 +62,8 @@ data0 = shapeSphere(g, x0, R);
 
 %% time vector
 t0 = 0;
-tMax = 2;
-dt = 0.1;
+tMax = 3.0;
+dt = 0.1667; %0.05;
 tau = t0:dt:tMax;
 uMode = 'max';
 
@@ -66,23 +71,23 @@ uMode = 'max';
 % Put grid and dynamic systems into schemeData
 schemeData.grid = g;
 schemeData.dynSys = human;
-schemeData.accuracy = 'high'; %set accuracy
+schemeData.accuracy = 'medium'; %set accuracy
 schemeData.uMode = uMode;
 schemeData.tMode = 'forward';
-schemeData.hamFunc = @gaussianHuman_ham;
-schemeData.partialFunc = @gaussianHuman_partial;
+schemeData.hamFunc = @gaussianTwoGoalHuman_ham;
+schemeData.partialFunc = @gaussianTwoGoalHuman_partial;
 
 %% Compute value function
 % HJIextraArgs.visualize = true; %show plot
 HJIextraArgs.visualize.valueSet = 1;
 HJIextraArgs.visualize.initialValueSet = 0;
 HJIextraArgs.visualize.figNum = 1; %set figure number
-HJIextraArgs.visualize.deleteLastPlot = true; %delete previous plot as you update
+HJIextraArgs.visualize.deleteLastPlot = false; %delete previous plot as you update
 HJIextraArgs.visualize.viewGrid = true;
-HJIextraArgs.visualize.viewAxis = [-2 2 -2 2 -0.1 1.1];
+HJIextraArgs.visualize.viewAxis = [-4 4 -4 4 -0.1 1.1];
 HJIextraArgs.visualize.xTitle = '$p^x$';
 HJIextraArgs.visualize.yTitle = '$p^y$';
-HJIextraArgs.visualize.zTitle = '$P(\beta = 0)$';
+HJIextraArgs.visualize.zTitle = '$P(goal_1)$';
 HJIextraArgs.visualize.fontSize = 15;
 %HJIextraArgs.visualize.camlightPosition = [0 0 0];
 
@@ -91,8 +96,8 @@ HJIextraArgs.visualize.fontSize = 15;
 HJIextraArgs.ignoreBoundary = 0; 
 
 %uncomment if you want to see a 2D slice
-%HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
-%HJIextraArgs.visualize.plotData.projpt = {'min'}; %project pt
+HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
+HJIextraArgs.visualize.plotData.projpt = {'min'}; %project pt
 HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
 
 %HJIextraArgs.targets = data0;

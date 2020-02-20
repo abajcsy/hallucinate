@@ -31,7 +31,7 @@ betaModel = 'static';
 extraArgs = [];
 
 % Setup dynamical system
-Pgoal1 = 0.8; 
+Pgoal1 = 0.2; 
 x0 = [0; 0; Pgoal1];
 human = GaussianTwoGoalHuman(x0, v, uRange, gamma, goals, sigma, uThresh, numCtrls, ...
     betaModel, extraArgs);
@@ -61,8 +61,8 @@ data0 = shapeSphere(g, x0, R);
 
 %% time vector
 t0 = 0;
-tMax = 3.0;
-dt = 0.05;
+tMax = 6; %3.0;
+dt = 0.1; %0.05;
 tau = t0:dt:tMax;
 uMode = 'max';
 
@@ -109,6 +109,7 @@ minWith = 'set';
 
 
 % Save projected FRS and the projected grid
-filename = strcat('./data_for_paper/example2/', 'predictions_reahcability_prior_', num2str(Pgoal1), '_delta_', num2str(uThresh), '.mat');
+path = '/home/abajcsy/hybrid_ws/src/hallucinate';
+filename = strcat(path, '/data_for_paper/example2/', 'predictions_reahcability_prior_', num2str(Pgoal1), '_delta_', num2str(uThresh), '.mat');
 save(filename, 'g', 'data', '-v7.3');
 
