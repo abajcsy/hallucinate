@@ -204,8 +204,8 @@ classdef GaussianTwoGoalHuman < DynSys
 %                 caxis([0,1])
 %                 % ---- Debugging. ---- %
 
-                % Pick out the controls at the states where P > epsilon
-                binaryMap{i} = PuGivenX > obj.uThresh; 
+                % Pick out the controls at the states where P >= epsilon
+                binaryMap{i} = PuGivenX >= obj.uThresh; 
                 candidateCtrls{i} = u;
             end
             

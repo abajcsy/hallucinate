@@ -5,7 +5,7 @@ uHRange = [-pi+1e-2; pi];           % Control bounds
 gamma = 1;                          % gamma in continuous-time P(beta = 0) dynamics
 
 numCtrls = 11;                      % Number of discrete controls
-uHThresh = 0.05;                    % Threshold to determine likely controls
+uHThresh = 0.3;                    % Threshold to determine likely controls
 
 sigma = pi/4;                               % Variance in normal distribution
 goals = {[2,2], [2,-2]};  % Known human goal locations. 
@@ -13,7 +13,7 @@ goals = {[2,2], [2,-2]};  % Known human goal locations.
 betaModel = 'static';               % Are we using dynamic of static beta model?
 extraArgs = [];                     % (No) Dynamic beta parameters
 
-Pgoal1 = 0.5;                       % Prior over goal=goal1
+Pgoal1 = 0.8;                       % Prior over goal=goal1
 
 params.xH0 = [0; 0];                % Initial physical state of human    
 params.z0 = [params.xH0; Pgoal1];   % Initial condition for reachability
