@@ -17,10 +17,10 @@ figure;
 %% Setup variables
 x = g.xs; 
 
-lb = -pi+1e-2;
+lb = -pi;
 ub = pi;
 v = 0.6;
-numCtrls = 100;
+numCtrls = 20;
 inc = (ub-lb)/(numCtrls-1);
 deltaT = 1;
 theta = [0 0];
@@ -68,9 +68,8 @@ for ctrl_index = 1:num_plots
 
     prob_u = val ./ intControls;
     
-    % Should this be transposed to corresponed to x-y grid? If so, then
-    % graphs make sense
-    prob_u_high = prob_u(:,:,38).'; % high posterior prob of ~1.0
+    % Are the x-y directions incorrect
+    prob_u_high = prob_u(:,:,38); % high posterior prob of ~1.0
     
     %% Plot
     subplot(2,3,ind)
