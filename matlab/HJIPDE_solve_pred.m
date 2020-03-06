@@ -1002,16 +1002,12 @@ for i = istart:length(tau)
                 
                 % ------- DEBUGGING ------- %
                 % Grab values at theta.
-%                 theta = -1.6456;
-%                 plotData = abs(dataNew-dataTrimmed);
-%                 [~, dataPlot] = proj(gTrunc, plotData, [0 0 1], theta);
+%                 theta = -1.6456; plotData = abs(dataNew-dataTrimmed); [~,
+%                 dataPlot] = proj(gTrunc, plotData, [0 0 1], theta);
 %                 %imagesc(plotData(:,:,1));
 %                 scatter3(gTrunc.xs{1}(:,:),gTrunc.xs{2}(:,:),gTrunc.xs{3}(:,:))
 %                 %surf(gTrunc.xs{1},gTrunc.xs{2},gTrunc.xs{3},'cdata',plotData);
-%                 colormap('jet');
-%                 caxis([0, 0.2]);
-%                 colorbar
-%                 drawnow
+%                 colormap('jet'); caxis([0, 0.2]); colorbar drawnow
                 % ------------------------- %
                 
                 [change, indicies] = max(abs(dataNew(:)-dataTrimmed(:)));
@@ -1026,6 +1022,8 @@ for i = istart:length(tau)
                 end
             end
         end
+        [change, indicies] = max(abs(y - y0(:)));
+        fprintf('Max change since last iteration: %f\n', change);
     
     %% If commanded, stop the reachable set computation once it contains
     % the initial state.

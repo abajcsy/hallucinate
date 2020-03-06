@@ -4,7 +4,7 @@ clear all
 %% Grid
 grid_min = [-2; -2; -0.1];  % Lower corner of computation domain
 grid_max = [2; 2; 1.1];     % Upper corner of computation domain
-N = [81; 81; 81];           % Number of grid points per dimension
+N = [11; 11; 11];           % Number of grid points per dimension
 g = createGrid(grid_min, grid_max, N);
 
 %% Create human dynamical system
