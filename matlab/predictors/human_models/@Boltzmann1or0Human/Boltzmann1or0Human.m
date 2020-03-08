@@ -1,10 +1,13 @@
-classdef BoltzmannHuman < DynSys
+classdef Boltzmann1or0Human < DynSys
     properties
     	% Fixed human speed
         v
 
         % Max possible heading control bounds
         uRange
+        
+        % Beta (0 or 1) fixed value
+        beta
 
         % Probability threshold for determining likely controls
         uThresh
@@ -42,7 +45,7 @@ classdef BoltzmannHuman < DynSys
     end
     
     methods
-        function obj = BoltzmannHuman(x, v, uRange, gamma, K, m, ...
+        function obj = Boltzmann1or0Human(x, v, beta, uRange, gamma, K, m, ...
                 theta, delta_t, uThresh, numCtrls, betaModel, extraArgs)
           %% obj = GaussianHuman(x, v, uRange, gamma, K, m, sigma, uThresh, betaModel)
           %     Dynamics of the GaussianHuman
@@ -69,6 +72,8 @@ classdef BoltzmannHuman < DynSys
           obj.x = x;
           obj.xhist = obj.x;
           obj.dims = 1:3;
+          
+          obj.beta = beta;
 
           obj.K = K;
           obj.m = m;
@@ -186,23 +191,36 @@ classdef BoltzmannHuman < DynSys
             likelyCtrls = cell(1, obj.numCtrls); % Contain all likely controls
             likelyMasks = containers.Map; % Map for likely control (str) to boolean matrix
             
-            for i = 1:obj.numCtrls
-                
-                intControls = obj.sumDiscControls(x,inc);
-                
-                u = lb + (i-1)*inc;
-                
-                x1 = x{1} + obj.deltaT .* obj.v .* cos(u);
-                x2 = x{2} + obj.deltaT .* obj.v .* sin(u);
-                nrm = ((x1 - obj.theta(1)).^2 + (x2 - obj.theta(2)).^2).^(0.5);
-                val = exp(-1.*nrm);
+            if obj.beta == 0
+                for i = 1:obj.numCtrls
 
-                pb = (val ./ intControls) .*  x{3} + (1/(ub-lb)) * (1 - x{3});
-                pb = max(min(pb, 1), 0);
-                
-                likelyMasks(num2str(u)) = pb >= obj.uThresh; % Mask of same dimension as x{1}, which is 1 if coordinate is likely, 0 otherwise
-                likelyCtrls{i} = u; % Consider all controls as likely controls
+                    intControls = obj.sumDiscControls(x,inc);
+
+                    u = lb + (i-1)*inc;
+
+                    x1 = x{1} + obj.deltaT .* obj.v .* cos(u);
+                    x2 = x{2} + obj.deltaT .* obj.v .* sin(u);
+                    nrm = ((x1 - obj.theta(1)).^2 + (x2 - obj.theta(2)).^2).^(0.5);
+                    val = exp(-1.*nrm);
+
+                    pb = (val ./ intControls); % .*  x{3} + (1/(ub-lb)) * (1 - x{3});
+                    pb = max(min(pb, 1), 0);
+
+                    likelyMasks(num2str(u)) = pb >= obj.uThresh; % Mask of same dimension as x{1}, which is 1 if coordinate is likely, 0 otherwise
+                    likelyCtrls{i} = u; % Consider all controls as likely controls
+                end
+            else
+                for i = 1:obj.numCtrls
+                    u = lb + (i-1)*inc;
+                    
+                    pb = (x{1} .* 0) + (1/(ub-lb));
+                    pb = max(min(pb, 1), 0);
+
+                    likelyMasks(num2str(u)) = pb >= obj.uThresh; % Mask of same dimension as x{1}, which is 1 if coordinate is likely, 0 otherwise
+                    likelyCtrls{i} = u; % Consider all controls as likely controls
+                end
             end
+                
         end
         
         function computeUAndXDot(obj, x)

@@ -1026,6 +1026,8 @@ for i = istart:length(tau)
                 end
             end
         end
+        [change, indicies] = max(abs(y - y0(:)));
+        fprintf('Max change since last iteration: %f\n', change)
     
     %% If commanded, stop the reachable set computation once it contains
     % the initial state.

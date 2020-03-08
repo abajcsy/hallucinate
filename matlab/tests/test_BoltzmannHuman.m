@@ -22,7 +22,7 @@ numCtrls = 20;
 delta_t = 1;
 
 % Threshold to determine likely controls
-uThresh = 0.5;
+uThresh = 0.15;
 
 % Are we using dynamic of static beta model?
 betaModel = 'static';
@@ -100,8 +100,8 @@ HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
 
 HJIextraArgs.stopConverge = true;
 
-minWith = 'set';
-% minWith = 'zero';
+% minWith = 'set';
+minWith = 'zero';
 %minWith = 'minVwithL';
 [data, tau2, ~] = ...
   HJIPDE_solve_pred(data0, tau, schemeData, minWith, HJIextraArgs);
