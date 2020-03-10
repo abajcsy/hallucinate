@@ -10,13 +10,13 @@ v = 0.6;
 uRange = [-pi+1e-2; pi];
 
 % gamma in continuous-time P(beta = 0) dynamics
-gamma = 1;
+gamma = 0.01;
 
 % Number of discrete controls
 numCtrls = 11;
 
 % Threshold to determine likely controls
-uThresh = 0.05; 
+uThresh = 0.; %0.05; 
 
 % Variance in normal distributions
 sigma = pi/4;
@@ -31,7 +31,7 @@ betaModel = 'static';
 extraArgs = [];
 
 % Setup dynamical system
-Pgoal1 = 0.8; 
+Pgoal1 = 0.9; 
 x0 = [0; 0; Pgoal1];
 human = GaussianTwoGoalHuman(x0, v, uRange, gamma, goals, sigma, uThresh, numCtrls, ...
     betaModel, extraArgs);
@@ -61,8 +61,8 @@ data0 = shapeSphere(g, x0, R);
 
 %% time vector
 t0 = 0;
-tMax = 3.0;
-dt = 0.05;
+tMax = 15; %3.0;
+dt = 0.1667; %0.05;
 tau = t0:dt:tMax;
 uMode = 'max';
 
@@ -77,11 +77,11 @@ schemeData.hamFunc = @gaussianTwoGoalHuman_ham;
 schemeData.partialFunc = @gaussianTwoGoalHuman_partial;
 
 %% Compute value function
-% HJIextraArgs.visualize = true; %show plot
+%HJIextraArgs.visualize = true; %show plot
 HJIextraArgs.visualize.valueSet = 1;
 HJIextraArgs.visualize.initialValueSet = 0;
 HJIextraArgs.visualize.figNum = 1; %set figure number
-HJIextraArgs.visualize.deleteLastPlot = true; %delete previous plot as you update
+HJIextraArgs.visualize.deleteLastPlot = false; %delete previous plot as you update
 HJIextraArgs.visualize.viewGrid = true;
 HJIextraArgs.visualize.viewAxis = [-4 4 -4 4 -0.1 1.1];
 HJIextraArgs.visualize.xTitle = '$p^x$';
@@ -98,6 +98,10 @@ HJIextraArgs.ignoreBoundary = 0;
 HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
 HJIextraArgs.visualize.plotData.projpt = {'min'}; %project pt
 HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
+
+%goalObs1 = shapeCylinder(g, 3, goals{1}, 0.2);
+%goalObs2 = shapeCylinder(g, 3, goals{2}, 0.2);
+%HJIextraArgs.obstacles = shapeUnion(goalObs1, goalObs2);
 
 %HJIextraArgs.targets = data0;
 

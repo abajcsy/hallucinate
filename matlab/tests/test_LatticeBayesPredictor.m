@@ -30,15 +30,17 @@ dt = r / v;
 % Prediction horizon. 
 % gString = createGrid(gridMin, gridMax, gridDims);
 % dt = gString.dx(1)/v;
-T = 6;                                  % horizon in (seconds)
+T = 3;                                  % horizon in (seconds)
 H = floor(T/dt);                % horizon in (timesteps)
 
 % Predict!
 preds = predictor.predict(x0, H);
 
 % eps = 0.0000000001;
-eps = 0.0001;
+eps = 0.001;
 
+figure(2);
+hold on
 for t=1:H+1
     xs = [];
     ys = [];
@@ -59,11 +61,24 @@ for t=1:H+1
 %         end
     end
     
-    sum(ps)
+    sum(ps);
     
-    figure(1);
 %     scatter(xs, ys, 30 * ones(1, length(ys)), 1 - ps, 'filled', 'MarkerEdgeColor', 'k');
 %     colormap('gray');
+
+%     sz = 30 * ones(1, length(ys));
+%     %sz = 10;
+% 	scatter(xs, ys, sz, ps, 'filled', 'MarkerEdgeColor', 'none');
+%     scatter(goals{1}(1), goals{1}(2), 'r', 'filled');
+%     scatter(goals{2}(1), goals{2}(2), 'r', 'filled');
+%     xlim([gridMin(1), gridMax(1)]);
+%     ylim([gridMin(2), gridMax(2)]);
+%     colormap('gray');
+%     colorbar
+%     caxis([0 max(ps)]);
+
+    titleString = strcat('Static param, t=', num2str(t*dt), 's');
+    title(titleString);
 
     [X, Y] = predictor.getLatticeMeshgrid();
     
@@ -76,7 +91,7 @@ for t=1:H+1
     
     [M, c] = contour(X, Y, P, [1, 1]);
     c.LineWidth = 2;
-    c.EdgeColor = 'b';
+    c.EdgeColor = [(195-t*10)/255, (191-t*10)/255, (191-t*10)/255]; 
     grid on
     pause(0.1);
 end
