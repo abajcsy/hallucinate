@@ -35,18 +35,18 @@ uRange = [-pi+1e-2; pi];
 gamma = 1;
 
 % Number of discrete controls
-numCtrls = 21;
+numCtrls = 31;
 
 % Variance in normal distributions
-sigma = pi/4;
+sigma = pi/8;
 
 % Known human goal locations. 
-%goals = {[2,-2], [2,2]};
-goals = {[2,-1], [2,1]};
+goals = {[2,-2], [2,2]};
+%goals = {[2,-0.5], [2,0.5]};
 %goals = {[2, 0], [3, 0]};
 
 % Threshold to determine likely controls
-uThresh = 0.0;  
+uThresh = 0.1;  
 
 % Are we using dynamic of static parameter model?
 betaModel = 'static';
@@ -68,7 +68,7 @@ centerPgoal1 = 1;
 uMode = 'min';
 
 % Setup dynamical system
-x0 = [-2; 0; Pgoal1];
+x0 = [0; 0; Pgoal1];
 human = GaussianG1orG2Human(x0, v, trueGoalIdx, uRange, gamma, goals, ...
                         sigma, uThresh, numCtrls, betaModel, extraArgs);
 
@@ -181,6 +181,7 @@ function uopt = GetOptControls(x, grid, valueFuns, times, human, uMode)
     end
 end
 
+%% Plots the states that result from optimal control sequence.
 function plotStateTraj(uopt, human, times, tminIdx, goals, trueGoalIdx, grid_min, grid_max)
     figure(2);
     hold on
