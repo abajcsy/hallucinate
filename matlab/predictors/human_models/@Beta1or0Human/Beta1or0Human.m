@@ -107,7 +107,7 @@ classdef Beta1or0Human < DynSys
                   warning('Setting alpha to default: 0.1\n');
               end
           elseif ~strcmp(betaModel, 'static')
-              error("No support for beta model %s\n", betaModel);
+              error('No support for beta model %s\n', betaModel);
           end
          
           mu = obj.K*obj.x(1:2) + obj.m;

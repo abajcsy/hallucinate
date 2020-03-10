@@ -22,4 +22,8 @@ else
 	hamValue = max(pdot_f, [], 4);
 end
 
+if strcmp(schemeData.tMode, 'backward')
+    hamValue = -hamValue;
+end
+
 end

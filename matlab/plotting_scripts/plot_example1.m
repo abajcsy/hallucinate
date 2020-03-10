@@ -15,7 +15,7 @@ goal_radius = 0.2;
 
 % Parameters to plot     
 priors = [0.5, 0.8];
-delta = [0.05, 0.1, 0.2];
+delta = [0.05, 0.1, 0.25];
 num_priors = length(priors);
 num_eps = length(delta);
 
