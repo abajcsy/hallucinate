@@ -5,7 +5,7 @@ clear all
 %% Grid
 grid_min = [-5; -5; -0.1];  % Lower corner of computation domain
 grid_max = [5; 5; 1.1];     % Upper corner of computation domain
-N = [41; 41; 41];           % Number of grid points per dimension
+N = [21; 21; 21];           % Number of grid points per dimension
 g = createGrid(grid_min, grid_max, N);
 
 %% Create human dynamical system
@@ -35,7 +35,7 @@ uRange = [-pi+1e-2; pi];
 gamma = 1;
 
 % Number of discrete controls
-numCtrls = 31;
+numCtrls = 21;
 
 % Variance in normal distributions
 sigma = pi/8;
@@ -43,7 +43,7 @@ sigma = pi/8;
 % Known human goal locations. 
 goals = {[2,-2], [2,2]};
 %goals = {[2,-0.5], [2,0.5]};
-%goals = {[2, 0], [3, 0]};
+%goals = {[2, 0], [4, 0]};
 
 % Threshold to determine likely controls
 uThresh = 0.1;  
@@ -62,6 +62,7 @@ tol = 0.1;
 % start with high prior on beta=1, but true is goal = 1 
 Pgoal1 = 0.5; 
 trueGoalIdx = 1;
+goalSetRad = 0.5;
 centerPgoal1 = 1;
 
 % For Analysis 1.1 (min time)
@@ -69,16 +70,20 @@ uMode = 'min';
 
 % Setup dynamical system
 x0 = [0; 0; Pgoal1];
-human = GaussianG1orG2Human(x0, v, trueGoalIdx, uRange, gamma, goals, ...
+human = GaussianG1orG2Human(x0, v, trueGoalIdx, goalSetRad, uRange, gamma, goals, ...
                         sigma, uThresh, numCtrls, betaModel, extraArgs);
 
 %% Setup target set
 % Target set is centered at the true beta value
 xyoffset = 0.1;
 poffset = 0.01;
-center = [0; 0; centerPgoal1];
-widths = [(grid_max(1) - grid_min(1)) - xyoffset; ...
-          (grid_max(2) - grid_min(2)) - xyoffset; 
+% center = [0; 0; centerPgoal1];
+% widths = [(grid_max(1) - grid_min(1)) - xyoffset; ...
+%           (grid_max(2) - grid_min(2)) - xyoffset; 
+%           tol - poffset];
+center = [goals{trueGoalIdx}(1); goals{trueGoalIdx}(2); centerPgoal1];
+widths = [1; ...
+          1; 
           tol - poffset];
 data0 = shapeRectangleByCenter(g, center, widths);
 
@@ -162,7 +167,8 @@ fprintf("Minimum time it takes to realize goal=%d is %f\n", trueGoalIdx, tmin);
 uopt = GetOptControls(x0, g, valueFuns, times(1:tminIdx), human, uMode);
 
 %% Simulate and visualize optimal control and states.
-plotStateTraj(uopt, human, times, tminIdx, goals, trueGoalIdx, grid_min, grid_max);
+plotStateTraj(uopt, human, times, tminIdx, goals, trueGoalIdx, ...
+    grid_min, grid_max, goalSetRad, dt);
 
 %% Grab the sequence of optimal controls starting from a state x. 
 %  Returns cell array of all the optimal controls.
@@ -182,7 +188,8 @@ function uopt = GetOptControls(x, grid, valueFuns, times, human, uMode)
 end
 
 %% Plots the states that result from optimal control sequence.
-function plotStateTraj(uopt, human, times, tminIdx, goals, trueGoalIdx, grid_min, grid_max)
+function plotStateTraj(uopt, human, times, tminIdx, goals, trueGoalIdx, ...
+    grid_min, grid_max, goalSetRad, dt)
     figure(2);
     hold on
 
@@ -209,7 +216,7 @@ function plotStateTraj(uopt, human, times, tminIdx, goals, trueGoalIdx, grid_min
     plot3(xcurr(1), xcurr(2), xcurr(3), '-o', 'color', color, 'markeredgecolor', color, 'markerfacecolor', color);
     for t=2:length(times(1:tminIdx))
         % Apply control to dynamics.
-        human.updateState(uopt{t}, times(t), human.x);
+        human.updateState(uopt{t}, dt, human.x);
         xcurr = human.x;
 
         % record state.
@@ -226,12 +233,26 @@ function plotStateTraj(uopt, human, times, tminIdx, goals, trueGoalIdx, grid_min
         p.LineWidth = 2;
         
         % add timestamps
-        txt = num2str(times(t));
-        t = text(X(t)+0.05, Y(t)+0.05, PG(t)+0.05, txt);
-        t.Color = color;
+%         txt = num2str(times(t));
+%         t = text(X(t)+0.05, Y(t)+0.05, PG(t)+0.05, txt);
+%         t.Color = color;
     end
 
+
+    %add timestamps
+    txt = strcat('t=', num2str(times(t)), ', p=', num2str(PG(t)));
+    t = text(X(t)+0.2, Y(t)+0.05, PG(t)+0.05, txt);
+    t.Color = color;
+
     % Plot goals (red is ground truth, grey is other goal).
+    rectangle('Position',[goals{trueGoalIdx}(1)-goalSetRad ...
+                          goals{trueGoalIdx}(2)-goalSetRad ...
+                          goalSetRad*2 ...
+                          goalSetRad*2],...
+                          'Curvature',1, ...
+                          'FaceColor',[1, 0.67, 0.67],...
+                          'EdgeColor',[1, 0.67, 0.67],...
+                          'LineWidth',1);
     plot3(goals{trueGoalIdx}(1), goals{trueGoalIdx}(2), 0.5, '-o', ...
                 'Color', 'r', ...
                 'markeredgecolor', 'r', ...
@@ -246,6 +267,14 @@ function plotStateTraj(uopt, human, times, tminIdx, goals, trueGoalIdx, grid_min
     else
         otherGoalIdx = 2;
     end
+    rectangle('Position',[goals{otherGoalIdx}(1)-goalSetRad ...
+                      goals{otherGoalIdx}(2)-goalSetRad ...
+                      goalSetRad*2 ...
+                      goalSetRad*2],...
+                      'Curvature',1, ...
+                      'FaceColor',[0.67, 0.67, 0.67],...
+                      'EdgeColor',[0.67, 0.67, 0.67],...
+                      'LineWidth',1);
     plot3(goals{otherGoalIdx}(1), goals{otherGoalIdx}(2), 0.5, '-o', ...
                 'Color', 'k', ...
                 'markeredgecolor', 'k', ...

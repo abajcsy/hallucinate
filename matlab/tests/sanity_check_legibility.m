@@ -8,7 +8,7 @@ prior_g2 = 0.5;
 %% Means (and variance) of gaussians.
 mu_g1 = -pi/4;
 mu_g2 = pi/4;
-var = pi/4;
+var = pi/8;
 
 %% Likelihood of different actions under gaussian.
 down = -pi/2;

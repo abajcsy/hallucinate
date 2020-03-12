@@ -6,6 +6,9 @@ classdef GaussianG1orG2Human < DynSys
         % Ground-truth value of goal (can = 1 or 2)
         trueGoalIdx
         
+        % Radius around goal (defining goal region)
+        goalSetRad
+        
         % Fixed human speed
         v
 
@@ -52,7 +55,7 @@ classdef GaussianG1orG2Human < DynSys
     end
     
     methods
-        function obj = GaussianG1orG2Human(x, v, trueGoalIdx, uRange, ...
+        function obj = GaussianG1orG2Human(x, v, trueGoalIdx, goalSetRad, uRange, ...
                 gamma, goals, sigma, uThresh, numCtrls, betaModel, ...
                 extraArgs)
          %% obj = GaussianTwoGoalHuman(x, v, uRange, gamma, goals, sigma, ...
@@ -86,6 +89,7 @@ classdef GaussianG1orG2Human < DynSys
           obj.xhist = obj.x;
           obj.dims = 1:3;
           obj.trueGoalIdx = trueGoalIdx;
+          obj.goalSetRad = goalSetRad;
 
           obj.goals = goals;
           obj.sigma = sigma;
@@ -164,9 +168,8 @@ classdef GaussianG1orG2Human < DynSys
                 error('Make sure to first run computeUOptGoals(x).\n');
             end
             
+            c0 = 1/(sqrt(2*pi*obj.sigma^2));
             if length(u) ~= 1
-            
-                c0 = 1/(sqrt(2*pi*obj.sigma^2));
                 if goal == 1
                     uG1Diff = -(u - obj.uOptG1).^2;
                     pu = c0 .* exp(uG1Diff ./ (2*obj.sigma^2));
@@ -177,17 +180,15 @@ classdef GaussianG1orG2Human < DynSys
                     error('In PuGivenGoal(): goal is invalid: %d\n', goal);
                 end
             else
-                
-                c0 = 1/(sqrt(2*pi*obj.sigma^2));
                 if goal == 1
                     g1 = obj.goals{1};
-                    uOptG1 = atan2(g1(2)- x{2}, g1(1) - x{1}); 
-                    uG1Diff = -(u - uOptG1).^2;
+                    uOptForG1 = atan2(g1(2)- x{2}, g1(1) - x{1}); 
+                    uG1Diff = -(u - uOptForG1).^2;
                     pu = c0 .* exp(uG1Diff ./ (2*obj.sigma^2));
                 elseif goal == 2
                     g2 = obj.goals{2};
-                    uOptG2 = atan2(g2(2)- x{2}, g2(1) - x{1}); 
-                    uG2Diff = -(u - uOptG2).^2;
+                    uOptForG2 = atan2(g2(2)- x{2}, g2(1) - x{1}); 
+                    uG2Diff = -(u - uOptForG2).^2;
                     pu = c0 .* exp(uG2Diff ./ (2*obj.sigma^2));
                 else
                     error('In PuGivenGoal(): goal is invalid: %d\n', goal);
