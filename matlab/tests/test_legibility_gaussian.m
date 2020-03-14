@@ -41,12 +41,12 @@ numCtrls = 21;
 sigma = pi/8;
 
 % Known human goal locations. 
-goals = {[2,-2], [2,2]};
-%goals = {[2,-0.5], [2,0.5]};
+%goals = {[2,-2], [2,2]};
+goals = {[2,-0.5], [2,0.5]};
 %goals = {[2, 0], [4, 0]};
 
 % Threshold to determine likely controls
-uThresh = 0.1;  
+uThresh = 0.0;  
 
 % Are we using dynamic of static parameter model?
 betaModel = 'static';
@@ -77,14 +77,14 @@ human = GaussianG1orG2Human(x0, v, trueGoalIdx, goalSetRad, uRange, gamma, goals
 % Target set is centered at the true beta value
 xyoffset = 0.1;
 poffset = 0.01;
-% center = [0; 0; centerPgoal1];
-% widths = [(grid_max(1) - grid_min(1)) - xyoffset; ...
-%           (grid_max(2) - grid_min(2)) - xyoffset; 
-%           tol - poffset];
-center = [goals{trueGoalIdx}(1); goals{trueGoalIdx}(2); centerPgoal1];
-widths = [1; ...
-          1; 
+center = [0; 0; centerPgoal1];
+widths = [(grid_max(1) - grid_min(1)) - xyoffset; ...
+          (grid_max(2) - grid_min(2)) - xyoffset; 
           tol - poffset];
+% center = [goals{trueGoalIdx}(1); goals{trueGoalIdx}(2); centerPgoal1];
+% widths = [1; ...
+%           1; 
+%           tol - poffset];
 data0 = shapeRectangleByCenter(g, center, widths);
 
 %% Let the human have access to the grid for debugging.
