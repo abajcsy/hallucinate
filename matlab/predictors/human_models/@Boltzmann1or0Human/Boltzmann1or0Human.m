@@ -202,11 +202,11 @@ classdef Boltzmann1or0Human < DynSys
                     val = exp(-1 .* qval);
 
                     % Compute the probability.
-                    pb = val ./ intControls;
-                    pb = max(min(pb, 1.), 0.);
+                    pu = val ./ intControls;
+                    pu = max(min(pu, 1.), 0.);
 
                     % Mask of same dimension as x{1}, which is 1 if coordinate is likely, 0 otherwise
-                    likelyMasks(num2str(u)) = (pb >= obj.uThresh); 
+                    likelyMasks(num2str(u)) = (pu >= obj.uThresh); 
                     likelyCtrls{i} = u; % Consider all controls as likely controls
                 end
             else
@@ -218,11 +218,11 @@ classdef Boltzmann1or0Human < DynSys
                     
                     % Create a cell array the same size as x{1} and filled 
                     % with uniform probability over each control.
-                    pb = (x{1} .* 0.) + prand;
-                    pb = max(min(pb, 1.), 0.);
+                    pu = (x{1} .* 0.) + prand;
+                    pu = max(min(pu, 1.), 0.);
 
                     % Mask of same dimension as x{1}, which is 1 if coordinate is likely, 0 otherwise
-                    likelyMasks(num2str(u)) = (pb >= obj.uThresh);
+                    likelyMasks(num2str(u)) = (pu >= obj.uThresh);
                     likelyCtrls{i} = u; % Consider all controls as likely controls
                 end
             end
@@ -266,9 +266,11 @@ classdef Boltzmann1or0Human < DynSys
             qval = ((x1 - obj.theta(1)).^2 + (x2 - obj.theta(2)).^2).^(0.5);
         end
         
-        %% TEST.
+        %% Plots the state-dependent control distribution for Boltzmann.
         function plotPUGivenXBeta(obj, grid)
             figure(2);
+            m = floor(obj.numCtrls/2);
+            n = obj.numCtrls - m;
             for i=1:obj.numCtrls
                 
                 % Compute the normalizer for the Boltzmann model
@@ -279,14 +281,14 @@ classdef Boltzmann1or0Human < DynSys
 
                 % Get the Qvalue of the current state and control.
                 qval = obj.qFunction(grid.xs, u);
-                val = exp(-1 .* qval);
+                pu = exp(-1 .* qval);
 
                 % Compute the probability.
-                pugivenx_beta1 = val ./ intControls;
+                pugivenx_beta1 = pu ./ intControls;
                 pugivenx_beta1 = max(min(pugivenx_beta1, 1.), 0.);
                 
                 % Plot.
-                subplot(1,obj.numCtrls,i);
+                subplot(m,n,i);
                 pcolor(grid.xs{1}(:,:,1), grid.xs{2}(:,:,1), pugivenx_beta1(:,:,1));
                 title_str = strcat('P(u=',num2str(u), '| x, beta=1)');
                 title(title_str);

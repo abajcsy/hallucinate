@@ -35,7 +35,7 @@ uRange = [-pi+1e-2; pi];
 gamma = 1;
 
 % Number of discrete controls
-numCtrls = 5;
+numCtrls = 11;
 
 % Threshold to determine likely controls
 uThresh = 0.1;
@@ -103,7 +103,7 @@ data0 = shapeRectangleByCenter(g, center, widths);
 human.computeUAndXDot(g.xs);
 
 %% PLOTS FOR DEBUGGING.
-%human.plotPUGivenXBeta(g);
+% human.plotPUGivenXBeta(g);
 
 %% time vector
 t0 = 0;
