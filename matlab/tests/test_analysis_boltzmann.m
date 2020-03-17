@@ -4,11 +4,11 @@ clear all
 %% Grid
 grid_min = [-5; -5; -0.1];  % Lower corner of computation domain
 grid_max = [5; 5; 1.1];     % Upper corner of computation domain
-N = [21; 21; 21];           % Number of grid points per dimension
+N = [11; 11; 11];           % Number of grid points per dimension
 g = createGrid(grid_min, grid_max, N);
 
 %% Create human dynamical system
-% Case 1: Human's beta* = 0 (optimal)
+% Case 1: Human's beta* = 1 (Boltzmann optimal)
 %         Robot's Prior(beta = 0) = 0.1 (robot thinks human is random)
 %          
 %         Analysis 1.1: min_u computes the min time it takes robot to
@@ -16,8 +16,8 @@ g = createGrid(grid_min, grid_max, N);
 %         Analysis 1.2: max_u computes the max time it takes robot to
 %                       realize human is actually optimal
 %
-% Case 2: Human's beta* = 1 (random)
-%         Robot's Prior(beta = 0) = 0.9 (robot thinks human is optimal)
+% Case 2: Human's beta* = 0 (random)
+%         Robot's Prior(beta = 1) = 0.9 (robot thinks human is optimal)
 %
 %         Analysis 2.1: min_u computes the min time it takes robot to
 %                       realize human is actually random
@@ -33,15 +33,8 @@ uRange = [-pi+1e-2; pi];
 % gamma in continuous-time P(beta = 0) dynamics
 gamma = 1;
 
-% Control gains
-K = [0, 0];
-m = 0;
-
 % Number of discrete controls
-numCtrls = 20;
-
-% Variance in normal distribution
-sigma = 0.1;
+numCtrls = 5;
 
 % Threshold to determine likely controls
 uThresh = 0.1;
@@ -49,21 +42,23 @@ uThresh = 0.1;
 % Are we using dynamic of static beta model?
 betaModel = 'static';
 
-theta = [0 0];
+% Human's goal location.
+theta = [0, 0];
 
+% Timestep in discretized dynamics (for Q-function computation).
 delta_t = 0.1;
 
 % We have no dynamic beta parameters
 extraArgs = [];
 
 % Tolerance for how "sufficiently high" the probability needs to be
-tol = 0.1;
+tol = 0.2;
 
 % ---- Setup for Case 1 ---- %
-% start with high prior on beta=1, but true is beta = 0 (gaussian)
-Pbeta0 = 0.1; 
-trueBeta = 0;
-centerBeta = 1;
+% start with high prior on beta=0, but true is beta=1 (boltzmann)
+Pbeta1 = 0.5; 
+trueBeta = 1;
+centerPBeta = 1;
 
 % For Analysis 1.1 (min time)
 uMode = 'min';
@@ -73,9 +68,9 @@ uMode = 'min';
 % -------------------------- %
 
 % % ---- Setup for Case 2 ---- %
-% % start with high prior on beta=0, but true is beta = 1 (rand)
-% Pbeta0 = 0.9; 
-% trueBeta = 1;
+% % start with high prior on beta=1, but true is beta = 0 (rand)
+% Pbeta1 = 0.9; 
+% trueBeta = 0;
 % centerBeta = 0;
 % 
 % % For Analysis 2.1 (min time)
@@ -89,15 +84,15 @@ uMode = 'min';
 % % -------------------------- %
 
 % Setup dynamical system
-x0 = [-3; 0; Pbeta0];
-human = Boltzmann1or0Human(x0, v, trueBeta, uRange, gamma, K, m, theta, delta_t, uThresh, ...
-    numCtrls, betaModel, extraArgs);
+x0 = [-3; 0; Pbeta1];
+human = Boltzmann1or0Human(x0, v, trueBeta, uRange, gamma, theta, ...
+    delta_t, uThresh, numCtrls, betaModel, extraArgs);
 
 %% Setup target set
 % Target set is centered at the true beta value
 xyoffset = 0.1;
 poffset = 0.01;
-center = [0; 0; centerBeta];
+center = [0; 0; centerPBeta];
 widths = [(grid_max(1) - grid_min(1)) - xyoffset; ...
           (grid_max(2) - grid_min(2)) - xyoffset; 
           tol - poffset];
@@ -130,10 +125,12 @@ HJIextraArgs.visualize.initialValueSet = 0;
 HJIextraArgs.visualize.figNum = 1; %set figure number
 HJIextraArgs.visualize.deleteLastPlot = true; %delete previous plot as you update
 HJIextraArgs.visualize.viewGrid = true;
-HJIextraArgs.visualize.viewAxis = [grid_min(1) grid_max(1) grid_min(2) grid_max(2) -0.1 1.1];
+HJIextraArgs.visualize.viewAxis = [grid_min(1) grid_max(1) ...
+                                   grid_min(2) grid_max(2) ...
+                                   -0.1 1.1];
 HJIextraArgs.visualize.xTitle = '$p^x$';
 HJIextraArgs.visualize.yTitle = '$p^y$';
-HJIextraArgs.visualize.zTitle = '$P(\beta = 0)$';
+HJIextraArgs.visualize.zTitle = '$P(\beta = 1) [Boltz]$';
 HJIextraArgs.visualize.fontSize = 15;
 HJIextraArgs.stopInit = x0;
 %HJIextraArgs.visualize.camlightPosition = [0 0 0];
@@ -142,14 +139,6 @@ HJIextraArgs.stopInit = x0;
 % trust values near the boundary of grid
 HJIextraArgs.ignoreBoundary = 0; 
 
-% Set the l(x) or target set in the min with l(x) formulation. 
-%HJIextraArgs.targets = data0;
-
-% %uncomment if you want to see a 2D slice
-% HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
-% HJIextraArgs.visualize.plotData.projpt = {'min'}; %project pt
-% HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
-
 %minWith = 'set';
 minWith = 'zero';
 %minWith = 'minVwithL';
@@ -157,26 +146,15 @@ minWith = 'zero';
 %% Debugging
 fprintf('------ Prediction Analysis Setup -------\n');
 fprintf('   true human beta: %d\n', trueBeta);
-fprintf('   [x, y, P(beta=0)]: [%d, %d, %d]\n', x0(1), x0(2), x0(3));
+fprintf('   [x, y, P(beta=1)]: [%d, %d, %d]\n', x0(1), x0(2), x0(3));
 fprintf('   uMode: %s\n', uMode);
 fprintf('--------------------------------------\n');
-
 
 %% Solve it!
 [data, tau2, ~] = ...
   HJIPDE_solve_pred(data0, tau, schemeData, minWith, HJIextraArgs);
 
 %% Grab the min/max time. 
-% if trueBeta == 0
-%     % If the true beta = 0, we want P(beta=0) >= (1-tol)
-%     lowIdx = PbetaToGrid(g, 1-tol);
-%     upIdx = PbetaToGrid(g, 1);
-% else
-%     % If the true beta = 1, we want P(beta=0) <= tol
-%    lowIdx = PbetaToGrid(g, 0);
-%    upIdx = PbetaToGrid(g, tol);
-% end
-
 tmin = -Inf;
 for t=1:length(tau2)
     v = eval_u(g, data(:,:,:,t), x0); 
@@ -187,10 +165,3 @@ for t=1:length(tau2)
 end
 
 fprintf("Minimum time it takes to realize beta=%d is %f\n", trueBeta, tmin);
-
-%% Converts from (pbeta) state to (i) grid index.
-function PbetaIdx = PbetaToGrid(grid, pb)
-    error = abs(grid.xs{3} - pb);
-    [~,idx] = min(error(:));
-    [~,~,PbetaIdx] = ind2sub(size(error),idx);
-end
