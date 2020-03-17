@@ -120,7 +120,7 @@ classdef Boltzmann1or0Human < DynSys
             %    \int_{U} e^{-\| (x_t + \Delat t f(x_t,u_t)) - \theta \|_2}
 
             intControls = 0.0;
-            for i = 1:obj.numCtrls
+            parfor i = 1:obj.numCtrls
                 
                 % Get discrete control.
                 u = obj.discCtrls(i);
@@ -133,7 +133,7 @@ classdef Boltzmann1or0Human < DynSys
                 val = exp(-1 .* qval);
                 
                 % Add to running value of summation
-                intControls = intControls + val; %inc*val;
+                intControls = intControls + obj.ctrlIncr*val; 
             end
         end
         
@@ -180,6 +180,10 @@ classdef Boltzmann1or0Human < DynSys
             %                                 dimension
             %  Output: 
             %       likelyCtrls -- (cell arr) valid controls at each state    
+            %       likelyMasks -- (Map) map with keys as the controls and 
+            %                       values are a binary mask of size of the
+            %                       statespace indicating if a control is
+            %                       likely enough at a given state.
            
             likelyCtrls = cell(1, obj.numCtrls); % Contain all likely controls
             likelyMasks = containers.Map; % Map for likely control (str) to boolean matrix
@@ -260,6 +264,35 @@ classdef Boltzmann1or0Human < DynSys
 
             % Evaluate distance of next x to goal theta under L2 norm
             qval = ((x1 - obj.theta(1)).^2 + (x2 - obj.theta(2)).^2).^(0.5);
+        end
+        
+        %% TEST.
+        function plotPUGivenXBeta(obj, grid)
+            figure(2);
+            for i=1:obj.numCtrls
+                
+                % Compute the normalizer for the Boltzmann model
+                intControls = obj.sumDiscControls(grid.xs);
+
+                % Grab current candidate control.
+                u = obj.discCtrls(i);
+
+                % Get the Qvalue of the current state and control.
+                qval = obj.qFunction(grid.xs, u);
+                val = exp(-1 .* qval);
+
+                % Compute the probability.
+                pugivenx_beta1 = val ./ intControls;
+                pugivenx_beta1 = max(min(pugivenx_beta1, 1.), 0.);
+                
+                % Plot.
+                subplot(1,obj.numCtrls,i);
+                pcolor(grid.xs{1}(:,:,1), grid.xs{2}(:,:,1), pugivenx_beta1(:,:,1));
+                title_str = strcat('P(u=',num2str(u), '| x, beta=1)');
+                title(title_str);
+                colormap('bone')
+                colorbar
+            end
         end
     end
 end

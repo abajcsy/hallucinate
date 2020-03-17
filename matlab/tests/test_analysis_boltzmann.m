@@ -1,4 +1,5 @@
 clc
+clf
 clear all
 
 %% Grid
@@ -43,7 +44,7 @@ uThresh = 0.1;
 betaModel = 'static';
 
 % Human's goal location.
-theta = [0, 0];
+theta = [0 0];
 
 % Timestep in discretized dynamics (for Q-function computation).
 delta_t = 0.1;
@@ -100,6 +101,9 @@ data0 = shapeRectangleByCenter(g, center, widths);
 
 %% Pre-compute the likely controls and dynamics over the entire state-space.
 human.computeUAndXDot(g.xs);
+
+%% PLOTS FOR DEBUGGING.
+%human.plotPUGivenXBeta(g);
 
 %% time vector
 t0 = 0;

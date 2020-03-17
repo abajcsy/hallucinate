@@ -15,15 +15,16 @@ p2 = repmat(deriv{2}, [1, 1, 1, human.numCtrls]);
 p3 = repmat(deriv{3}, [1, 1, 1, human.numCtrls]);
 pdot_f = p1 .* human.xdot{1} + p2 .* human.xdot{2} + p3 .* human.xdot{3};
 
-% Maximize/minimize Hamiltonian
+% Maximize/minimize Hamiltonian.
 if strcmp(uMode, 'min')
 	hamValue = min(pdot_f, [], 4);
 else
 	hamValue = max(pdot_f, [], 4);
 end
 
+% Negate hamValue if backward reachable set.
 if strcmp(schemeData.tMode, 'backward')
-    hamValue = -hamValue;
+   hamValue = -hamValue;
 end
 
 end
