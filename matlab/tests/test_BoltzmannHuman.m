@@ -22,7 +22,7 @@ numCtrls = 20;
 delta_t = 1;
 
 % Threshold to determine likely controls
-uThresh = 0.15;
+uThresh = 0.1;
 
 % Are we using dynamic of static beta model?
 betaModel = 'static';
@@ -34,7 +34,7 @@ extraArgs.alpha = 0.5;
 extraArgs.DeltaB0 = 0.5; 
 
 % Setup dynamical system
-Pbeta0 = 0.8; 
+Pbeta0 = 0.5; 
 x0 = [0; 0; Pbeta0];
 human = BoltzmannHuman(x0, v, uRange, gamma, K, m, theta, delta_t, uThresh, ...
     numCtrls, betaModel, extraArgs);

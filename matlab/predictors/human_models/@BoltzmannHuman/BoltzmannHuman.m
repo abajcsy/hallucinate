@@ -33,6 +33,10 @@ classdef BoltzmannHuman < DynSys
         likelyMasks
         xdot
         
+        % Stores discretized control increment and discretized controls.
+        ctrlIncr
+        discCtrls
+        
         % Mixing parameter and mixing distribution 
         alpha 
         DeltaB0
@@ -81,6 +85,9 @@ classdef BoltzmannHuman < DynSys
           obj.gamma = gamma;
           obj.uThresh = uThresh;
           obj.numCtrls = numCtrls;
+          obj.ctrlIncr = (obj.uRange(2) - obj.uRange(1))/obj.numCtrls; 
+          obj.discCtrls = zeros(1, obj.numCtrls);
+          
 
           obj.nx = length(x);
           obj.nu = 1;
@@ -113,61 +120,61 @@ classdef BoltzmannHuman < DynSys
           
         end
         
-        function intControls = sumDiscControls(obj, x, inc)
-            %% Approximate integral with summation: \int_{U} e^{-\| (x_t + \Delat t f(x_t,u_t)) - \theta \|_2}
-            lb = obj.uRange(1);
-            ub = obj.uRange(2);
-            
+        function intControls = sumDiscControls(obj, x)
+            %% Approximate integral with summation: 
+            %    \int_{U} e^{-\| (x_t + \Delat t f(x_t,u_t)) - \theta \|_2}
+
             intControls = 0.0;
-            for i = 1:obj.numCtrls
+            parfor i = 1:obj.numCtrls
                 
-                % Find control
-                u = lb + (i-1)*inc;
+                % Get discrete control.
+                u = obj.discCtrls(i);
                 
-                % Find next x by forward euler
-                x1 = x{1} + obj.deltaT .* obj.v .* cos(u);
-                x2 = x{2} + obj.deltaT .* obj.v .* sin(u);
+                % Compute the Q-value of each state and control.
+                qval = obj.qFunction(x, u);
                 
-                % Evaluate distance of next x to goal theta under L2 norm
-                nrm = ((x1 - obj.theta(1)).^2 + (x2 - obj.theta(2)).^2).^(0.5);
-                
-                % Calculate value in summation: e^{-\| (x_t + \Delat t f(x_t,u_t)) - \theta \|_2}
-                val = exp(-1.*nrm);
+                % Calculate value in summation: 
+                %   e^{-||(x_t + \Deltat t f(x_t,u_t)) - \theta||_2}
+                val = exp(-1 .* qval);
                 
                 % Add to running value of summation
-                intControls = intControls + inc*val;
+                intControls = intControls + obj.ctrlIncr*val; 
             end
         end
         
         function pb = betaPosterior(obj, x, u)
             %% Computes posterior given x and u
-            %       P(beta=0 | xt=x, ut=u) \propto P(u | x, beta=0) * P(beta=0)
+            %       P(beta=1 | xt=x, ut=u) \propto P(u | x, beta=1) * P(beta=1)
             %
-            %  Note that our third state is x(3) = P(\beta=0 | xt-1, ut-1)
+            %  Note that our third state is x(3) = P(\beta=1 | xt-1, ut-1)
             
             % Posterior update in the valid range of beta
             numerator = x{3};
             
             % Approximation of integral of e^Q(x,u) over space of controls
-            lb = obj.uRange(1);
-            ub = obj.uRange(2);
-            inc = (ub-lb)/(obj.numCtrls-1);
-            intControls = obj.sumDiscControls(x,inc);
+            intControls = obj.sumDiscControls(x);
             
-            % x_{t+1} = x_t + \Delta t * f(x_t)
-            x1 = x{1} + obj.deltaT .* obj.v .* cos(u);
-            x2 = x{2} + obj.deltaT .* obj.v .* sin(u);
+            % Compute the Q-value of the current control at the current
+            % state.
+            qval = obj.qFunction(x, u);
+            pugivenx_beta1 = exp(-1 .* qval);
             
-            nrm = ((x1 - obj.theta(1)).^2 + (x2 - obj.theta(2)).^2).^(0.5);
-            val = (ub-lb) * exp(-1.*nrm);
+            % Get probability of other beta value (beta = 0).
+            pbeta0 = 1-x{3};
             
-            denominator = x{3} + (((1-x{3}) ./ val) .* intControls);
+            % Get probability of u given beta = 0 --> uniform: 1/numCtrls
+            pugivenx_beta0 = 1. / obj.numCtrls;
             
-            pb = numerator./denominator;
-            pb = max(min(pb, 1), 0);
+            % Compute denominator of posterior.
+            denominator = x{3} + ((pbeta0 .* intControls .* pugivenx_beta0) ./ (pugivenx_beta1)) ;
+            
+            pb = numerator ./ denominator;
+            pb = max(min(pb, 1.), 0.);
             
             % Account for the probability outside the valid range
-            pb = (pb .* (x{3} >= 0) .* (x{3} <= 1)) + (x{3} .* (x{3} < 0)) + (x{3} .* (x{3} > 1));
+            pb = (pb .* (x{3} >= 0) .* (x{3} <= 1)) + ...
+                        (x{3} .* (x{3} < 0)) + ...
+                        (x{3} .* (x{3} > 1));
         end
         
         function [likelyCtrls, likelyMasks] = getLikelyControls(obj, x)
@@ -188,21 +195,33 @@ classdef BoltzmannHuman < DynSys
             
             for i = 1:obj.numCtrls
                 
-                intControls = obj.sumDiscControls(x,inc);
-                
-                u = lb + (i-1)*inc;
-                
-                x1 = x{1} + obj.deltaT .* obj.v .* cos(u);
-                x2 = x{2} + obj.deltaT .* obj.v .* sin(u);
-                nrm = ((x1 - obj.theta(1)).^2 + (x2 - obj.theta(2)).^2).^(0.5);
-                val = exp(-1.*nrm);
+                % Compute the normalizer for the Boltzmann model
+                intControls = obj.sumDiscControls(x);
 
-                pb = (val ./ intControls) .*  x{3} + (1/(ub-lb)) * (1 - x{3});
+                % Grab current candidate control.
+                u = obj.discCtrls(i);
+
+                % Get the Qvalue of the current state and control.
+                qval = obj.qFunction(x, u);
+                val = exp(-1 .* qval);
+
+                pb = (val ./ intControls) .*  x{3} + (1./obj.numCtrls) * (1 - x{3});
                 pb = max(min(pb, 1), 0);
                 
                 likelyMasks(num2str(u)) = pb >= obj.uThresh; % Mask of same dimension as x{1}, which is 1 if coordinate is likely, 0 otherwise
                 likelyCtrls{i} = u; % Consider all controls as likely controls
             end
+        end
+        
+        %% Computes the Q-function for the Boltzmann model.
+        %       Q(x,u) = ||x + dt*f(x,u) - theta||_2
+        function qval = qFunction(obj, x, u)
+            % Find next x by forward euler
+            x1 = x{1} + obj.deltaT .* obj.v .* cos(u);
+            x2 = x{2} + obj.deltaT .* obj.v .* sin(u);
+
+            % Evaluate distance of next x to goal theta under L2 norm
+            qval = ((x1 - obj.theta(1)).^2 + (x2 - obj.theta(2)).^2).^(0.5);
         end
         
         function computeUAndXDot(obj, x)
@@ -215,14 +234,19 @@ classdef BoltzmannHuman < DynSys
             obj.xdot = {};
             for i=1:obj.numCtrls
                 u = obj.likelyCtrls{i};
-            	f = obj.dynamics(x,u);
+                currLikelyMask = obj.likelyMasks(num2str(u));
+            	f = obj.dynamics(1,x,u); % note: the time (first arg) isnt used
+                
                 % Convert into an N1 x N2 x N3 x numCtrls array
                 if i == 1
                     obj.xdot = f;
+                    obj.xdot{1} = obj.xdot{1} .* currLikelyMask;
+                    obj.xdot{2} = obj.xdot{2} .* currLikelyMask;
+                    obj.xdot{3} = obj.xdot{3} .* currLikelyMask;
                 else
-                    obj.xdot{1} = cat(4, obj.xdot{1}, f{1});
-                    obj.xdot{2} = cat(4, obj.xdot{2}, f{2});
-                    obj.xdot{3} = cat(4, obj.xdot{3}, f{3});
+                    obj.xdot{1} = cat(4, obj.xdot{1}, f{1} .* currLikelyMask);
+                    obj.xdot{2} = cat(4, obj.xdot{2}, f{2} .* currLikelyMask);
+                    obj.xdot{3} = cat(4, obj.xdot{3}, f{3} .* currLikelyMask);
                 end
             end
         end

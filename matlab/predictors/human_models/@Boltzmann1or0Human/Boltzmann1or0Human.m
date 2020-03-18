@@ -161,7 +161,7 @@ classdef Boltzmann1or0Human < DynSys
             pugivenx_beta0 = 1. / obj.numCtrls;
             
             % Compute denominator of posterior.
-            denominator = x{3} + ((pbeta0 .* intControls) ./ (pugivenx_beta0 .* pugivenx_beta1)) ;
+            denominator = x{3} + ((pbeta0 .* intControls .* pugivenx_beta0) ./ (pugivenx_beta1)) ;
             
             pb = numerator ./ denominator;
             pb = max(min(pb, 1.), 0.);
