@@ -34,16 +34,16 @@ uRange = [-pi+1e-2; pi];
 gamma = 1;
 
 % Number of discrete controls
-numCtrls = 5;
+numCtrls = 50;
 
 % Threshold to determine likely controls
-uThresh = 0.1;
+uThresh = 0;
 
 % Are we using dynamic of static beta model?
 betaModel = 'static';
 
 % Human's goal location.
-theta = [0, 0];
+theta = [2, 2];
 
 % Timestep in discretized dynamics (for Q-function computation).
 delta_t = 0.1;
@@ -56,7 +56,7 @@ tol = 0.2;
 
 % ---- Setup for Case 1 ---- %
 % start with high prior on beta=0, but true is beta=1 (boltzmann)
-Pbeta1 = 0.5; 
+Pbeta1 = 0.8; 
 trueBeta = 1;
 centerPBeta = 1;
 
@@ -92,10 +92,20 @@ human = Boltzmann1or0Human(x0, v, trueBeta, uRange, gamma, theta, ...
 % Target set is centered at the true beta value
 xyoffset = 0.1;
 poffset = 0.01;
-center = [0; 0; centerPBeta];
-widths = [(grid_max(1) - grid_min(1)) - xyoffset; ...
-          (grid_max(2) - grid_min(2)) - xyoffset; 
-          tol - poffset];
+% center = [0; 0; centerPBeta];
+% widths = [(grid_max(1) - grid_min(1)) - xyoffset; ...
+%           (grid_max(2) - grid_min(2)) - xyoffset; 
+%           tol - poffset];
+
+% center = [theta(1); theta(2); centerPBeta];
+% widths = [1; ...
+%           1; 
+%           tol - poffset];
+
+center = [theta(1); theta(2); 0.5];
+widths = [1; ...
+          1; 
+          (grid_max(3) - grid_min(3)) + tol - poffset];
 data0 = shapeRectangleByCenter(g, center, widths);
 
 %% Pre-compute the likely controls and dynamics over the entire state-space.
@@ -139,7 +149,7 @@ HJIextraArgs.stopInit = x0;
 % trust values near the boundary of grid
 HJIextraArgs.ignoreBoundary = 0; 
 
-%minWith = 'set';
+% minWith = 'set';
 minWith = 'zero';
 %minWith = 'minVwithL';
 
@@ -151,13 +161,14 @@ fprintf('   uMode: %s\n', uMode);
 fprintf('--------------------------------------\n');
 
 %% Solve it!
-[data, tau2, ~] = ...
+[valueFuns, times, ~] = ...
   HJIPDE_solve_pred(data0, tau, schemeData, minWith, HJIextraArgs);
+tminIdx = length(times);
 
 %% Grab the min/max time. 
 tmin = -Inf;
-for t=1:length(tau2)
-    v = eval_u(g, data(:,:,:,t), x0); 
+for t=1:length(times)
+    v = eval_u(g, valueFuns(:,:,:,t), x0); 
     if v <= 0
         tmin = (t-1)*dt;
         break;
@@ -165,3 +176,113 @@ for t=1:length(tau2)
 end
 
 fprintf("Minimum time it takes to realize beta=%d is %f\n", trueBeta, tmin);
+
+%% Get the sequence of optimal controls.
+uopt = GetOptControls(x0, g, valueFuns, times(1:tminIdx), human, uMode);
+
+%% Simulate and visualize optimal control and states.
+goalSetRad = 1;
+plotStateTraj(uopt, human, times, tminIdx, theta, ...
+    grid_min, grid_max, goalSetRad, dt);
+
+%% Grab the sequence of optimal controls starting from a state x. 
+%  Returns cell array of all the optimal controls.
+function uopt = GetOptControls(x, grid, valueFuns, times, human, uMode)
+    uopt = cell(1,length(times));
+    for t=1:length(times)
+        % Grab the derivative at all states.
+        deriv = computeGradients(grid, valueFuns(:,:,:,t));
+
+        % Value of the derivative at that particular state
+        current_deriv = eval_u(grid, deriv, x);
+
+        % Get the optimal control to apply at this state
+        u = human.optCtrl(t, x, current_deriv, uMode); 
+        uopt{t} = u;
+    end
+end
+
+%% Plots the states that result from optimal control sequence.
+function plotStateTraj(uopt, human, times, tminIdx, goal, ...
+    grid_min, grid_max, goalSetRad, dt)
+    figure(2);
+    hold on
+
+    % Keep track of all states so we can draw a line plot.
+    X = zeros(1,length(times(1:tminIdx)));
+    Y = zeros(1,length(times(1:tminIdx)));
+    PG = zeros(1,length(times(1:tminIdx)));
+
+    % Setup colors.
+    startColor = [79., 0., 128.]/255.;
+    endColor = [255., 143., 255.]/255.;
+    r = linspace(startColor(1), endColor(1), length(times(1:tminIdx)));
+    g = linspace(startColor(2), endColor(2), length(times(1:tminIdx)));
+    b = linspace(startColor(3), endColor(3), length(times(1:tminIdx)));
+    xcurr = human.x;
+
+    % Record state.
+    X(1) = xcurr(1);
+    Y(1) = xcurr(2);
+    PG(1) = xcurr(3);
+
+    % Plot first point.
+    color = [r(1), g(1), b(1)];
+    plot3(xcurr(1), xcurr(2), xcurr(3), '-o', 'color', color, 'markeredgecolor', color, 'markerfacecolor', color);
+    for t=2:length(times(1:tminIdx))
+        % Apply control to dynamics.
+        human.updateState(uopt{t}, dt, human.x);
+        xcurr = human.x;
+
+        % record state.
+        X(t) = xcurr(1);
+        Y(t) = xcurr(2);
+        PG(t) = xcurr(3);
+
+        % Plot point and connection between pts.
+        color = [r(t), g(t), b(t)];
+        p = plot3([X(t-1), X(t)], [Y(t-1), Y(t)], [PG(t-1), PG(t)], '-o', ...
+                'Color', color, ...
+                'markeredgecolor', color, ...
+                'markerfacecolor', color);
+        p.LineWidth = 2;
+        
+        % add timestamps
+%         txt = num2str(times(t));
+%         t = text(X(t)+0.05, Y(t)+0.05, PG(t)+0.05, txt);
+%         t.Color = color;
+    end
+
+
+    %add timestamps
+    txt = strcat('t=', num2str(times(t)), ', p=', num2str(PG(t)));
+    t = text(X(t)+0.2, Y(t)+0.05, PG(t)+0.05, txt);
+    t.Color = color;
+
+    % Plot goal
+    rectangle('Position',[goal(1)-goalSetRad ...
+                          goal(2)-goalSetRad ...
+                          goalSetRad*2 ...
+                          goalSetRad*2],...
+                          'Curvature',1, ...
+                          'FaceColor',[1, 0.67, 0.67],...
+                          'EdgeColor',[1, 0.67, 0.67],...
+                          'LineWidth',1);
+    plot3(goal(1), goal(2), 0.5, '-o', ...
+                'Color', 'r', ...
+                'markeredgecolor', 'r', ...
+                'markerfacecolor', 'r');
+    g1Txt = 'g';
+    t1 = text(goal(1), goal(2), 0.55, g1Txt);
+    t1.FontSize = 12;
+    t1.Color = 'r';
+    
+    grid on;
+    xlim([grid_min(1), grid_max(1)]);
+    ylim([grid_min(2), grid_max(2)]);
+    zlim([grid_min(3), grid_max(3)]);
+    
+    xlabel('x');
+    ylabel('y');
+    zlabel('P(g = g1)');
+end
