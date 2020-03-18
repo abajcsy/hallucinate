@@ -1,4 +1,5 @@
 clc
+clf
 clear all
 
 %% Grid
@@ -110,6 +111,9 @@ data0 = shapeRectangleByCenter(g, center, widths);
 
 %% Pre-compute the likely controls and dynamics over the entire state-space.
 human.computeUAndXDot(g.xs);
+
+%% PLOTS FOR DEBUGGING.
+% human.plotPUGivenXBeta(g);
 
 %% time vector
 t0 = 0;
