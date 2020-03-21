@@ -5,7 +5,7 @@ clear all
 %% Grid
 grid_min = [-5; -5; -0.1];  % Lower corner of computation domain
 grid_max = [5; 5; 1.1];     % Upper corner of computation domain
-N = [11; 11; 11];           % Number of grid points per dimension
+N = [41; 41; 41];           % Number of grid points per dimension
 g = createGrid(grid_min, grid_max, N);
 
 %% Create human dynamical system
@@ -38,7 +38,7 @@ gamma = 1;
 numCtrls = 50;
 
 % Threshold to determine likely controls
-uThresh = 0;
+uThresh = 0.15;
 
 % Are we using dynamic of static beta model?
 betaModel = 'static';
@@ -57,7 +57,7 @@ tol = 0.2;
 
 % ---- Setup for Case 1 ---- %
 % start with high prior on beta=0, but true is beta=1 (boltzmann)
-Pbeta1 = 0.8; 
+Pbeta1 = 0.3; 
 trueBeta = 1;
 centerPBeta = 1;
 
@@ -93,21 +93,23 @@ human = Boltzmann1or0Human(x0, v, trueBeta, uRange, gamma, theta, ...
 % Target set is centered at the true beta value
 xyoffset = 0.1;
 poffset = 0.01;
-center = [0; 0; centerPBeta];
-widths = [(grid_max(1) - grid_min(1)) - xyoffset; ...
-          (grid_max(2) - grid_min(2)) - xyoffset; 
-          tol - poffset];
+% center = [0; 0; centerPBeta];
+% widths = [(grid_max(1) - grid_min(1)) - xyoffset; ...
+%           (grid_max(2) - grid_min(2)) - xyoffset; 
+%           tol - poffset];
 
 % center = [theta(1); theta(2); centerPBeta];
 % widths = [1; ...
 %           1; 
 %           tol - poffset];
-
+% 
 % center = [theta(1); theta(2); 0.5];
 % widths = [1; ...
 %           1; 
 %           (grid_max(1) - grid_min(1)) + tol - poffset];
-data0 = shapeRectangleByCenter(g, center, widths);
+% data0 = shapeRectangleByCenter(g, center, widths);
+center = [theta(1); theta(2); 0.5];
+data0 = shapeCylinder(g, 3, center, 0.5);
 
 %% Pre-compute the likely controls and dynamics over the entire state-space.
 human.computeUAndXDot(g.xs);

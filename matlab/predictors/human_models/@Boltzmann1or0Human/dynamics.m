@@ -37,7 +37,7 @@ function dx = dynamics(obj, t, x, u)
             if strcmp(obj.betaModel, 'static')
                 % NOTE: These dynamics are for a STATIONARY beta model. 
                 dx{i} = obj.gamma * (obj.betaPosterior(x, u) - x{3}) .* ...
-                    (x{3} >= 0) .* (x{3} <= 1); %.* likelyMasks;
+                    (x{3} >= 0) .* (x{3} <= 1) .* 0; %.* likelyMasks;
             else
                 % NOTE: These dynamics are for a DYNAMIC beta model. 
                 dx{i} = obj.gamma * ((obj.betaPosterior(x, u) - x{3}) + ...
