@@ -5,7 +5,7 @@ clear all
 %% Grid
 grid_min = [-5; -5; -0.1];  % Lower corner of computation domain
 grid_max = [5; 5; 1.1];     % Upper corner of computation domain
-N = [21; 21; 21];           % Number of grid points per dimension
+N = [31; 31; 31];           % Number of grid points per dimension
 g = createGrid(grid_min, grid_max, N);
 
 %% Create human dynamical system
@@ -35,7 +35,7 @@ uRange = [-pi+1e-2; pi];
 gamma = 1;
 
 % Number of discrete controls
-numCtrls = 21;
+numCtrls = 61;
 
 % Variance in normal distributions
 sigma = pi/8;
@@ -72,7 +72,7 @@ uMode = 'min';
 %uMode = 'max';
 
 % Setup dynamical system
-x0 = [4; 2; Pgoal1];
+x0 = [0; 3; Pgoal1];
 human = GaussianG1orG2Human(x0, v, trueGoalIdx, goalSetRad, uRange, gamma, goals, ...
                         sigma, uThresh, numCtrls, betaModel, extraArgs);
 
@@ -80,15 +80,23 @@ human = GaussianG1orG2Human(x0, v, trueGoalIdx, goalSetRad, uRange, gamma, goals
 % Target set is centered at the true beta value
 xyoffset = 0.1;
 poffset = 0.01;
+
+% Target = anywhere in X/Y and high confidence. 
 center = [0; 0; centerPgoal1];
 widths = [(grid_max(1) - grid_min(1)) - xyoffset; ...
           (grid_max(2) - grid_min(2)) - xyoffset; 
           tol - poffset];
+      
+% %Target = goal set and high confidence.  
 % center = [goals{trueGoalIdx}(1); goals{trueGoalIdx}(2); centerPgoal1];
 % widths = [1; ...
 %           1; 
 %           tol - poffset];
 data0 = shapeRectangleByCenter(g, center, widths);
+
+% %Target = goal set and any confidence.
+% data0 = shapeCylinder(g, 3, ...
+%     [goals{trueGoalIdx}(1); goals{trueGoalIdx}(2); centerPgoal1], 0.5);
 
 %% Let the human have access to the grid for debugging.
 human.setGrid(g);
@@ -109,7 +117,7 @@ tau = t0:dt:tMax;
 % Put grid and dynamic systems into schemeData
 schemeData.grid = g;
 schemeData.dynSys = human;
-schemeData.accuracy = 'high'; %set accuracy
+schemeData.accuracy = 'medium'; %set accuracy
 schemeData.uMode = uMode;
 schemeData.tMode = 'backward';
 schemeData.hamFunc = @gaussianG1orG2Human_ham;
@@ -131,10 +139,10 @@ HJIextraArgs.visualize.zTitle = '$P(goal = 1)$';
 HJIextraArgs.visualize.fontSize = 15;
 HJIextraArgs.stopInit = x0;
 
-% Uncomment to see a 2D slice
-HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
-HJIextraArgs.visualize.plotData.projpt = [0.9]; 
-HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
+% % Uncomment to see a 2D slice
+% HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
+% HJIextraArgs.visualize.plotData.projpt = [0.9]; 
+% HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
 
 % since we have a finite compute grid, we may not want to 
 % trust values near the boundary of grid
@@ -183,7 +191,7 @@ fprintf('--------------------------------------\n');
 % time.
 valueFuns = flip(valueFuns,4);
 
-%% ------- DEBUGGING CODE. --------- %%
+% %% ------- DEBUGGING CODE. --------- %%
 % figure(3);
 % clf;
 % timeIdx = 10;
@@ -193,7 +201,7 @@ valueFuns = flip(valueFuns,4);
 % ylim([grid_min(2) grid_max(2)]);
 % zlim([0,1]);
 % grid on;
-% ------- DEBUGGING CODE. --------- %
+% %------- DEBUGGING CODE. --------- %
 
 %% Grab the min time. 
 tmin = times(end);
