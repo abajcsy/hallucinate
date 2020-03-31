@@ -166,15 +166,16 @@ classdef GaussianG1orG2Human < DynSys
             if isempty(obj.uOptG1) || isempty(obj.uOptG2)
                 error('Optimal controls for the observation model have not been precomputed!\n');
                 error('Make sure to first run computeUOptGoals(x).\n');
-            end
-            
+            end   
             c0 = 1/(sqrt(2*pi*obj.sigma^2));
             if length(u) ~= 1
                 if goal == 1
-                    uG1Diff = -(u - obj.uOptG1).^2;
+                    errorG1 = wrapToPi(u - obj.uOptG1);
+                    uG1Diff = -(errorG1).^2;
                     pu = c0 .* exp(uG1Diff ./ (2*obj.sigma^2));
                 elseif goal == 2
-                    uG2Diff = -(u - obj.uOptG2).^2;
+                    errorG2 = wrapToPi(u - obj.uOptG2);
+                    uG2Diff = -(errorG2).^2;
                     pu = c0 .* exp(uG2Diff ./ (2*obj.sigma^2));
                 else
                     error('In PuGivenGoal(): goal is invalid: %d\n', goal);
@@ -183,12 +184,14 @@ classdef GaussianG1orG2Human < DynSys
                 if goal == 1
                     g1 = obj.goals{1};
                     uOptForG1 = atan2(g1(2)- x{2}, g1(1) - x{1}); 
-                    uG1Diff = -(u - uOptForG1).^2;
+                    errorG1 = wrapToPi(u - uOptForG1);
+                    uG1Diff = -(errorG1).^2;
                     pu = c0 .* exp(uG1Diff ./ (2*obj.sigma^2));
                 elseif goal == 2
                     g2 = obj.goals{2};
                     uOptForG2 = atan2(g2(2)- x{2}, g2(1) - x{1}); 
-                    uG2Diff = -(u - uOptForG2).^2;
+                    errorG2 = wrapToPi(u - uOptForG2);
+                    uG2Diff = -(errorG2).^2;
                     pu = c0 .* exp(uG2Diff ./ (2*obj.sigma^2));
                 else
                     error('In PuGivenGoal(): goal is invalid: %d\n', goal);
@@ -205,11 +208,10 @@ classdef GaussianG1orG2Human < DynSys
             %  Output: 
             %       likelyCtrls -- (cell arr) valid controls at each state    
             
-            numDiscreteCtrls = 21;
-            blend = linspace(0,1,numDiscreteCtrls);
-            binaryMap = cell(1, numDiscreteCtrls);
-            candidateCtrls = cell(1, numDiscreteCtrls);
-            for i=1:numDiscreteCtrls
+            blend = linspace(0,1,obj.numCtrls);
+            binaryMap = cell(1, obj.numCtrls);
+            candidateCtrls = cell(1, obj.numCtrls);
+            for i=1:obj.numCtrls
                 % Get the current discretized control. 
                 u = blend(i) * (obj.uRange(1)*ones(size(x{1}))) + ...
                     (1-blend(i)) * (obj.uRange(2)*ones(size(x{1})));
@@ -224,7 +226,7 @@ classdef GaussianG1orG2Human < DynSys
                 PuGivenG = obj.PuGivenGoal(u, x, obj.trueGoalIdx);
                 
                 % ---- Debugging. ---- %
-                % obj.plotPu(u(1,1,1), PuGivenG, obj.trueGoalIdx);
+                %obj.plotPu(u(1,1,1), PuGivenG, obj.trueGoalIdx);
                 % ---- Debugging. ---- %
                 
                 % Pick out the controls at the states where P >= epsilon
@@ -240,15 +242,26 @@ classdef GaussianG1orG2Human < DynSys
             % state
             validCtrls = catBinaryMap .* catCandidateCtrls;
             
+            % NOTE: This isn't proper masking! Need to do this hack.
+            minValidCtrls = validCtrls;
+            minValidCtrls(find(catBinaryMap == 0)) = 10000000000.0;
+            maxValidCtrls = validCtrls;
+            maxValidCtrls(find(catBinaryMap == 0)) = -10000000000.0;
+            
             % Take the min and max over the product in the last dimension
-            lowerBound = min(validCtrls, [], 4);
-            upperBound = max(validCtrls, [], 4);
+            lowerBound = min(minValidCtrls, [], 4);
+            upperBound = max(maxValidCtrls, [], 4);
             
             % Based on N number of discrete contrls, partition controls
             % between lower and upper bound state-wise
             likelyCtrls = cell(1, obj.numCtrls);
             linNums = linspace(0,1,obj.numCtrls);
+            
             parfor i=1:obj.numCtrls
+                % NOTE: may need to take care of some angle wrapping shit
+                % here.... linear interpolation moves counterclockwise 
+                % but when the action is going to the left, then we need to
+                % interpolate clockwise.
                 likelyCtrls{i} = linNums(i)*lowerBound + (1-linNums(i))*upperBound;
             end
         end
