@@ -27,8 +27,17 @@ classdef GaussianG1orG2Human < DynSys
         % Mean and variance in normal distribution (same for goal1 and goal2)
         sigma
         
+        % Truncated Gaussian with zero mean and sigma std dev
+        truncpd
+        
         % Num discrete controls to consider
         numCtrls
+        
+        % (arr) Discrete controls \in uRange
+        us
+        
+        % (cell) Integration bounds for each discrete control.
+        ubounds
 
         % Number of dimensions
         dims
@@ -48,15 +57,16 @@ classdef GaussianG1orG2Human < DynSys
         % (string) are we using static or dynamic beta model?
         betaModel
         
-        % Normalizer for the gaussian distribution
-        gaussianNorm
+        % Tolerance around -pi/pi control bounds.
+        piTol
         
+        % Grid object (for plotting/debugging)
         grid
     end
     
     methods
         function obj = GaussianG1orG2Human(x, v, trueGoalIdx, goalSetRad, uRange, ...
-                gamma, goals, sigma, uThresh, numCtrls, betaModel, ...
+                gamma, goals, sigma, uThresh, numCtrls, betaModel, piTol, ...
                 extraArgs)
          %% obj = GaussianTwoGoalHuman(x, v, uRange, gamma, goals, sigma, ...
          %          uThresh, numCtrls, betaModel)
@@ -99,6 +109,7 @@ classdef GaussianG1orG2Human < DynSys
           obj.gamma = gamma;
           obj.uThresh = uThresh;
           obj.numCtrls = numCtrls;
+          obj.piTol = piTol;
 
           obj.nx = length(x);
           obj.nu = 1;
@@ -107,6 +118,14 @@ classdef GaussianG1orG2Human < DynSys
           obj.uOptG1 = [];
           obj.uOptG2 = [];
           obj.grid = [];
+          
+          % Generate numCtrls equally spaced controls in uRange.
+          obj.us = obj.genControls();
+          obj.ubounds = obj.genUbounds(obj.us);
+          
+          % truncated gaussian with zero mean.
+          pd = makedist('Normal','mu',0,'sigma',obj.sigma);
+          obj.truncpd = truncate(pd, obj.uRange(1), obj.uRange(2));
          
           obj.betaModel = betaModel;
           if strcmp(betaModel, 'dynamic')
@@ -167,36 +186,57 @@ classdef GaussianG1orG2Human < DynSys
                 error('Optimal controls for the observation model have not been precomputed!\n');
                 error('Make sure to first run computeUOptGoals(x).\n');
             end   
-            c0 = 1/(sqrt(2*pi*obj.sigma^2));
-            if length(u) ~= 1
-                if goal == 1
-                    errorG1 = wrapToPi(u - obj.uOptG1);
-                    uG1Diff = -(errorG1).^2;
-                    pu = c0 .* exp(uG1Diff ./ (2*obj.sigma^2));
-                elseif goal == 2
-                    errorG2 = wrapToPi(u - obj.uOptG2);
-                    uG2Diff = -(errorG2).^2;
-                    pu = c0 .* exp(uG2Diff ./ (2*obj.sigma^2));
-                else
-                    error('In PuGivenGoal(): goal is invalid: %d\n', goal);
-                end
+            
+            if goal == 1
+                diff = abs(angdiff(u, obj.uOptG1));
+            elseif goal == 2
+                diff = abs(angdiff(u, obj.uOptG2));
             else
-                if goal == 1
-                    g1 = obj.goals{1};
-                    uOptForG1 = atan2(g1(2)- x{2}, g1(1) - x{1}); 
-                    errorG1 = wrapToPi(u - uOptForG1);
-                    uG1Diff = -(errorG1).^2;
-                    pu = c0 .* exp(uG1Diff ./ (2*obj.sigma^2));
-                elseif goal == 2
-                    g2 = obj.goals{2};
-                    uOptForG2 = atan2(g2(2)- x{2}, g2(1) - x{1}); 
-                    errorG2 = wrapToPi(u - uOptForG2);
-                    uG2Diff = -(errorG2).^2;
-                    pu = c0 .* exp(uG2Diff ./ (2*obj.sigma^2));
+                error('In PuGivenGoal(): goal is invalid: %d\n', goal);
+            end
+            
+            % corner case.
+            if length(obj.us) == 1
+                pu = 1;
+                return
+            end
+            
+            % note because of numerics: sometimes we get controls that are just close to zero but are negative
+            zero_tol = -1e-7; 
+            % find indicies of all controls in the positive [0, pi] range.
+            pos_idxs = find(obj.us >= zero_tol);
+            pos_idxs(end+1) = 1; %include -pi since its = pi
+
+            % store probabilities.
+            pu = zeros(size(u));
+            
+             % find the control bounds.
+            for i=pos_idxs
+                bounds = obj.ubounds{i};
+                low_bound = bounds(1);
+                up_bound = bounds(2);
+                
+                if low_bound < 0
+                    % case around zero.
+                    case_around_0_idxs = find(diff < up_bound);
+                    p = cdf(obj.truncpd, [0, up_bound]);
+                    pu_curr =  abs(p(2) - p(1)) * 2;
+                    pu(case_around_0_idxs) = pu_curr;
+                elseif up_bound < 0
+                    % case around pi/-pi.
+                    case_around_pi_idxs = find(diff >= low_bound);
+                    p = cdf(obj.truncpd, [low_bound, pi]);
+                    pu_curr =  abs(p(2) - p(1)) * 2;
+                    pu(case_around_pi_idxs) = pu_curr;
                 else
-                    error('In PuGivenGoal(): goal is invalid: %d\n', goal);
+                    % normal case.
+                    normal_bounds_idxs = find(diff < up_bound & diff >= low_bound);
+                    p = cdf(obj.truncpd, [low_bound, up_bound]);
+                    pu_curr =  abs(p(2) - p(1));
+                    pu(normal_bounds_idxs) = pu_curr;
                 end
             end
+           
         end
         
         function likelyCtrls = getLikelyControls(obj, x)
@@ -208,35 +248,34 @@ classdef GaussianG1orG2Human < DynSys
             %  Output: 
             %       likelyCtrls -- (cell arr) valid controls at each state    
             
-            blend = linspace(0,1,obj.numCtrls);
+            % Sanity check. 
+            if obj.trueGoalIdx ~= 1 && obj.trueGoalIdx ~= 2
+                error('TrueGoalIdx is invalid! Must be 1 or 2.')  
+            end
+            
+            % Get the true goal index. 
+            gidx = obj.trueGoalIdx;
+            
             binaryMap = cell(1, obj.numCtrls);
-            candidateCtrls = cell(1, obj.numCtrls);
+            
             for i=1:obj.numCtrls
-                % Get the current discretized control. 
-                u = blend(i) * (obj.uRange(1)*ones(size(x{1}))) + ...
-                    (1-blend(i)) * (obj.uRange(2)*ones(size(x{1})));
+                % Get the current discretized ontrol.
+                u = obj.us(i);
                 
-                % Sanity check. 
-                if obj.trueGoalIdx ~= 1 && obj.trueGoalIdx ~= 2
-                    error('TrueGoalIdx is invalid! Must be 1 or 2.')  
-                end
+                % Make array of this control the size of our statespace. 
+                uarr = u * ones(size(x{1}));
                 
                 % Get probability of u under THE GROUND TRUTH GOAL.
                 %                  P(u | x, g = g*)
-                PuGivenG = obj.PuGivenGoal(u, x, obj.trueGoalIdx);
-                
-                % ---- Debugging. ---- %
-                %obj.plotPu(u(1,1,1), PuGivenG, obj.trueGoalIdx);
-                % ---- Debugging. ---- %
+                PuGivenG = obj.PuGivenGoal(uarr, x, gidx);
                 
                 % Pick out the controls at the states where P >= epsilon
                 binaryMap{i} = PuGivenG >= obj.uThresh; 
-                candidateCtrls{i} = u;
             end
             
             % Concatinate all the binary maps and candidate controls
             catBinaryMap = cell2mat(reshape(binaryMap,1,1,1,[]));
-            catCandidateCtrls = cell2mat(reshape(candidateCtrls,1,1,1,[]));
+            catCandidateCtrls = reshape(obj.us,1,1,1,[]);
             
             % Multiply the two to pick out the valid controls for each
             % state
@@ -258,34 +297,58 @@ classdef GaussianG1orG2Human < DynSys
             
             % Minimum angular distance between the control bounds. 
             diff = angdiff(lowerBound, upperBound);
-            
+
+            % need to account for sneaky boundary condition when lower=-pi and upper bound=pi 
+            boundary_cond_indicies = ...
+                find(abs(lowerBound - (-pi)) < obj.piTol & abs(upperBound - pi) < obj.piTol);
+            diff(boundary_cond_indicies) = ...
+                abs(upperBound(boundary_cond_indicies) - lowerBound(boundary_cond_indicies));
+
             % Direction to traverse unit circle when linearly interpolating.
-            reverse_dir = sign(diff); 
+            dir = sign(diff); 
             
             % increment to add to control.
             incr = abs(diff)/(obj.numCtrls-1);
 
             % generate controls \in [lowerBound, upperBound]
-            for i=1:obj.numCtrls
-                likelyCtrls{i} = ((i-1)*incr + lowerBound) .* (reverse_dir > 0) + ...
-                                    wrapToPi(lowerBound - (i-1)*incr) .* (reverse_dir < 0);
+            parfor i=1:obj.numCtrls
+                likelyCtrls{i} = ((i-1)*incr + lowerBound) .* (dir > 0) + ...
+                                    wrapToPi(lowerBound - (i-1)*incr) .* (dir < 0) + ...
+                                    lowerBound .* (dir == 0);
             end
-
-%             linNums = linspace(0,1,obj.numCtrls);
-%             parfor i=1:obj.numCtrls
-%                 %for i=1:obj.numCtrls
-%                 % NOTE: may need to take care of some angle wrapping shit
-%                 % here.... linear interpolation moves counterclockwise 
-%                 % but when the action is going to the left, then we need to
-%                 % interpolate clockwise.
-%                 likelyCtrls{i} = linNums(i)*lowerBound + (1-linNums(i))*upperBound;
-%             end
         end
         
+        %% Gets the control bounds for integration. 
+        % Returns cell array containing a vector of lower and upper
+        % integration bounds for each u in us.
+        function ubounds = genUbounds(obj, us)
+            ubounds = cell(1,obj.numCtrls);
+            incr = (obj.uRange(2) - obj.uRange(1))/obj.numCtrls;
+            for i=1:obj.numCtrls
+                u = us(i);
+                ubounds{i} = [wrapToPi(u - incr/2), wrapToPi(u + incr/2)]; 
+            end
+        end
+        
+        %% Generate discrete num_ctrls ranging from 
+        %   u \in [urange(1), urange(2)) 
+        % (note: not including upper urange bound since its -pi to pi
+        % and pi and -pi are the same). 
+        % Returns an array of discrete controls. 
+        function us = genControls(obj)
+            incr = (obj.uRange(2) - obj.uRange(1))/obj.numCtrls;
+            us = zeros(1,obj.numCtrls);
+            u = obj.uRange(1);
+            for i=1:obj.numCtrls
+                us(i) = u;
+                u = u + incr;
+            end
+        end
+        
+        %% Computes and stores the likley state-dependant control and state deriv.
+        % Get the likely state-dependant control for the ith discrete control: 
+        %   P(u_i | x)
         function computeUAndXDot(obj, x)
-            %% Computes and stores the likley state-dependant control and state deriv.
-            % Get the likely state-dependant control for the ith discrete control: 
-            %   P(u_i | x)
             obj.likelyCtrls = obj.getLikelyControls(x);
 
             % Compute and store the corresponding dynamics.

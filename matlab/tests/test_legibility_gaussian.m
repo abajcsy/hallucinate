@@ -6,7 +6,7 @@ clear all
 %% Grid
 grid_min = [-10; -10; -0.1];  % Lower corner of computation domain
 grid_max = [10; 10; 1.1];     % Upper corner of computation domain
-N = [3; 3; 3];           % Number of grid points per dimension
+N = [31; 31; 31];           % Number of grid points per dimension
 g = createGrid(grid_min, grid_max, N);
 
 %% Create human dynamical system
@@ -30,18 +30,20 @@ g = createGrid(grid_min, grid_max, N);
 v = 0.2;
 
 % Control bounds
-uRange = [-pi+1e-2; pi-1e-2]; %[-pi+1e-2; pi];
+piTol = 1e-2;
+uRange = [-pi+piTol; pi-piTol]; 
 
 % gamma in continuous-time P(beta = 0) dynamics
 gamma = 1;
 
 % Number of discrete controls
-numCtrls = 4;
+numCtrls = 61;
 
 % Variance in normal distributions
 sigma = pi/8;
 
 % Known human goal locations. 
+%goals = {[5,-5], [5,5]};
 goals = {[2,-2], [2,2]};
 %goals = {[2,-0.5], [2,0.5]};
 %goals = {[2, 0], [4, 0]};
@@ -73,9 +75,9 @@ uMode = 'min';
 %uMode = 'max';
 
 % ---- Plotting info --- %
-%extraPltArgs.compType = 'conf';
+extraPltArgs.compType = 'conf';
 %extraPltArgs.compType = 'goal';
-extraPltArgs.compType = 'conf_and_goal';
+%extraPltArgs.compType = 'conf_and_goal';
 extraPltArgs.uThresh = uThresh;
 extraPltArgs.uMode = uMode;
 % ---- Plotting info --- %
@@ -83,7 +85,7 @@ extraPltArgs.uMode = uMode;
 % Setup dynamical system
 x0 = [0; 0; Pgoal1];
 human = GaussianG1orG2Human(x0, v, trueGoalIdx, goalSetRad, uRange, gamma, goals, ...
-                        sigma, uThresh, numCtrls, betaModel, extraArgs);
+                        sigma, uThresh, numCtrls, betaModel, piTol, extraArgs);
 
 %% Setup target set
 % Target set is centered at the true beta value
@@ -156,7 +158,7 @@ HJIextraArgs.visualize.plotColorVS = [0.9,0.9,0.9];
 
 % % Uncomment to see a 2D slice
 % HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
-% HJIextraArgs.visualize.plotData.projpt = [0.9]; 
+% HJIextraArgs.visualize.plotData.projpt = [0.5]; 
 % HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
 
 % since we have a finite compute grid, we may not want to 
