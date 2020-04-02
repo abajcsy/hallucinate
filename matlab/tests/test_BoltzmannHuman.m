@@ -17,12 +17,12 @@ K = [0, 0];
 m = 0;
 
 % Number of discrete controls
-numCtrls = 20;
+numCtrls = 50;
 
 delta_t = 1;
 
 % Threshold to determine likely controls
-uThresh = 0.1;
+uThresh = 0.0;
 
 % Are we using dynamic of static beta model?
 betaModel = 'static';

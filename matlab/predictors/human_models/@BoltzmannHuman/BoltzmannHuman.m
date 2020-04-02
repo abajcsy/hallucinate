@@ -87,7 +87,9 @@ classdef BoltzmannHuman < DynSys
           obj.numCtrls = numCtrls;
           obj.ctrlIncr = (obj.uRange(2) - obj.uRange(1))/obj.numCtrls; 
           obj.discCtrls = zeros(1, obj.numCtrls);
-          
+          for i = 1:obj.numCtrls
+              obj.discCtrls(i) = obj.uRange(1) + obj.ctrlIncr*i;
+          end
 
           obj.nx = length(x);
           obj.nu = 1;

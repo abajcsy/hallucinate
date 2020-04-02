@@ -62,7 +62,7 @@ trueBeta = 1;
 centerPBeta = 1;
 
 % For Analysis 1.1 (min time)
-uMode = 'max';
+uMode = 'min';
 
 % For Analysis 1.2 (max time)
 %uMode = 'max';
@@ -93,7 +93,7 @@ human = Boltzmann1or0Human(x0, v, trueBeta, uRange, gamma, theta, ...
 % Target set is centered at the true beta value
 xyoffset = 0.1;
 poffset = 0.01;
-goalSetRad = 0.5;
+goalSetRad = 1.5;
 
 center = [0; 0; 0.9];
 widths = [(grid_max(1) - grid_min(1)) - xyoffset; ...
@@ -112,6 +112,7 @@ widths = [(grid_max(1) - grid_min(1)) - xyoffset; ...
 %           (grid_max(1) - grid_min(1)) + tol - poffset];
 data0 = shapeRectangleByCenter(g, center, widths);
 % center = [theta(1); theta(2); 0.5];
+% center = [0; 0; 0.5];
 % data0 = shapeCylinder(g, 3, center, goalSetRad);
 
 %% Pre-compute the likely controls and dynamics over the entire state-space.
