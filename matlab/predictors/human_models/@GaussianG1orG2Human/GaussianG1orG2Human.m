@@ -255,15 +255,31 @@ classdef GaussianG1orG2Human < DynSys
             % Based on N number of discrete contrls, partition controls
             % between lower and upper bound state-wise
             likelyCtrls = cell(1, obj.numCtrls);
-            linNums = linspace(0,1,obj.numCtrls);
             
-            parfor i=1:obj.numCtrls
-                % NOTE: may need to take care of some angle wrapping shit
-                % here.... linear interpolation moves counterclockwise 
-                % but when the action is going to the left, then we need to
-                % interpolate clockwise.
-                likelyCtrls{i} = linNums(i)*lowerBound + (1-linNums(i))*upperBound;
+            % Minimum angular distance between the control bounds. 
+            diff = angdiff(lowerBound, upperBound);
+            
+            % Direction to traverse unit circle when linearly interpolating.
+            reverse_dir = sign(diff); 
+            
+            % increment to add to control.
+            incr = abs(diff)/(obj.numCtrls-1);
+
+            % generate controls \in [lowerBound, upperBound]
+            for i=1:obj.numCtrls
+                likelyCtrls{i} = ((i-1)*incr + lowerBound) .* (reverse_dir > 0) + ...
+                                    wrapToPi(lowerBound - (i-1)*incr) .* (reverse_dir < 0);
             end
+
+%             linNums = linspace(0,1,obj.numCtrls);
+%             parfor i=1:obj.numCtrls
+%                 %for i=1:obj.numCtrls
+%                 % NOTE: may need to take care of some angle wrapping shit
+%                 % here.... linear interpolation moves counterclockwise 
+%                 % but when the action is going to the left, then we need to
+%                 % interpolate clockwise.
+%                 likelyCtrls{i} = linNums(i)*lowerBound + (1-linNums(i))*upperBound;
+%             end
         end
         
         function computeUAndXDot(obj, x)

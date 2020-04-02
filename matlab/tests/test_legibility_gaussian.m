@@ -6,7 +6,7 @@ clear all
 %% Grid
 grid_min = [-10; -10; -0.1];  % Lower corner of computation domain
 grid_max = [10; 10; 1.1];     % Upper corner of computation domain
-N = [31; 31; 31];           % Number of grid points per dimension
+N = [3; 3; 3];           % Number of grid points per dimension
 g = createGrid(grid_min, grid_max, N);
 
 %% Create human dynamical system
@@ -36,7 +36,7 @@ uRange = [-pi+1e-2; pi-1e-2]; %[-pi+1e-2; pi];
 gamma = 1;
 
 % Number of discrete controls
-numCtrls = 61;
+numCtrls = 4;
 
 % Variance in normal distributions
 sigma = pi/8;
@@ -47,7 +47,7 @@ goals = {[2,-2], [2,2]};
 %goals = {[2, 0], [4, 0]};
 
 % Threshold to determine likely controls
-uThresh = 0.1;  
+uThresh = 0.0;  
 
 % Are we using dynamic of static parameter model?
 betaModel = 'static';
