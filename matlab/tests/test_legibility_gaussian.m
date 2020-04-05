@@ -34,10 +34,10 @@ piTol = 1e-2;
 uRange = [-pi+piTol; pi-piTol]; 
 
 % gamma in continuous-time P(beta = 0) dynamics
-gamma = 1;
+gamma = 0.1;
 
 % Number of discrete controls
-numCtrls = 61;
+numCtrls = 8;
 
 % Variance in normal distributions
 sigma = pi/8;
@@ -49,7 +49,7 @@ goals = {[2,-2], [2,2]};
 %goals = {[2, 0], [4, 0]};
 
 % Threshold to determine likely controls
-uThresh = 0.0;  
+uThresh = 0.01;  
 
 % Are we using dynamic of static parameter model?
 betaModel = 'static';

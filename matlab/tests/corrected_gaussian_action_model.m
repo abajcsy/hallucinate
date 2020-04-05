@@ -10,11 +10,10 @@ g1 = [1; -1];
 g2 = [1; 1];
 
 % initial state.
-%CORNER CASE????? x = [2.5; 1], [2; 1];
 x = [0;0];
 
 % number of discrete controls.
-num_ctrls = 8;
+num_ctrls = 61;
 
 % get discretized controls.
 us = gen_controls(urange, num_ctrls);
@@ -61,47 +60,17 @@ for i=1:num_ctrls
     posteriors(i) = posteriorpug1;
 end
 
+% Tolerance for when computing the argmax_u Posterior(g1 | u). 
+tol = 1e-3;
+
 % Plot action probabilities: P(u|x,g1)
 figure(1)
-plot_circle(us, us_probs_g1, g1, g2, x, posteriors);
+plot_circle(us, us_probs_g1, g1, g2, x, posteriors, tol);
 title("P(u|x,g1)");
 
 % Plot posterior: P(g1|u,x)
 figure(2)
-hold on
-plot(us, posteriors, 'mo-')
-plot([-pi, pi], [priorg1, priorg1], 'k--');
-uopt_g1 = atan2(g1(2)- x(2), g1(1) - x(1));
-if uopt_g1 <= 0
-    xticks([us(1), uopt_g1, 0, us(end)]);
-    xticklabels({num2str(us(1)), num2str(uopt_g1), '0', num2str(us(end))});
-else
-    xticks([us(1), 0, uopt_g1, us(end)]);
-    xticklabels({num2str(us(1)), '0', num2str(uopt_g1), num2str(us(end))});
-end
-
-% find indicies of max probability value.
-max_prob_u_idx = find(us_probs_g1 == max(us_probs_g1));
-
-% find indicies of the max POSTERIOR value in direction of g1.
-max_post_g1_idx = find(posteriors == max(posteriors));
-
-for i=1:length(max_prob_u_idx)
-    % plot line at optimal actions to goal1
-    idx = max_prob_u_idx(i);
-    plot([us(idx),us(idx)], [0,1], 'r-');
-end
-for i=1:length(max_post_g1_idx)
-    % plot line at  optimal actions that shift posterior.
-    idx = max_post_g1_idx(i);
-    plot([us(idx),us(idx)], [0,1], 'g-');
-end
-
-set(gcf,'Position',[100 100 600 600]);
-set(gcf,'color','w');
-grid on
-title("Posterior for G1")
-hold off
+plot_posterior(posteriors, us, g1, x, priorg1, us_probs_g1, tol);
 
 %% Compute probability.
 function pu = compute_prob(u, uopt, us, ubounds, truncpd)
@@ -127,7 +96,7 @@ function pu = compute_prob(u, uopt, us, ubounds, truncpd)
         low_bound = bounds(1);
         up_bound = bounds(2);
                 
-        if low_bound < 0 && diff < up_bound
+        if low_bound < 0 && diff <= up_bound
             % catch corner case around 0.
             p = cdf(truncpd, [0, up_bound]);
             pu = abs(p(2) - p(1)) * 2;
@@ -135,7 +104,7 @@ function pu = compute_prob(u, uopt, us, ubounds, truncpd)
             % considering an action that falls into the bounds around -pi
             p = cdf(truncpd, [low_bound, pi]);
             pu = abs(p(2) - p(1)) * 2;
-        elseif diff < up_bound && diff >= low_bound
+        elseif diff <= up_bound && diff >= low_bound
             % normal integration over bounds.
             p = cdf(truncpd, [low_bound, up_bound]);
             pu = abs(p(2) - p(1));
@@ -166,7 +135,7 @@ function us = gen_controls(urange, num_ctrls)
 end
 
 %% Plotting function.
-function h = plot_circle(angles, values, g1, g2, x0, posteriors)
+function h = plot_circle(angles, values, g1, g2, x0, posteriors, tol)
     hold on
     
     rectangle('Position',[x0(1)-1 x0(2)-1 2 2],'Curvature',1, 'EdgeColor',[0.5,0.5,0.5]);
@@ -175,7 +144,8 @@ function h = plot_circle(angles, values, g1, g2, x0, posteriors)
     max_prob_u_idx = find(values == max(values));
     
     % find indicies of the max POSTERIOR value in direction of g1.
-    max_post_g1_idx = find(posteriors == max(posteriors));
+    max_post_g1 = max(posteriors);
+    close_enough_to_max_idx = find(abs(posteriors - max_post_g1) <= tol);
     
     for i=1:length(angles)
         th = angles(i);
@@ -195,9 +165,14 @@ function h = plot_circle(angles, values, g1, g2, x0, posteriors)
         t.FontSize = 6;
         c = min(1,values(i)*100);
         c = abs(0.92-c);
-        if any(max_prob_u_idx == i)
+        if any(max_prob_u_idx == i) && any(close_enough_to_max_idx == i)
+            % plot control that is towards goal AND for posterior in cyan
+            quiver(x0(1), x0(2), cos(th), sin(th), 'Color', [0,1,1]);
+        elseif any(max_prob_u_idx == i)
+            % plot optimal control towards goal in red.
             quiver(x0(1), x0(2), cos(th), sin(th), 'Color', [1,0,0]);
-        elseif any(max_post_g1_idx == i)
+        elseif any(close_enough_to_max_idx == i)
+            % plot optimal control for posterior in green.
             quiver(x0(1), x0(2), cos(th), sin(th), 'Color', [0,1,0]);
         else
             quiver(x0(1), x0(2), cos(th), sin(th), 'Color', [c,c,c]);
@@ -213,5 +188,53 @@ function h = plot_circle(angles, values, g1, g2, x0, posteriors)
     ylim([-3,3]);
     set(gcf,'Position',[100 100 600 600]);
     set(gcf,'color','w');
+    hold off
+end
+
+function plot_posterior(posteriors, us, g1, x, priorg1, us_probs_g1, tol)
+    hold on
+    plot(us, posteriors, 'mo-')
+    plot([-pi, pi], [priorg1, priorg1], 'k--');
+    uopt_g1 = atan2(g1(2)- x(2), g1(1) - x(1));
+    if uopt_g1 <= 0
+        xticks([us(1), uopt_g1, 0, us(end)]);
+        xticklabels({num2str(us(1)), num2str(uopt_g1), '0', num2str(us(end))});
+    else
+        xticks([us(1), 0, uopt_g1, us(end)]);
+        xticklabels({num2str(us(1)), '0', num2str(uopt_g1), num2str(us(end))});
+    end
+
+    % find indicies of action that is most likely under action model.
+    max_prob_u_idx = find(us_probs_g1 == max(us_probs_g1));
+
+    % find indicies of the action that maximally changes POSTERIOR value in direction of g1.
+    max_post_g1 = max(posteriors);
+    close_enough_to_max_idx = find(abs(posteriors - max_post_g1) <= tol);
+    
+    % find indicies of the action that moves towards goal AND the
+    % posterior.
+    both_idx = intersect(max_prob_u_idx, close_enough_to_max_idx);
+
+    for i=1:length(close_enough_to_max_idx)
+        % plot line at  optimal actions that shift posterior.
+        idx = close_enough_to_max_idx(i);
+        plot([us(idx),us(idx)], [0,1], 'g-');
+    end
+    for i=1:length(max_prob_u_idx)
+        % plot line at optimal actions to goal1
+        idx = max_prob_u_idx(i);
+        plot([us(idx),us(idx)], [0,1], 'r-');
+    end
+    for i=1:length(both_idx)
+        % plot line at  optimal actions that shift posterior AND towards g1
+        idx = both_idx(i);
+        plot([us(idx),us(idx)], [0,1], 'c-');
+    end
+
+
+    set(gcf,'Position',[100 100 600 600]);
+    set(gcf,'color','w');
+    grid on
+    title("Posterior for G1")
     hold off
 end
