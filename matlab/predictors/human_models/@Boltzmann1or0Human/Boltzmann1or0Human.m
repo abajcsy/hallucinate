@@ -133,7 +133,7 @@ classdef Boltzmann1or0Human < DynSys
                 val = exp(-1 .* qval);
                 
                 % Add to running value of summation
-                intControls = intControls + obj.ctrlIncr*val; 
+                intControls = intControls + val; 
             end
         end
         
@@ -263,7 +263,7 @@ classdef Boltzmann1or0Human < DynSys
             x2 = x{2} + obj.deltaT .* obj.v .* sin(u);
 
             % Evaluate distance of next x to goal theta under L2 norm
-            qval = ((x1 - obj.theta(1)).^2 + (x2 - obj.theta(2)).^2).^(0.5);
+            qval = ((x1 - obj.theta(1)).^2 + (x2 - obj.theta(2)).^2).^(1);
         end
         
         %% Plots the state-dependent control distribution for Boltzmann.

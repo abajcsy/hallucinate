@@ -17,15 +17,16 @@ end
 %% Optimal control
 
 % Get the current range of likely controls. 
-likelyCtrls = obj.getLikelyControls(y);
+[likelyCtrls, likelyMasks] = obj.getLikelyControls(y);
 
 if strcmp(uMode, 'max')
     hOpt = -1e6;
     for i=1:length(likelyCtrls)
       UCurrent = likelyCtrls{i};
-      hCurrent = deriv{1}.*obj.v.*cos(UCurrent) + ...
+      currentMask = likelyMasks(num2str(UCurrent));
+      hCurrent = (deriv{1}.*obj.v.*cos(UCurrent) + ...
                 deriv{2}.*obj.v.*sin(UCurrent) + ...
-                deriv{3}.*(obj.gamma * (obj.betaPosterior(y, UCurrent) - y{3}));
+                deriv{3}.*(obj.gamma * (obj.betaPosterior(y, UCurrent) - y{3}))).*currentMask;
       if hCurrent > hOpt
           hOpt = hCurrent;
           uOpt = UCurrent;
@@ -37,9 +38,10 @@ elseif strcmp(uMode, 'min')
     hOpt = 1e6;
     for i=1:length(likelyCtrls)
       UCurrent = likelyCtrls{i};
-      hCurrent = deriv{1}.*obj.v.*cos(UCurrent) + ...
+      currentMask = likelyMasks(num2str(UCurrent));
+      hCurrent = (deriv{1}.*obj.v.*cos(UCurrent) + ...
                 deriv{2}.*obj.v.*sin(UCurrent) + ...
-                deriv{3}.*(obj.gamma * (obj.betaPosterior(y, UCurrent) - y{3}));
+                deriv{3}.*(obj.gamma * (obj.betaPosterior(y, UCurrent) - y{3}))).*currentMask;
       if hCurrent < hOpt
           hOpt = hCurrent;
           uOpt = UCurrent;

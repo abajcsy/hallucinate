@@ -125,6 +125,7 @@ classdef BoltzmannHuman < DynSys
         function intControls = sumDiscControls(obj, x)
             %% Approximate integral with summation: 
             %    \int_{U} e^{-\| (x_t + \Delat t f(x_t,u_t)) - \theta \|_2}
+            % Note maybe use PUgivenBeta function?
 
             intControls = 0.0;
             parfor i = 1:obj.numCtrls
@@ -139,8 +140,9 @@ classdef BoltzmannHuman < DynSys
                 %   e^{-||(x_t + \Deltat t f(x_t,u_t)) - \theta||_2}
                 val = exp(-1 .* qval);
                 
-                % Add to running value of summation
-                intControls = intControls + obj.ctrlIncr*val; 
+                % Add to running value of summation - note not
+                % approximating intergral so no ctrlIncr*val.
+                intControls = intControls + val; 
             end
         end
         
