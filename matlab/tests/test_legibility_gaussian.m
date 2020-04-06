@@ -44,7 +44,8 @@ sigma = pi/8;
 
 % Known human goal locations. 
 %goals = {[5,-5], [5,5]};
-goals = {[2,-2], [2,2]};
+%goals = {[2,-2], [2,2]};
+goals = {[3,-3], [3,-6]};
 %goals = {[2,-0.5], [2,0.5]};
 %goals = {[2, 0], [4, 0]};
 
@@ -75,9 +76,9 @@ uMode = 'min';
 %uMode = 'max';
 
 % ---- Plotting info --- %
-extraPltArgs.compType = 'conf';
+%extraPltArgs.compType = 'conf';
 %extraPltArgs.compType = 'goal';
-%extraPltArgs.compType = 'conf_and_goal';
+extraPltArgs.compType = 'conf_and_goal';
 extraPltArgs.uThresh = uThresh;
 extraPltArgs.uMode = uMode;
 % ---- Plotting info --- %
@@ -123,6 +124,11 @@ human.computeUOptGoals(g.xs);
 %% Pre-compute the likely controls and dynamics over the entire state-space.
 human.computeUAndXDot(g.xs);
 
+%% AVOID SET FOR OBSTACLES.
+avoidSet_center = [1.5,-1.5];
+avoidSet_rad = 1;
+avoidSet = shapeCylinder(g, 3, avoidSet_center, avoidSet_rad);
+
 %% time vector
 t0 = 0;
 tMax = 100;
@@ -163,7 +169,10 @@ HJIextraArgs.visualize.plotColorVS = [0.9,0.9,0.9];
 
 % since we have a finite compute grid, we may not want to 
 % trust values near the boundary of grid
-HJIextraArgs.ignoreBoundary = 0; 
+HJIextraArgs.ignoreBoundary = 0;
+
+% add in obstacles into env. 
+HJIextraArgs.obstacles = avoidSet;
 
 % Min with zero is more robust to "vanishing volume" issue.
 %minWith = 'set';
@@ -232,13 +241,14 @@ fprintf("Minimum time it takes to realize goal=%d is %f\n", ...
         
 %% Plot the trajectory.
 plotTraj(traj, traj_tau, goals, trueGoalIdx, ...
-    grid_min, grid_max, goalSetRad, extraPltArgs);
+    grid_min, grid_max, goalSetRad, ...
+    avoidSet_center, avoidSet_rad, extraPltArgs);
 
 % save('uopt_09thresh.mat', 'uopt', 'human', 'times', 'tminIdx', 'goals', 'trueGoalIdx', 'grid_min', 'grid_max', 'goalSetRad', 'dt');
 
 %% Plots the state trajectory.
 function plotTraj(traj, traj_tau, goals, trueGoalIdx, ...
-    grid_min, grid_max, goalSetRad, extraPltArgs)
+    grid_min, grid_max, goalSetRad, avoidSet_center, avoidSet_rad, extraPltArgs)
     figure(2);
     hold on
     
@@ -339,6 +349,16 @@ function plotTraj(traj, traj_tau, goals, trueGoalIdx, ...
     t2 = text(goals{2}(1)+0.3, goals{2}(2), 0.55, g2Txt);
     t2.FontSize = 12;
     t2.Color = g2Color;
+    
+    % Plot obstacle.
+    rectangle('Position',[avoidSet_center(1)-avoidSet_rad ...
+                  avoidSet_center(2)-avoidSet_rad  ...
+                  avoidSet_rad*2 ...
+                  avoidSet_rad*2],...
+                  'Curvature',1, ...
+                  'FaceColor',[0.6,0.6,0.6],...
+                  'EdgeColor',[0.6,0.6,0.6],...
+                  'LineWidth',1);
     
     grid on;
     xticks([grid_min(1), -3, -2, -1, 0, 1, 2, 3, grid_max(1)]);
