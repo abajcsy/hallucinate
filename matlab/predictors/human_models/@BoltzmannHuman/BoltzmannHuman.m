@@ -241,6 +241,9 @@ classdef BoltzmannHuman < DynSys
                 currLikelyMask = obj.likelyMasks(num2str(u));
             	f = obj.dynamics(1,x,u); % note: the time (first arg) isnt used
                 
+                currLikelyMask = currLikelyMask * 1;
+                currLikelyMask(currLikelyMask == 0) = nan;
+                
                 % Convert into an N1 x N2 x N3 x numCtrls array
                 if i == 1
                     obj.xdot = f;

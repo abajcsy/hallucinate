@@ -24,6 +24,8 @@ if strcmp(uMode, 'max')
     for i=1:length(likelyCtrls)
       UCurrent = likelyCtrls{i};
       currentMask = likelyMasks(num2str(UCurrent));
+      currentMask = currentMask * 1;
+      currentMask(currentMask == 0) = nan;
       hCurrent = (deriv{1}.*obj.v.*cos(UCurrent) + ...
                 deriv{2}.*obj.v.*sin(UCurrent) + ...
                 deriv{3}.*(obj.gamma * (obj.betaPosterior(y, UCurrent) - y{3}))).*currentMask;
@@ -39,6 +41,8 @@ elseif strcmp(uMode, 'min')
     for i=1:length(likelyCtrls)
       UCurrent = likelyCtrls{i};
       currentMask = likelyMasks(num2str(UCurrent));
+      currentMask = currentMask * 1;
+      currentMask(currentMask == 0) = nan;
       hCurrent = (deriv{1}.*obj.v.*cos(UCurrent) + ...
                 deriv{2}.*obj.v.*sin(UCurrent) + ...
                 deriv{3}.*(obj.gamma * (obj.betaPosterior(y, UCurrent) - y{3}))).*currentMask;

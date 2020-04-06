@@ -22,7 +22,7 @@ numCtrls = 50;
 delta_t = 1;
 
 % Threshold to determine likely controls
-uThresh = 0.0;
+uThresh = 0.1;
 
 % Are we using dynamic of static beta model?
 betaModel = 'static';
