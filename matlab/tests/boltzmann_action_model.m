@@ -10,7 +10,7 @@ g1 = [1; -1];
 g2 = [1; 1];
 
 % initial state.
-x = [2;0.5];
+x = [0;0];
 
 v = 0.6;
 deltaT = 1;
@@ -37,6 +37,7 @@ for i=1:num_ctrls
     
     pu_g1 = pu_goal(u,x,g1,us,v,deltaT);
     pu_g2 = pu_goal(u,x,g2,us,v,deltaT);
+%     pu_g2 = 1/(num_ctrls);
     fprintf(strcat("u: ", num2str(u), ", pu_g1=", num2str(pu_g1), "\n"));
     
     % compute P(g1|u,x) \propto P(u|x,g1)*P(g1)
@@ -95,7 +96,7 @@ function qval = qFunction(x, u, theta, v, deltaT)
             x2 = x(2) + deltaT * v * sin(u);
 
             % Evaluate distance of next x to goal theta under L2 norm
-            qval = ((x1 - theta(1))^2 + (x2 - theta(2))^2)^(0.5);
+            qval = ((x1 - theta(1))^2 + (x2 - theta(2))^2)^(1);
 end
 
 %% Generate discrete num_ctrls ranging from [urange(1), urange(2)) 
