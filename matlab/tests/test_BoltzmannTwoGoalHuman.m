@@ -70,8 +70,8 @@ schemeData.dynSys = human;
 schemeData.accuracy = 'high'; %set accuracy
 schemeData.uMode = uMode;
 schemeData.tMode = 'forward';
-schemeData.hamFunc = @boltzmannHuman_ham;
-schemeData.partialFunc = @boltzmannHuman_partial;
+schemeData.hamFunc = @boltzmannTwoGoalHuman_ham;
+schemeData.partialFunc = @boltzmannTwoGoalHuman_partial;
 
 %% Compute value function
 % HJIextraArgs.visualize = true; %show plot
