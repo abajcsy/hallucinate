@@ -57,7 +57,7 @@ tol = 0.2;
 
 % ---- Setup for Case 1 ---- %
 % start with high prior on beta=0, but true is beta=1 (boltzmann)
-Pbeta1 = 0.5; 
+Pbeta1 = 0.7; 
 trueBeta = 1;
 centerPBeta = 1;
 
@@ -93,7 +93,7 @@ human = BoltzmannG1orG2Human(x0, v, uRange, gamma, ...
 % Target set is centered at the true beta value
 xyoffset = 0.1;
 poffset = 0.01;
-goalSetRad = 1.5;
+goalSetRad = 0.5;
 
 center = [0; 0; 0.9];
 widths = [(grid_max(1) - grid_min(1)) - xyoffset; ...
@@ -221,23 +221,42 @@ tminIdx = length(times);
 %% Get the optimal trajectory.
 [traj, traj_tau] = computeOptTraj(g, valueFuns, times, human, extraArgs);
 
-fprintf("Minimum time it takes to realize goal is %f\n", ...
-    traj_tau(end));
+fprintf("Minimum time it takes to realize goal=%d is %f\n", ...
+    trueBeta, traj_tau(end));
         
 %% Plot the trajectory.
-plotTraj(traj, traj_tau, theta, ...
+plotTraj(traj, traj_tau, goals, trueBeta, ...
     grid_min, grid_max, goalSetRad);
+
 % save('uopt_09thresh.mat', 'uopt', 'human', 'times', 'tminIdx', 'goals', 'trueGoalIdx', 'grid_min', 'grid_max', 'goalSetRad', 'dt');
 
 %% Plots the state trajectory.
-function plotTraj(traj, traj_tau, theta, ...
+function plotTraj(traj, traj_tau, goals, trueGoalIdx, ...
     grid_min, grid_max, goalSetRad)
     figure(2);
     hold on
+    
+    % Goal colors.
+    g1Color = 'r';
+    g2Color = [38., 138., 240.]/255.; %'b';
 
     % Setup colors.
-    startColor = [79., 0., 128.]/255.;
-    endColor = [255., 143., 255.]/255.;
+    %startColor = [79., 0., 128.]/255.;
+    %endColor = [255., 143., 255.]/255.;
+    startColor = [97., 76., 76.]/255.;
+    endColorRed = [255., 0., 0.]/255.;
+    endColorBlue = [38., 138., 240.]/255.;
+    
+    if trueGoalIdx == 1
+        endColor = endColorRed;
+        finaloffset = -0.3;
+        initoffset = 0.3;
+    else
+        endColor = endColorBlue;
+        finaloffset = 0.3;
+        initoffset = -0.3;
+    end
+    
     r = linspace(startColor(1), endColor(1), length(traj_tau));
     g = linspace(startColor(2), endColor(2), length(traj_tau));
     b = linspace(startColor(3), endColor(3), length(traj_tau));
@@ -251,7 +270,7 @@ function plotTraj(traj, traj_tau, theta, ...
     
     % Add first timestamp.
     txt = strcat('t=', num2str(traj_tau(1)), ', p=', num2str(xcurr(3)));
-    tp = text(xcurr(1)+0.2, xcurr(2)+0.05, xcurr(3)+0.05, txt);
+    tp = text(xcurr(1)+0.05, xcurr(2)+initoffset, xcurr(3)+0.05, txt);
     tp.Color = color;
     for t=2:length(traj_tau)
         xprev = traj(1:3, t-1);
@@ -264,36 +283,31 @@ function plotTraj(traj, traj_tau, theta, ...
                 'markerfacecolor', color);
         p.LineWidth = 2;
     end
+    
     xcurr = traj(1:3, end);
-    %add timestamps
+    % add final info.
     txt = strcat('t=', num2str(traj_tau(end)), ', p=', num2str(xcurr(3)));
-    tp = text(xcurr(1)+0.2, xcurr(2)+0.05, xcurr(3)+0.05, txt);
+    tp = text(xcurr(1), xcurr(2)+finaloffset, xcurr(3)+0.1, txt);
     tp.Color = color;
 
-    % Plot goals (red is ground truth, grey is other goal).
-    rectangle('Position',[theta(1)-goalSetRad ...
-                          theta(2)-goalSetRad ...
-                          goalSetRad*2 ...
-                          goalSetRad*2],...
-                          'Curvature',1, ...
-                          'FaceColor',[1, 0.67, 0.67],...
-                          'EdgeColor',[1, 0.67, 0.67],...
-                          'LineWidth',1);
-    plot3(theta(1), theta(2), 0.5, '-o', ...
-                'Color', 'r', ...
-                'markeredgecolor', 'r', ...
-                'markerfacecolor', 'r');
-    g1Txt = strcat('g', num2str(1));
-    t1 = text(theta(1), theta(2), 0.55, g1Txt);
+    % Plot GOAL 1.
+    plot3(goals{1}(1), goals{1}(2), 0.5, '-o', ...
+                'Color', g1Color, ...
+                'markeredgecolor', g1Color, ...
+                'markerfacecolor', g1Color);
+    g1Txt = 'g1';
+    t1 = text(goals{1}(1)+0.3, goals{1}(2), 0.55, g1Txt);
     t1.FontSize = 12;
-    t1.Color = 'r';
-    
-    grid on;
-    xlim([grid_min(1), grid_max(1)]);
-    ylim([grid_min(2), grid_max(2)]);
-    zlim([grid_min(3), grid_max(3)]);
-    
-    xlabel('x');
-    ylabel('y');
-    zlabel('P(g = g1)');
+    t1.Color = g1Color;
+
+    % Plot GOAL 2
+    plot3(goals{2}(1), goals{2}(2), 0.5, '-o', ...
+                'Color', g2Color, ...
+                'markeredgecolor', g2Color, ...
+                'markerfacecolor', g2Color);
+            
+    g2Txt = 'g2';
+    t2 = text(goals{2}(1)+0.3, goals{2}(2), 0.55, g2Txt);
+    t2.FontSize = 12;
+    t2.Color = g2Color;
 end
