@@ -31,7 +31,7 @@ gamma = 1;
 numCtrls = 61;
 
 % Timestep in discretized dynamics (for Q-function computation).
-delta_t = 0.1;
+delta_t = 1; % 0.1;
 
 % Human's goal location.
 goals = {[2, -2],[2, 2]};
@@ -56,8 +56,8 @@ goalSetRad = 0.5;
 centerPgoal1 = 1; %0;
 
 % Choose what kind of target set we are using.
-%compType = 'conf';
-compType = 'goal';
+compType = 'conf';
+%compType = 'goal';
 %compType = 'conf_and_goal';
 
 % For Analysis 1 (min time)
@@ -75,7 +75,7 @@ extraPltArgs.saveFigs = false;
 % ---- Plotting info --- %
 
 % Setup dynamical system
-x0 = [-0.5; 2; Pgoal1];
+x0 = [0; 0; Pgoal1];
 human = BoltzmannG1orG2Human(x0, v, uRange, gamma, ...
                 trueGoalIdx, goals, delta_t, uThresh, ...
                 numCtrls, betaModel, extraArgs);
