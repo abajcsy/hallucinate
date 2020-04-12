@@ -14,12 +14,16 @@ classdef DynamicLatticeBayesPredictor
         
         r           % Grid cell size.
         hmmParam    % Probability of unknown parameter's value staying the same.
+        Delta       % Discrete distribution. Probability of drawing goal \Delta{1,2}. 
         
         states      % (cell arr) indicies of all states in grid
-        controls    % (cell arr) all controls
+        us          % (cell arr) real-world angles of each control
+        usIdxs      % (cell arr) index of each control
+        ubounds     % (cell arr) integration bounds for each control.
         
-        truncG1
-        truncG2
+        %truncG1
+        %truncG2
+        truncpd     % truncated zero-mean gaussian.
         
         rows
         cols
@@ -27,7 +31,7 @@ classdef DynamicLatticeBayesPredictor
     
     methods
         function obj = DynamicLatticeBayesPredictor(prior, goals, sigma1, sigma2, ...
-                gridMin, gridMax, r, hmmParam)
+                gridMin, gridMax, r, hmmParam, Delta)
             obj.prior = containers.Map([1:length(prior)], prior);
             obj.goals = goals;
             obj.sigma1 = sigma1;
@@ -38,6 +42,7 @@ classdef DynamicLatticeBayesPredictor
             
             obj.r = r;
             obj.hmmParam = hmmParam;
+            obj.Delta = Delta;
                         
             % Enumerate all the state indicies
             obj.states = {};
@@ -55,120 +60,215 @@ classdef DynamicLatticeBayesPredictor
                     obj.states{end + 1} = [i, j];
                 end
             end
-                        
-            pd1 = makedist('Normal','mu',0,'sigma',obj.sigma1);
-            pd2 = makedist('Normal','mu',0,'sigma',obj.sigma2);
-            obj.truncG1 = truncate(pd1, -pi, pi);
-            obj.truncG2 = truncate(pd2, -pi, pi);
             
-            % Enumerate all the controls
+            pd = makedist('Normal','mu',0,'sigma',obj.sigma1);
+            obj.truncpd = truncate(pd, -pi, pi);
+            
+            % Enumerate all the controls for a lattice predictor.
             %   UP_RIGHT = 1
             %   RIGHT = 2
             %   DOWN_RIGHT = 3
             %   DOWN_LEFT = 4
             %   LEFT = 5
             %   UP_LEFT = 6
-            obj.controls = [1,2,3,4,5,6]; 
+            obj.usIdxs = [1, 2, 3, 4, 5, 6]; 
+            obj.us = [pi/3, 0, -pi/3, -(2*pi)/3, -pi, (2*pi)/3];
+            obj.ubounds = obj.genUBounds();
+            
         end
         
         %% Mega prediction loop for up to timestep H.
-        function preds = predict(obj, x0, H)
+        function fullPreds = predict(obj, x0, H)
             
             % Convert into (i,j) index
             [i0, j0] = obj.realToSim(x0);
             
-            % Store all the predictions.
-            preds = cell([1,H+1]);
-            % Initialize empty prediction grids forward in time.
-            % Assume P(xt | x0) = 0 for all xt
-            preds(:) = {zeros(obj.rows, obj.cols)};
-            
             % At current timestep, the measured state has 
             % probability = 1, zeros elsewhere.
-            preds{1}(i0, j0) = 1;
+            px0 = zeros(obj.rows, obj.cols);
+            px0(i0, j0) = 1;
 
-            % Make a list that stores the current sequence of all goal
-            % values and their corresponding probabilities.
-            goalSeq = {[1, obj.prior(1)], [2, obj.prior(2)]};
-        
-            for t=2:H+1
-                % Update the sequence of betas and probabilities for next timestep. 
-                [goalSeq, pGoals] = obj.updateGoalSeq(goalSeq);
+            % Data structure for *predictions*.
+            % Map with Keys = times
+            %          Value = Maps with Keys = goal sequence
+            %                            Values = predictions
+            % t = 1 ---> {1} --> p(x0)
+            %       ---> {2} --> p(x0)
+            % t = 2 ---> {1} --> p(x1|g1=1)
+            %            {2} --> p(x1|g1=2)
+            % t = 3 ---> {1,1} --> p(x2|g2=1,g1=1)
+            %            {2,1} --> p(x2|g2=1,g1=2)
+            %            {1,2} --> p(x2|g2=2,g1=1)
+            %            {2,2} --> p(x2|g2=2,g1=2)
+            % t = 4 ---> ....
+            predSeq = containers.Map('KeyType', 'char', 'ValueType', 'any');
+            % Setup t = 1 state distributions. 
+            px0dists = containers.Map('KeyType', 'char', 'ValueType', 'any');
+            px0dists(num2str([1])) = px0;
+            px0dists(num2str([2])) = px0;
+            predSeq(num2str(1)) = px0dists;
+
+            % Data structure for *goal sequence*. 
+            % Map with Keys = times
+            %          Value = Maps with Keys = goal sequence
+            %                            Values = probability of goal seq
+            % t = 2 ---> {1} --> p(g1=1)
+            %            {2} --> p(g1=2)
+            % t = 3 ---> {1,1} --> p(g2=1 | g1=1)*P(g1=1)
+            %            {2,1} --> p(g2=1 | g1=2)*P(g1=2)
+            %            {1,2} --> p(g2=2 | g1=1)*P(g1=1)
+            %            {2,2} --> p(g2=2 | g1=2)*P(g1=2)
+            % t = 4 ---> ....
+            goalSeq = containers.Map('KeyType', 'char', 'ValueType', 'any');
+                    
+            for t=2:H+1                
+                % Update the goal sequence for current t.
+                goalSeq = obj.updateGoalSeq(goalSeq, t);
+                
+                % Get the set of all goal sequences 
+                %   (e.g. {{1,1}, {2,1}, ... {2,2}}
+                gtseq = keys(goalSeq(num2str(t)));
+                
                 fprintf('Predicting for t=%d of T=%d\n', t, H);
-                for scurr = obj.states
-                    for u = obj.controls
-                        % Unpack the [i,j] coords.
-                        s = scurr{1};
+                
+                % Get the map with all the probabilities at the prior time.
+                p_xtm1 = predSeq(num2str(t-1));
 
-                        % Optimization!
-                        if preds{t-1}(s(1), s(2)) == 0
-                            continue;
-                        end
+                % Create map for current time. 
+                p_xt = containers.Map('KeyType', 'char', 'ValueType', 'any');
+                
+                for gs_cell = gtseq
+                    curr_gs = str2num(gs_cell{1});
+                    prev_gs = curr_gs(1:end-1);
 
-                        % now we are cookin' with gas!
-                        [snext, isValid] = obj.dynamics(s, u);
+                    % catch corner case when we are looking back to x0.
+                    if isempty(prev_gs)
+                        prev_gs = [1];
+                    end
 
-                        % if u can take us to a valid state in the
-                        % world
-                        if isValid
-                            for g=1:length(obj.goals)
-                                pug = obj.Pu_given_x_g(u, s, g);
-                                pgt = pGoals(g);
+                    % NOTE: THIS IS HARDCODED FOR NOW FOR 2 GOALS
+                    p_xt_prev = p_xtm1(num2str(prev_gs));
 
-                                % P(u|x,gt) * P(gt) * P(x)
-                                preds{t}(snext(1), snext(2)) = ...
-                                    preds{t}(snext(1), snext(2)) + ...
-                                    pgt * pug *  preds{t-1}(s(1), s(2));
-                            end
-                        end
+                    % Get which goal was added this time .
+                    gIdx = curr_gs(end);
+                    
+                    % Do the prediction!
+                    preds_curr = obj.updateStateDist(p_xt_prev, gIdx);
+                        
+                    % Store the prediction!
+                    p_xt(num2str(curr_gs)) = preds_curr;
+                end
+                % Add the predictions for all mode sequences to current time.
+                predSeq(num2str(t)) = p_xt;
+            end
+            
+            % Combine all predictions over all sequences
+            fullPreds = cell([1,H+1]);
+            fullPreds(:) = {zeros(obj.rows, obj.cols)};
+            fullPreds{1}(i0, j0) = 1;
+            for t=2:H+1
+                % Get goal sequence at this time.
+               curr_seqs = goalSeq(num2str(t));
+               curr_preds = predSeq(num2str(t));
+               gtseq = keys(curr_seqs);
+               for gs_cell = gtseq
+                   g_seq = str2num(gs_cell{1});
+                   p_g_seqt = curr_seqs(num2str(g_seq));
+                   p_x_g_seqt = curr_preds(num2str(g_seq));
+                   fullPreds{t} = fullPreds{t} + p_x_g_seqt * p_g_seqt;
+               end
+            end
+        end
+        
+        
+        %% Updates state distribution given a specific goal and 
+        % the prior predictions. 
+        function preds_curr = updateStateDist(obj, preds_prev, curr_gIdx)
+            preds_curr = zeros(obj.rows, obj.cols);
+            for scurr = obj.states
+                for uid = obj.usIdxs
+                    % Unpack the [i,j] coords.
+                    s = scurr{1};
+
+                    % Optimization!
+                    if preds_prev(s(1), s(2)) == 0
+                        continue;
+                    end
+
+                    % now we are cookin' with gas!
+                    [snext, isValid] = obj.dynamics(s, uid);
+
+                    % if u can take us to a valid state in the
+                    % world
+                    if isValid
+                        ureal = obj.us(uid);
+                        pug = obj.Pu_given_x_g(ureal, s, curr_gIdx);
+
+                        % P(x_t+1 | x_t, g)
+                        preds_curr(snext(1), snext(2)) = ...
+                            preds_curr(snext(1), snext(2)) + ...
+                            pug *  preds_prev(s(1), s(2));
                     end
                 end
             end
         end
         
-        %% Compute the next betas in the sequence and corresponding probabilities.
-        function [newGoalSeq, pGoals] = updateGoalSeq(obj, goalSeq)
-            % Store the current probability of goal given all the entire
-            % history: 
-            %   P(gt) = \sum_{gt-1} ... \sum_{g1}\sum_{g0} P(g0)P(g1 | g0)...P(gt | gt-1)
-            % for each gt \in {1,2,..numGoals}
-            numGoals = length(obj.goals);
-            pGoals = zeros(1, numGoals);
-            
-            newGoalSeq = {}; 
-            for tuple = goalSeq
-                % Get the current goal and its probability from the
-                % sequence.
-                currGoal = tuple{1}(1);
-                pCurr = tuple{1}(2);
-                
-                % Add all possibilities of switching the goals. Compute
-                % the probability of switching by querying HMM model. 
-                for nextGoal=1:numGoals
-                    pNextGivenCurr = obj.hmm(currGoal, nextGoal);
-                    pNext = pNextGivenCurr*pCurr;
-                    % Update sequence of goals.
-                    newGoalSeq{end+1} = [nextGoal, pNext];
-                    % Update total probability of each goal.
-                    pGoals(nextGoal) = pGoals(nextGoal) + pNext;
+        %% Updates the goal sequence. 
+        function goalSeq = updateGoalSeq(obj, goalSeq, t)
+             if isempty(goalSeq)
+                % Setup t = 2 priors. 
+                g1seq = containers.Map('KeyType', 'char', 'ValueType', 'any');
+                g1seq(num2str([1])) = obj.prior(1);
+                g1seq(num2str([2])) = obj.prior(2);
+                goalSeq(num2str(t)) = g1seq;
+                return; 
+            end
+
+            g_prev_map = goalSeq(num2str(t-1));
+            g_prev_keys = keys(g_prev_map);
+            g_curr_map = ...
+                containers.Map('KeyType', 'char', 'ValueType', 'any');
+            for gs_cell = g_prev_keys
+                prev_gs = str2num(gs_cell{1});
+                for currGoal=1:length(obj.goals)
+                    % Get the previous goal we had. 
+                    prevGoal = prev_gs(end);
+                    % Get the probability of getting to that previous sequence. 
+                    pPrev = g_prev_map(num2str(prev_gs));
+
+                    % Setup the new goal sequence.
+                    curr_gs = prev_gs;
+                    curr_gs(end+1) = currGoal;
+
+                    % Get P(curr | prev)
+                    pCurrGivenPrev = obj.hmm(currGoal, prevGoal);
+
+                    % Get P(curr) = P(curr | prev) * P(prev)
+                    pCurr = pCurrGivenPrev * pPrev;
+
+                    % Set the probability of this new expanded goal sequence. 
+                    g_curr_map(num2str(curr_gs)) = pCurr;
                 end
             end
+            % Add all the new sequences to the corresponding time in map. 
+            goalSeq(num2str(t)) = g_curr_map;
         end
-        
+
         %% Encodes HMM dynamic goal dynamics. 
-        %  Inputs are the values of the hidden parameter at the next
-        %  timestep and the current timestep. The HMM model says that the
-        %  value of the parameter at the next time will be the same as the
-        %  currrent timstep with probability "hmmParam" and will be
+        %  Inputs are the values of the hidden parameter at the curr
+        %  timestep and the previous timestep. The HMM model says that the
+        %  value of the parameter at the curr time will be the same as the
+        %  previous timstep with probability "hmmParam" and will be
         %  different with probability "1 - hmmParam":
-        %       next = {curr with probability (hmmParam + (1-hmmParam)/N)
-        %              {next with probability (1-hmmParam)/N
-        function prob = hmm(obj, curr, next)
-            N = length(obj.goals);
-            if curr == next
-                prob = obj.hmmParam + (1 - obj.hmmParam)/N;
+        % 
+        %       curr = {prev with probability Delta*(1-hmmParam)
+        %              {curr with probability hmmParam + Delta*(1-hmmParam)
+        % 
+        function prob = hmm(obj, curr, prev)
+            if curr == prev
+                prob = obj.hmmParam + obj.Delta(curr)*(1-obj.hmmParam);
             else
-                prob = (1 - obj.hmmParam)/N;
+                prob = obj.Delta(curr)*(1-obj.hmmParam);
             end
         end
         
@@ -177,7 +277,7 @@ classdef DynamicLatticeBayesPredictor
             
             gString = createGrid(obj.gridMin, obj.gridMax, obj.gridDims);
             
-            for u = obj.controls
+            for u = obj.us
                 grid = zeros(obj.gridDims);
                 for scurr = obj.states
                     s = scurr{1};
@@ -202,43 +302,47 @@ classdef DynamicLatticeBayesPredictor
         % 
         %       P(u | x0; g2) = N(atan2(g2(y) - y, g2(x) - x), sigma_2^2)
         %
-        function prob = Pu_given_x_g(obj, u, s0, goal)
+        function prob = Pu_given_x_g(obj, u, s0, goalIdx)
             % Get the lower and upper bounds to integrate the Gaussian 
             % PDF over.
-            bounds = obj.uToThetaBounds(u);
-            [x, y] = obj.simToReal(s0);        
-            
-            if goal == 1
-                % Compute optimal control (i.e. mean of Gaussian) 
-                g1 = obj.goals{1};
-                mu1 = atan2(g1(2) - y, g1(1) - x); 
-                
-                % Find the integration bounds. 
-                bound1 = wrapToPi(mu1 - bounds(1));
-                bound2 = wrapToPi(mu1 - bounds(2));
-                
-                % Integrate on bounds. 
-                p = cdf(obj.truncG1, [bound1, bound2]);
-                prob = abs(p(2) - p(1));
-            elseif goal == 2
-                % Compute optimal control (i.e. mean of Gaussian) 
-                g2 = obj.goals{2};
-                mu2 = atan2(g2(2) - y, g2(1) - x); 
-                
-                % Find the integration bounds. 
-                bound1 = wrapToPi(mu2 - bounds(1));
-                bound2 = wrapToPi(mu2 - bounds(2));
-                
-                % Integrate on bounds. 
-                p = cdf(obj.truncG2, [bound1, bound2]);
-                prob = abs(p(2) - p(1));
-            else
-                error("In PuGivenGoal(): goal is invalid: %d\n", goal);
+            [x, y] = obj.simToReal(s0);    
+            uopt = atan2(obj.goals{goalIdx}(2)- y, obj.goals{goalIdx}(1) - x);
+           
+            % minimum angular distance between current control (u) and uopt
+            diff = abs(angdiff(u, uopt));
+
+            % corner case.
+            if length(obj.us) == 1
+                prob = 1;
+                return
             end
-            
-            
-            if abs(bound1 - bound2) > pi
-                prob = 1 - prob;
+
+            % note because of numerics: 
+            % sometimes we get controls that are just close to zero but are negative
+            zero_tol = -1e-7; 
+            % find indicies of all controls in the positive [0, pi] range.
+            pos_idxs = find(obj.us >= zero_tol);
+            pos_idxs(end+1) = find(obj.us == -pi); %include -pi since its = pi
+
+            % find the control bounds.
+            for i=pos_idxs
+                bounds = obj.ubounds{i};
+                low_bound = bounds(1);
+                up_bound = bounds(2);
+
+                if low_bound < 0 && diff <= up_bound
+                    % catch corner case around 0.
+                    p = cdf(obj.truncpd, [0, up_bound]);
+                    prob = abs(p(2) - p(1)) * 2;
+                elseif up_bound < 0 && diff >= low_bound
+                    % considering an action that falls into the bounds around -pi
+                    p = cdf(obj.truncpd, [low_bound, pi]);
+                    prob = abs(p(2) - p(1)) * 2;
+                elseif diff <= up_bound && diff >= low_bound
+                    % normal integration over bounds.
+                    p = cdf(obj.truncpd, [low_bound, up_bound]);
+                    prob = abs(p(2) - p(1));
+                end
             end
         end
         
@@ -267,23 +371,16 @@ classdef DynamicLatticeBayesPredictor
             else
                 x = obj.gridMin(1) + 0.5 * obj.r + obj.r * (j - 2);
             end
-        end
-        
-        %% Converts from fake discrete controls into lower and upper theta
-        function bounds = uToThetaBounds(obj, u)
-            if u == 1 % UP_RIGHT
-                bounds = [pi/6, pi/2];
-            elseif u == 2 % RIGHT
-                bounds = [-pi/6, pi/6];
-            elseif u == 3 % DOWN_RIGHT
-                bounds = [-pi/2, -pi/6];
-            elseif u == 4 % DOWN_LEFT
-                bounds = [-(5*pi)/6, -pi/2];
-            elseif u == 5 % LEFT
-                bounds = [-(5*pi)/6, (5*pi)/6];
-            elseif u == 6 % UP_LEFT
-                bounds = [pi/2, (5*pi)/6];
-            end
+        end   
+
+        %% Gets the control bounds for integration. 
+        function ubounds = genUBounds(obj)
+            ubounds{1} = [pi/6, pi/2];              % UP_RIGHT
+            ubounds{2} = [-pi/6, pi/6];             % RIGHT
+            ubounds{3} = [-pi/2, -pi/6];            % DOWN_RIGHT
+            ubounds{4} = [-(5*pi)/6, -pi/2];        % DOWN_LEFT
+            ubounds{5} = [(5*pi)/6, -(5*pi)/6];     % LEFT
+            ubounds{6} = [pi/2, (5*pi)/6];          % UP_LEFT
         end
         
         %% Dynamics function gives next state we can get to given current state.

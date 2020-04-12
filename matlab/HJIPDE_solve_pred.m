@@ -882,6 +882,7 @@ for i = istart:length(tau)
             integratorOptions, schemeData);
         
         if any(isnan(y))
+            fprintf(' There are nans in y!\n');
             keyboard
         end
         

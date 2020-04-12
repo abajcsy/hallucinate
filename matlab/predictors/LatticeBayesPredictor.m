@@ -15,10 +15,13 @@ classdef LatticeBayesPredictor
         r
         
         states      % (cell arr) indicies of all states in grid
-        controls    % (cell arr) all controls
+        us          % (cell arr) real-world angles of each control
+        usIdxs      % (cell arr) index of each control
+        ubounds     % (cell arr) integration bounds for each control.
         
-        truncG1
-        truncG2
+        %truncG1
+        %truncG2
+        truncpd     % truncated zero-mean gaussian.
         
         rows
         cols
@@ -53,40 +56,25 @@ classdef LatticeBayesPredictor
                     obj.states{end + 1} = [i, j];
                 end
             end
-            
-            % Debugging.
-%             xs = [];
-%             ys = [];
-%             
-%             for s = obj.states
-%                 ss = s{1};
-%                 [x, y] = obj.simToReal(ss);
-%                 [i, j] = obj.realToSim([x, y]);
-%                 fprintf('(%d, %d) maps to (%f, %f) maps to (%d, %d)\n', ...
-%                         ss(1), ss(2), x, y, i, j);
-%                 xs = [xs, x];
-%                 ys = [ys, y];
-%             end
-%             
-%             figure;
-%             hold on;
-%             scatter(xs, ys, 25, 'b');
-%             hold off;
-            %%%%%%%%%%%%%%%
                         
-            pd1 = makedist('Normal','mu',0,'sigma',obj.sigma1);
-            pd2 = makedist('Normal','mu',0,'sigma',obj.sigma2);
-            obj.truncG1 = truncate(pd1, -pi, pi);
-            obj.truncG2 = truncate(pd2, -pi, pi);
+%             pd1 = makedist('Normal','mu',0,'sigma',obj.sigma1);
+%             pd2 = makedist('Normal','mu',0,'sigma',obj.sigma2);
+%             obj.truncG1 = truncate(pd1, -pi, pi);
+%             obj.truncG2 = truncate(pd2, -pi, pi);
+
+            pd = makedist('Normal','mu',0,'sigma',obj.sigma1);
+            obj.truncpd = truncate(pd, -pi, pi);
             
-            % Enumerate all the controls
+            % Enumerate all the controls for a lattice predictor.
             %   UP_RIGHT = 1
             %   RIGHT = 2
             %   DOWN_RIGHT = 3
             %   DOWN_LEFT = 4
             %   LEFT = 5
             %   UP_LEFT = 6
-            obj.controls = [1,2,3,4,5,6]; 
+            obj.usIdxs = [1, 2, 3, 4, 5, 6]; 
+            obj.us = [pi/3, 0, -pi/3, -(2*pi)/3, -pi, (2*pi)/3];
+            obj.ubounds = obj.genUBounds();
         end
         
         %% Mega prediction loop for up to timestep H.
@@ -118,7 +106,7 @@ classdef LatticeBayesPredictor
                 for t=2:H+1
                     fprintf('Predicting for g=%d for t=%d\n', g, t);
                     for scurr = obj.states
-                        for u = obj.controls
+                        for uid = obj.usIdxs
                             % Unpack the [i,j] coords.
                             s = scurr{1};
 
@@ -128,13 +116,13 @@ classdef LatticeBayesPredictor
                             end
 
                             % now we are cookin' with gas!
-                            [snext, isValid] = obj.dynamics(s, u);
+                            [snext, isValid] = obj.dynamics(s, uid);
 
                             % if u can take us to a valid state in the
                             % world
                             if isValid
-                                pug = obj.Pu_given_x_g(u, s, g);
-%                                 pug = 1;
+                                ureal = obj.us(uid);
+                                pug = obj.Pu_given_x_g(ureal, s, g);
 
                                 % P(u|x,g) * P(g) * P(x)
                                 preds{t}(snext(1), snext(2)) = ...
@@ -158,6 +146,18 @@ classdef LatticeBayesPredictor
             for t=2:H+1
                 fullPreds{t} = predsG1{t}*obj.prior(1) + predsG2{t}*obj.prior(2);
             end
+            
+            % ---- debugging ----%
+            t=3; % time when to sanity check. 
+            linidxs = find(preds{t} > 0.0); 
+            for i =1:length(linidxs)
+                lidx = linidxs(i);
+                [row,col] = ind2sub([obj.rows, obj.cols],lidx);
+                [x,y] = obj.simToReal([row, col]);
+                fprintf(strcat("P(x(",num2str(t),")=", ...
+                    num2str(x), ",", num2str(y), ") =", num2str(fullPreds{t}(lidx)),"\n")); 
+            end
+            % ---- debugging ----%
         end
         
         %% Helper function. 
@@ -165,7 +165,7 @@ classdef LatticeBayesPredictor
             
             gString = createGrid(obj.gridMin, obj.gridMax, obj.gridDims);
             
-            for u = obj.controls
+            for u = obj.us
                 grid = zeros(obj.gridDims);
                 for scurr = obj.states
                     s = scurr{1};
@@ -190,43 +190,47 @@ classdef LatticeBayesPredictor
         % 
         %       P(u | x0; g2) = N(atan2(g2(y) - y, g2(x) - x), sigma_2^2)
         %
-        function prob = Pu_given_x_g(obj, u, s0, goal)
-            % Get the lower and upper bounds to integrate the Gaussian 
+        function prob = Pu_given_x_g(obj, u, s0, goalIdx)
+           % Get the lower and upper bounds to integrate the Gaussian 
             % PDF over.
-            bounds = obj.uToThetaBounds(u);
-            [x, y] = obj.simToReal(s0);        
-            
-            if goal == 1
-                % Compute optimal control (i.e. mean of Gaussian) 
-                g1 = obj.goals{1};
-                mu1 = atan2(g1(2) - y, g1(1) - x); 
-                
-                % Find the integration bounds. 
-                bound1 = wrapToPi(mu1 - bounds(1));
-                bound2 = wrapToPi(mu1 - bounds(2));
-                
-                % Integrate on bounds. 
-                p = cdf(obj.truncG1, [bound1, bound2]);
-                prob = abs(p(2) - p(1));
-            elseif goal == 2
-                % Compute optimal control (i.e. mean of Gaussian) 
-                g2 = obj.goals{2};
-                mu2 = atan2(g2(2) - y, g2(1) - x); 
-                
-                % Find the integration bounds. 
-                bound1 = wrapToPi(mu2 - bounds(1));
-                bound2 = wrapToPi(mu2 - bounds(2));
-                
-                % Integrate on bounds. 
-                p = cdf(obj.truncG2, [bound1, bound2]);
-                prob = abs(p(2) - p(1));
-            else
-                error("In PuGivenGoal(): goal is invalid: %d\n", goal);
+            [x, y] = obj.simToReal(s0);    
+            uopt = atan2(obj.goals{goalIdx}(2)- y, obj.goals{goalIdx}(1) - x);
+           
+            % minimum angular distance between current control (u) and uopt
+            diff = abs(angdiff(u, uopt));
+
+            % corner case.
+            if length(obj.us) == 1
+                prob = 1;
+                return
             end
-            
-            
-            if abs(bound1 - bound2) > pi
-                prob = 1 - prob;
+
+            % note because of numerics: 
+            % sometimes we get controls that are just close to zero but are negative
+            zero_tol = -1e-7; 
+            % find indicies of all controls in the positive [0, pi] range.
+            pos_idxs = find(obj.us >= zero_tol);
+            pos_idxs(end+1) = find(obj.us == -pi); %include -pi since its = pi
+
+            % find the control bounds.
+            for i=pos_idxs
+                bounds = obj.ubounds{i};
+                low_bound = bounds(1);
+                up_bound = bounds(2);
+
+                if low_bound < 0 && diff <= up_bound
+                    % catch corner case around 0.
+                    p = cdf(obj.truncpd, [0, up_bound]);
+                    prob = abs(p(2) - p(1)) * 2;
+                elseif up_bound < 0 && diff >= low_bound
+                    % considering an action that falls into the bounds around -pi
+                    p = cdf(obj.truncpd, [low_bound, pi]);
+                    prob = abs(p(2) - p(1)) * 2;
+                elseif diff <= up_bound && diff >= low_bound
+                    % normal integration over bounds.
+                    p = cdf(obj.truncpd, [low_bound, up_bound]);
+                    prob = abs(p(2) - p(1));
+                end
             end
         end
         
@@ -257,23 +261,16 @@ classdef LatticeBayesPredictor
             end
         end
         
-        %% Converts from fake discrete controls into lower and upper theta
-        function bounds = uToThetaBounds(obj, u)
-            if u == 1 % UP_RIGHT
-                bounds = [pi/6, pi/2];
-            elseif u == 2 % RIGHT
-                bounds = [-pi/6, pi/6];
-            elseif u == 3 % DOWN_RIGHT
-                bounds = [-pi/2, -pi/6];
-            elseif u == 4 % DOWN_LEFT
-                bounds = [-(5*pi)/6, -pi/2];
-            elseif u == 5 % LEFT
-                bounds = [-(5*pi)/6, (5*pi)/6];
-            elseif u == 6 % UP_LEFT
-                bounds = [pi/2, (5*pi)/6];
-            end
+        %% Gets the control bounds for integration. 
+        function ubounds = genUBounds(obj)
+            ubounds{1} = [pi/6, pi/2];              % UP_RIGHT
+            ubounds{2} = [-pi/6, pi/6];             % RIGHT
+            ubounds{3} = [-pi/2, -pi/6];            % DOWN_RIGHT
+            ubounds{4} = [-(5*pi)/6, -pi/2];        % DOWN_LEFT
+            ubounds{5} = [(5*pi)/6, -(5*pi)/6];     % LEFT
+            ubounds{6} = [pi/2, (5*pi)/6];          % UP_LEFT
         end
-        
+
         %% Dynamics function gives next state we can get to given current state.
         function [snext, isValid] = dynamics(obj, s0, u)
             isValid = true;

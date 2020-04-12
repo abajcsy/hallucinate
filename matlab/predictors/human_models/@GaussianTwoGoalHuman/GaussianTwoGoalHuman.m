@@ -21,14 +21,24 @@ classdef GaussianTwoGoalHuman < DynSys
         % Mean and variance in normal distribution (same for goal1 and goal2)
         sigma
         
+        % Truncated Gaussian with zero mean and sigma std dev
+        truncpd
+        
         % Num discrete controls to consider
         numCtrls
+        
+        % (arr) Discrete controls \in uRange
+        us
+        
+        % (cell) Integration bounds for each discrete control.
+        ubounds
 
         % Number of dimensions
         dims
         
         % Store the likelyCtrls and dynamics for all states.
         likelyCtrls
+        likelyMasks
         xdot
         
         % Store the optimal controls for each of the goals
@@ -83,7 +93,7 @@ classdef GaussianTwoGoalHuman < DynSys
           obj.gamma = gamma;
           obj.uThresh = uThresh;
           obj.numCtrls = numCtrls;
-
+          
           obj.nx = length(x);
           obj.nu = 1;
           
@@ -91,6 +101,14 @@ classdef GaussianTwoGoalHuman < DynSys
           obj.uOptG1 = [];
           obj.uOptG2 = [];
           obj.grid = [];
+          
+          % Generate numCtrls equally spaced controls in uRange.
+          obj.us = obj.genControls();
+          obj.ubounds = obj.genUbounds(obj.us);
+          
+          % truncated gaussian with zero mean.
+          pd = makedist('Normal','mu',0,'sigma',obj.sigma);
+          obj.truncpd = truncate(pd, obj.uRange(1), obj.uRange(2));     
 
           obj.betaModel = betaModel;
           if strcmp(betaModel, 'dynamic')
@@ -118,8 +136,8 @@ classdef GaussianTwoGoalHuman < DynSys
             %  Note that our third state is x(3) = P(goal=g1 | xt-1, ut-1)
             
             % Get probability of u under each goal.
-            PuGivenG1 = obj.PuGivenGoal(u, 1);
-            PuGivenG2 = obj.PuGivenGoal(u, 2);
+            PuGivenG1 = obj.PuGivenGoal(u, x, 1);
+            PuGivenG2 = obj.PuGivenGoal(u, x, 2);
             
             % Get the probabilities of each goal.
             PG1 = x{3};
@@ -134,7 +152,7 @@ classdef GaussianTwoGoalHuman < DynSys
             % Account for the probability outside the valid range
             pb = (pb .* (x{3} >= 0) .* (x{3} <= 1)) + (x{3} .* (x{3} < 0)) + (x{3} .* (x{3} > 1));
         end
-        
+                
         %% Computes P(u | x, goal) where goal=g1 or g2
         %  The observation models are:
         %   
@@ -145,25 +163,66 @@ classdef GaussianTwoGoalHuman < DynSys
         %       P(u | x, goal = g2) = N(atan2(g2_y - y, g2_x - x), sigma^2)
         % 
         %  where N stands for the normal distribution. 
-        function pu = PuGivenGoal(obj, u, goal)
-            if isempty(obj.uOptG1) || isempty(obj.uOptG2)
-                error('Optimal controls for the observation model have not been precomputed!\n');
-                error('Make sure to first run computeUOptGoals(x).\n');
+        function pu = PuGivenGoal(obj, u, x, goalIdx)
+            %if isempty(obj.uOptG1) || isempty(obj.uOptG2)
+            %    error('Optimal controls for the observation model have not been precomputed!\n');
+            %    error('Make sure to first run computeUOptGoals(x).\n');
+            %end
+           
+            % Get the optimal control and min angular distance from current
+            % control to the optimal control.
+            uopt = atan2(obj.goals{goalIdx}(2)- x{2}, obj.goals{goalIdx}(1) - x{1});
+            diff = abs(angdiff(u, uopt));
+            
+            % corner case.
+            if length(obj.us) == 1
+                pu = 1;
+                return
             end
             
-            c0 = 1/(sqrt(2*pi*obj.sigma^2));
-            if goal == 1
-                uG1Diff = -(u - obj.uOptG1).^2;
-                pu = c0 .* exp(uG1Diff ./ (2*obj.sigma^2));
-            elseif goal == 2
-                uG2Diff = -(u - obj.uOptG2).^2;
-                pu = c0 .* exp(uG2Diff ./ (2*obj.sigma^2));
-            else
-                error('In PuGivenGoal(): goal is invalid: %d\n', goal);
+            % Note because of numerics: 
+            % sometimes we get controls that are just close enough to zero 
+            % but are negative.
+            zero_tol = -1e-7; 
+            % find indicies of all controls in the positive [0, pi] range.
+            pos_idxs = find(obj.us >= zero_tol);
+            %note: need to include -pi in positive controls since its = pi
+            %      -pi is always first in the controls.
+            pos_idxs(end+1) = 1; 
+
+            % store probabilities.
+            pu = zeros(size(u));
+            
+             % find the control bounds.
+            for i=pos_idxs
+                bounds = obj.ubounds{i};
+                low_bound = bounds(1);
+                up_bound = bounds(2);
+                
+                if low_bound < 0
+                    % case around zero.
+                    case_around_0_idxs = find(diff <= up_bound);
+                    p = cdf(obj.truncpd, [0, up_bound]);
+                    pu_curr =  abs(p(2) - p(1)) * 2;
+                    pu(case_around_0_idxs) = pu_curr;
+                elseif up_bound < 0
+                    % case around pi/-pi.
+                    case_around_pi_idxs = find(diff >= low_bound);
+                    p = cdf(obj.truncpd, [low_bound, pi]);
+                    pu_curr =  abs(p(2) - p(1)) * 2;
+                    pu(case_around_pi_idxs) = pu_curr;
+                else
+                    % normal case.
+                    normal_bounds_idxs = find(diff <= up_bound & diff >= low_bound);
+                    p = cdf(obj.truncpd, [low_bound, up_bound]);
+                    pu_curr =  abs(p(2) - p(1));
+                    pu(normal_bounds_idxs) = pu_curr;
+                end
             end
+           
         end
         
-        function likelyCtrls = getLikelyControls(obj, x)
+        function [likelyCtrls, likelyMasks] = getLikelyControls(obj, x)
             %% Gets the set of controls that are more likely than uThresh
             %                   P(u_t | x_t) >= uThresh
             %  Input: 
@@ -172,18 +231,20 @@ classdef GaussianTwoGoalHuman < DynSys
             %  Output: 
             %       likelyCtrls -- (cell arr) valid controls at each state    
             
-            numDiscreteCtrls = 21;
-            blend = linspace(0,1,numDiscreteCtrls);
-            binaryMap = cell(1, numDiscreteCtrls);
-            candidateCtrls = cell(1, numDiscreteCtrls);
-            for i=1:numDiscreteCtrls
-                % Get the current discretized control. 
-                u = blend(i) * (obj.uRange(1)*ones(size(x{1}))) + ...
-                    (1-blend(i)) * (obj.uRange(2)*ones(size(x{1})));
+            likelyCtrls = cell(1, obj.numCtrls); % Contain all likely controls
+            likelyMasks = containers.Map;        % Map for likely control (str) to boolean matrix
+            
+            for i=1:obj.numCtrls
+                % Get the current discretized ontrol.
+                u = obj.us(i);
+                
+                % Make array of this control the size of our statespace. 
+                uarr = u * ones(size(x{1}));
+                
                 
                 % Get probability of u under each goal.
-                PuGivenG1 = obj.PuGivenGoal(u, 1);
-                PuGivenG2 = obj.PuGivenGoal(u, 2);
+                PuGivenG1 = obj.PuGivenGoal(uarr, x, 1);
+                PuGivenG2 = obj.PuGivenGoal(uarr, x, 2);
                 
                 % Get the probabilities of each goal.
                 PG1 = x{3};
@@ -193,64 +254,88 @@ classdef GaussianTwoGoalHuman < DynSys
                 % marginalized over goals. 
                 PuGivenX = (PuGivenG1 .* PG1) + (PuGivenG2 .* PG2);
                 
-%                 % ---- Debugging. ---- %
-%                 obj.plotPu(u(1,1,1), PuGivenG1, 1);
-%                 obj.plotPu(u(1,1,1), PuGivenG2, 2);
-%                 
-%                 figure(5);
-%                 pcolor(obj.grid.xs{1}(:,:,1), obj.grid.xs{2}(:,:,1), PuGivenX(:,:,1));
-%                 title(strcat('P(u=', num2str(u(1,1,1)), '|x)'));
-%                 colorbar
-%                 caxis([0,1])
-%                 % ---- Debugging. ---- %
-
+              
                 % Pick out the controls at the states where P >= epsilon
-                binaryMap{i} = PuGivenX >= obj.uThresh; 
-                candidateCtrls{i} = u;
+                likelyMasks(num2str(u)) = (PuGivenX >= obj.uThresh);
+                
+%                 tmp = (PuGivenG >= obj.uThresh) * 1;
+%                 figure(3);
+%                 pcolor(obj.grid.xs{1}(:,:,1), obj.grid.xs{2}(:,:,1), tmp(:,:,1));
+%                 title('Opt control to get to goal1');
+%                 colormap('bone')
+%                 colorbar
+                
+                likelyCtrls{i} = uarr;
             end
-            
-            % Concatinate all the binary maps and candidate controls
-            catBinaryMap = cell2mat(reshape(binaryMap,1,1,1,[]));
-            catCandidateCtrls = cell2mat(reshape(candidateCtrls,1,1,1,[]));
-            
-            % Multiply the two to pick out the valid controls for each
-            % state
-            validCtrls = catBinaryMap .* catCandidateCtrls;
-            
-            % Take the min and max over the product in the last dimension
-            lowerBound = min(validCtrls, [], 4);
-            upperBound = max(validCtrls, [], 4);
-            
-            % Based on N number of discrete contrls, partition controls
-            % between lower and upper bound state-wise
-            likelyCtrls = cell(1, obj.numCtrls);
-            linNums = linspace(0,1,obj.numCtrls);
-            parfor i=1:obj.numCtrls
-                likelyCtrls{i} = linNums(i)*lowerBound + (1-linNums(i))*upperBound;
+
+        end
+                
+        
+        
+        
+        %% Gets the control bounds for integration. 
+        % Returns cell array containing a vector of lower and upper
+        % integration bounds for each u in us.
+        function ubounds = genUbounds(obj, us)
+            ubounds = cell(1,obj.numCtrls);
+            incr = (obj.uRange(2) - obj.uRange(1))/obj.numCtrls;
+            for i=1:obj.numCtrls
+                u = us(i);
+                ubounds{i} = [wrapToPi(u - incr/2), wrapToPi(u + incr/2)]; 
             end
         end
         
+        %% Generate discrete num_ctrls ranging from 
+        %   u \in [urange(1), urange(2)) 
+        % (note: not including upper urange bound since its -pi to pi
+        % and pi and -pi are the same). 
+        % Returns an array of discrete controls. 
+        function us = genControls(obj)
+            incr = (obj.uRange(2) - obj.uRange(1))/obj.numCtrls;
+            us = zeros(1,obj.numCtrls);
+            u = obj.uRange(1);
+            for i=1:obj.numCtrls
+                us(i) = u;
+                u = u + incr;
+            end
+        end
+        
+        %% Computes and stores the likley state-dependant control and state deriv.
+        % Get the likely state-dependant control for the ith discrete control: 
+        %   P(u_i | x)
         function computeUAndXDot(obj, x)
-            %% Computes and stores the likley state-dependant control and state deriv.
-            % Get the likely state-dependant control for the ith discrete control: 
-            %   P(u_i | x)
-            obj.likelyCtrls = obj.getLikelyControls(x);
+            [obj.likelyCtrls, obj.likelyMasks] = obj.getLikelyControls(x);
 
             % Compute and store the corresponding dynamics.
             obj.xdot = {};
             for i=1:obj.numCtrls
-                u = obj.likelyCtrls{i};
-            	f = obj.dynamics(x,u);
+                u = obj.us(i);
+                currLikelyMask = obj.likelyMasks(num2str(u));
+                uarr = obj.likelyCtrls{i};
+                
+                % wherever the mask is 0, change to NaN so we don't freeze
+                % dynamics unecessarily. 
+                currLikelyMask = currLikelyMask * 1; % convert to double arr.
+                currLikelyMask(currLikelyMask == 0) = nan;
+                
+                % note: first arg (time) is ignored.
+            	f = obj.dynamics(1,x,uarr); 
+                
                 % Convert into an N1 x N2 x N3 x numCtrls array
                 if i == 1
                     obj.xdot = f;
+                    
+                    obj.xdot{1} = obj.xdot{1} .* currLikelyMask;
+                    obj.xdot{2} = obj.xdot{2} .* currLikelyMask;
+                    obj.xdot{3} = obj.xdot{3} .* currLikelyMask;
                 else
-                    obj.xdot{1} = cat(4, obj.xdot{1}, f{1});
-                    obj.xdot{2} = cat(4, obj.xdot{2}, f{2});
-                    obj.xdot{3} = cat(4, obj.xdot{3}, f{3});
+                    obj.xdot{1} = cat(4, obj.xdot{1}, f{1} .* currLikelyMask);
+                    obj.xdot{2} = cat(4, obj.xdot{2}, f{2} .* currLikelyMask);
+                    obj.xdot{3} = cat(4, obj.xdot{3}, f{3} .* currLikelyMask);
                 end
             end
-        end
+        end        
+        
         
         %% Compute the optimal control over the entire statespace for each goal.
         %   These are the means of the two Gaussian models.

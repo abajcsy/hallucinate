@@ -1,4 +1,4 @@
-function dx = dynamics(obj, x, u)
+function dx = dynamics(obj, t, x, u)
     % dx = dynamics(obj, x, u)
     %     Dynamics of the GaussianTwoGoalHuman
     %         \dot{x}_1 = v * cos(u)

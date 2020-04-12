@@ -13,16 +13,16 @@ uRange = [-pi+1e-2; pi];
 gamma = 0.01;
 
 % Number of discrete controls
-numCtrls = 11;
+numCtrls = 31;
 
 % Threshold to determine likely controls
-uThresh = 0.; %0.05; 
+uThresh = 0.03; 
 
 % Variance in normal distributions
 sigma = pi/4;
 
 % Known human goal locations. 
-goals = {[2,2], [2,-2]}; %{[1, tan(pi/4)], [1, -tan(pi/4)]};
+goals = {[2, -2], [2, 2]}; 
 
 % Are we using dynamic of static beta model?
 betaModel = 'static';
@@ -31,7 +31,7 @@ betaModel = 'static';
 extraArgs = [];
 
 % Setup dynamical system
-Pgoal1 = 0.9; 
+Pgoal1 = 0.5; 
 x0 = [0; 0; Pgoal1];
 human = GaussianTwoGoalHuman(x0, v, uRange, gamma, goals, sigma, uThresh, numCtrls, ...
     betaModel, extraArgs);
@@ -61,7 +61,7 @@ data0 = shapeSphere(g, x0, R);
 
 %% time vector
 t0 = 0;
-tMax = 15; %3.0;
+tMax = 1.8;
 dt = 0.1667; %0.05;
 tau = t0:dt:tMax;
 uMode = 'max';
@@ -83,7 +83,9 @@ HJIextraArgs.visualize.initialValueSet = 0;
 HJIextraArgs.visualize.figNum = 1; %set figure number
 HJIextraArgs.visualize.deleteLastPlot = false; %delete previous plot as you update
 HJIextraArgs.visualize.viewGrid = true;
-HJIextraArgs.visualize.viewAxis = [-4 4 -4 4 -0.1 1.1];
+HJIextraArgs.visualize.viewAxis = [grid_min(1) grid_max(1) ...
+                                   grid_min(2) grid_max(2) ...
+                                   -0.1 1.1];
 HJIextraArgs.visualize.xTitle = '$p^x$';
 HJIextraArgs.visualize.yTitle = '$p^y$';
 HJIextraArgs.visualize.zTitle = '$P(goal_1)$';
@@ -99,15 +101,53 @@ HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
 HJIextraArgs.visualize.plotData.projpt = {'min'}; %project pt
 HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
 
-%goalObs1 = shapeCylinder(g, 3, goals{1}, 0.2);
-%goalObs2 = shapeCylinder(g, 3, goals{2}, 0.2);
-%HJIextraArgs.obstacles = shapeUnion(goalObs1, goalObs2);
-
-%HJIextraArgs.targets = data0;
-
 minWith = 'set';
 %minWith = 'zero';
 %minWith = 'minVwithL';
+
+tStart = tic;
 [data, tau2, ~] = ...
   HJIPDE_solve_pred(data0, tau, schemeData, minWith, HJIextraArgs);
+tEnd = toc(tStart);
+fprintf(strcat("[Reachability] Static param pred time: ", num2str(tEnd), " s\n"));
 
+%% Plotting!
+figure(4);
+hold on
+
+% Color setup.
+start_color = [97, 17, 90]/255.;
+end_color = [235, 19, 216]/255.;
+red = linspace(start_color(1), end_color(1), length(tau2));
+green = linspace(start_color(2), end_color(2), length(tau2));
+blue = linspace(start_color(3), end_color(3), length(tau2));
+
+dimsToRemove = [0 0 1];
+for t=1:length(tau2)
+    
+    titleString = strcat('Reachability: Static Param. t=', num2str(tau2(t)), 's');
+    title(titleString);
+    
+    [g2d, data2D] = proj(g, data(:,:,:,t), dimsToRemove, 'min');
+    
+    figure(4);
+    hold on;
+    
+    %Plot prediction contour.
+    [M, c] = contour(g2d.xs{1}, g2d.xs{2}, data2D, [0,0]);
+    c.LineWidth = 2;
+    c.EdgeColor = [red(t), green(t), blue(t)];
+    
+    % Plot goals.
+    figure(4);
+    scatter(goals{1}(1), goals{1}(2), 100, 'r', 'filled');
+    scatter(goals{2}(1), goals{2}(2), 100, 'b', 'filled');
+    
+    xlim([grid_min(1), grid_max(1)]);
+    ylim([grid_min(2), grid_max(2)]);
+    set(gcf,'Position',[100 100 700 700]);
+    set(gcf,'color','w');
+    whitebg('k');
+    grid on
+    pause(0.1);
+end
