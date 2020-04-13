@@ -97,6 +97,7 @@ function qval = qFunction(x, u, theta, v, deltaT)
 
             % Evaluate distance of next x to goal theta under L2 norm
             qval = ((x1 - theta(1))^2 + (x2 - theta(2))^2)^(1);
+%             qval = (u-atan((theta(2)-x(2)) ./ (theta(1)-x(1))))^2;
 end
 
 %% Generate discrete num_ctrls ranging from [urange(1), urange(2)) 

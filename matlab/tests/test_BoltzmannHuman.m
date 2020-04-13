@@ -9,20 +9,20 @@ v = 0.6;
 % Control bounds
 uRange = [-pi+1e-2; pi];
 
-% gamma in continuous-time P(beta = 0) dynamics
-gamma = 0.01;
-
 % Control gains
 K = [0, 0];
 m = 0;
 
 % Number of discrete controls
-numCtrls = 50;
+numCtrls = 10;
 
 delta_t = 1;
 
+% gamma in continuous-time P(beta = 0) dynamics
+gamma = 1/delta_t;
+
 % Threshold to determine likely controls
-uThresh = 0.1;
+uThresh = 0.0;
 
 % Are we using dynamic of static beta model?
 betaModel = 'static';
@@ -42,7 +42,7 @@ human = BoltzmannHuman(x0, v, uRange, gamma, K, m, theta, delta_t, uThresh, ...
 %% Grid
 grid_min = [-2; -2; -0.1];  % Lower corner of computation domain
 grid_max = [2; 2; 1.1];     % Upper corner of computation domain
-N = [81; 81; 41];           % Number of grid points per dimension
+N = [41; 41; 41];           % Number of grid points per dimension
 g = createGrid(grid_min, grid_max, N);
 
 %% Pre-compute the likely controls and dynamics over the entire state-space.

@@ -5,7 +5,7 @@ clear all
 %% Grid
 grid_min = [-5; -5; -0.1];  % Lower corner of computation domain
 grid_max = [5; 5; 1.1];     % Upper corner of computation domain
-N = [51; 51; 51];           % Number of grid points per dimension
+N = [41; 41; 41];           % Number of grid points per dimension
 g = createGrid(grid_min, grid_max, N);
 
 %% Create human dynamical system
@@ -32,13 +32,13 @@ v = 0.2;
 uRange = [-pi+1e-2; pi];
 
 % gamma in continuous-time P(beta = 0) dynamics
-gamma = 1;
+gamma = 0.01;
 
 % Number of discrete controls
-numCtrls = 11;
+numCtrls = 20;
 
 % Threshold to determine likely controls
-uThresh = 0.0;
+uThresh = 0.05;
 
 % Are we using dynamic of static beta model?
 betaModel = 'static';
@@ -57,7 +57,7 @@ tol = 0.2;
 
 % ---- Setup for Case 1 ---- %
 % start with high prior on beta=0, but true is beta=1 (boltzmann)
-Pbeta1 = 0.7; 
+Pbeta1 = 0.5; 
 trueBeta = 1;
 centerPBeta = 1;
 
@@ -85,7 +85,7 @@ uMode = 'min';
 % % -------------------------- %
 
 % Setup dynamical system
-x0 = [-2; 0; Pbeta1];
+x0 = [0; 0; Pbeta1];
 human = BoltzmannG1orG2Human(x0, v, uRange, gamma, ...
                 trueBeta, goals, delta_t, uThresh, numCtrls, betaModel, extraArgs);
 
@@ -93,17 +93,17 @@ human = BoltzmannG1orG2Human(x0, v, uRange, gamma, ...
 % Target set is centered at the true beta value
 xyoffset = 0.1;
 poffset = 0.01;
-goalSetRad = 0.5;
-
-center = [0; 0; 0.9];
-widths = [(grid_max(1) - grid_min(1)) - xyoffset; ...
-          (grid_max(2) - grid_min(2)) - xyoffset; 
-          tol - poffset];
-
-% center = [theta(1); theta(2); 0.9];
-% widths = [1; ...
-%           1; 
+goalSetRad = 0.1;
+% 
+% center = [0; 0; 0.9];
+% widths = [(grid_max(1) - grid_min(1)) - xyoffset; ...
+%           (grid_max(2) - grid_min(2)) - xyoffset; 
 %           tol - poffset];
+
+center = [goals{trueBeta}(1); goals{trueBeta}(2); 0.9];
+widths = [1; ...
+          1; 
+          tol - poffset];
 
 % Similar to cylinder
 % center = [theta(1); theta(2); 0.5];
@@ -111,7 +111,7 @@ widths = [(grid_max(1) - grid_min(1)) - xyoffset; ...
 %           1; 
 %           (grid_max(1) - grid_min(1)) + tol - poffset];
 data0 = shapeRectangleByCenter(g, center, widths);
-% center = [theta(1); theta(2); 0.5];
+% center = [goals{trueBeta}(1); goals{trueBeta}(2); 0.5];
 % center = [0; 0; 0.5];
 % data0 = shapeCylinder(g, 3, center, goalSetRad);
 
