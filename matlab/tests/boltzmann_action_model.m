@@ -10,10 +10,10 @@ g1 = [1; -1];
 g2 = [1; 1];
 
 % initial state.
-x = [0;0];
+x = [0; 0];
 
 v = 0.6;
-deltaT = 1;
+deltaT = 0.01;
 
 % number of discrete controls.
 num_ctrls = 61;
@@ -61,6 +61,13 @@ title("P(u|x,g1)");
 figure(2)
 plot_posterior(posteriors, us, g1, x, priorg1, us_probs_g1, tol);
 
+% Plot "continuous-time" posterior: 
+%   (1/dt)*(P(g1|u,x) - P(g1))
+figure(3)
+cont_time_posteriors = (1/deltaT)*(posteriors - priorg1);
+plot_cont_time_posterior(cont_time_posteriors, us, g1, x, priorg1, us_probs_g1, tol);
+
+
 %% Compute probability (boltzmann)
 function pu = pu_goal(u,x,goal,us,v,deltaT)
     us_shape = size(us);
@@ -91,13 +98,12 @@ function pu = pu_goal(u,x,goal,us,v,deltaT)
 end
 
 function qval = qFunction(x, u, theta, v, deltaT)
-            % Find next x by forward euler
-            x1 = x(1) + deltaT * v * cos(u);
-            x2 = x(2) + deltaT * v * sin(u);
+    % Find next x by forward euler
+    x1 = x(1) + deltaT * v * cos(u);
+    x2 = x(2) + deltaT * v * sin(u);
 
-            % Evaluate distance of next x to goal theta under L2 norm
-            qval = ((x1 - theta(1))^2 + (x2 - theta(2))^2)^(1);
-%             qval = (u-atan((theta(2)-x(2)) ./ (theta(1)-x(1))))^2;
+    % Evaluate distance of next x to goal theta under L2 norm
+    qval = ((x1 - theta(1))^2 + (x2 - theta(2))^2)^(1./2.);
 end
 
 %% Generate discrete num_ctrls ranging from [urange(1), urange(2)) 
@@ -128,7 +134,7 @@ function h = plot_circle(angles, values, g1, g2, x0, posteriors, tol)
         th = angles(i);
         xunit = x0(1) + cos(th);
         yunit = x0(2) + sin(th);
-        scatter(xunit, yunit, max(5,values(i)*100), 'k', 'filled');
+        %scatter(xunit, yunit, max(5,values(i)*100), 'k', 'filled');
         %t = text(xunit, yunit, num2str(values(i), 3));
 %         if xunit > 0 && yunit <= 0
 %             t = text(xunit+0.2, yunit-0.1, num2str(values(i), 3));
@@ -140,7 +146,7 @@ function h = plot_circle(angles, values, g1, g2, x0, posteriors, tol)
 %             t= text(xunit-0.3, yunit+0.1, num2str(values(i), 3));
 %         end
         t.FontSize = 6;
-        c = min(1,values(i)*100);
+        c = min(1,values(i)*10);
         c = abs(0.92-c);
         if any(max_prob_u_idx == i) && any(close_enough_to_max_idx == i)
             % plot control that is towards goal AND for posterior in cyan
@@ -163,19 +169,23 @@ function h = plot_circle(angles, values, g1, g2, x0, posteriors, tol)
     
     xlim([-3,3]);
     ylim([-3,3]);
-    set(gcf,'Position',[100 100 600 600]);
+    set(gcf,'Position',[100 100 500 500]);
     set(gcf,'color','w');
     hold off
 end
 
+%% Plot discrete posterior update.
 function plot_posterior(posteriors, us, g1, x, priorg1, us_probs_g1, tol)
     hold on
     plot(us, posteriors, 'mo-')
     plot([-pi, pi], [priorg1, priorg1], 'k--');
     uopt_g1 = atan2(g1(2)- x(2), g1(1) - x(1));
-    if uopt_g1 <= 0
+    if uopt_g1 < 0
         xticks([us(1), uopt_g1, 0, us(end)]);
         xticklabels({num2str(us(1)), num2str(uopt_g1), '0', num2str(us(end))});
+    elseif uopt_g1 == 0
+        xticks([us(1), uopt_g1, us(end)]);
+        xticklabels({num2str(us(1)), num2str(uopt_g1), num2str(us(end))});
     else
         xticks([us(1), 0, uopt_g1, us(end)]);
         xticklabels({num2str(us(1)), '0', num2str(uopt_g1), num2str(us(end))});
@@ -209,9 +219,63 @@ function plot_posterior(posteriors, us, g1, x, priorg1, us_probs_g1, tol)
     end
 
 
-    set(gcf,'Position',[100 100 600 600]);
+    set(gcf,'Position',[100 100 500 500]);
     set(gcf,'color','w');
     grid on
     title("Posterior for G1")
+    hold off
+end
+
+%% Plot continous-time posterior update.
+function plot_cont_time_posterior(posteriors, us, g1, x, priorg1, us_probs_g1, tol)
+    hold on
+    plot(us, posteriors, 'mo-');
+    uopt_g1 = atan2(g1(2)- x(2), g1(1) - x(1));
+    if uopt_g1 < 0
+        xticks([us(1), uopt_g1, 0, us(end)]);
+        xticklabels({num2str(us(1)), num2str(uopt_g1), '0', num2str(us(end))});
+    elseif uopt_g1 == 0
+        xticks([us(1), uopt_g1, us(end)]);
+        xticklabels({num2str(us(1)), num2str(uopt_g1), num2str(us(end))});
+    else
+        xticks([us(1), 0, uopt_g1, us(end)]);
+        xticklabels({num2str(us(1)), '0', num2str(uopt_g1), num2str(us(end))});
+    end
+
+    % find indicies of action that is most likely under action model.
+    max_prob_u_idx = find(us_probs_g1 == max(us_probs_g1));
+
+    % find indicies of the action that maximally changes POSTERIOR value in direction of g1.
+    max_post_g1 = max(posteriors);
+    close_enough_to_max_idx = find(abs(posteriors - max_post_g1) <= tol);
+    
+    % find indicies of the action that moves towards goal AND the
+    % posterior.
+    both_idx = intersect(max_prob_u_idx, close_enough_to_max_idx);
+
+    for i=1:length(close_enough_to_max_idx)
+        % plot line at  optimal actions that shift posterior.
+        idx = close_enough_to_max_idx(i);
+        plot([us(idx),us(idx)], [-0.5,0.5], 'g-');
+    end
+    for i=1:length(max_prob_u_idx)
+        % plot line at optimal actions to goal1
+        idx = max_prob_u_idx(i);
+        plot([us(idx),us(idx)], [-0.5,0.5], 'r-');
+    end
+    for i=1:length(both_idx)
+        % plot line at  optimal actions that shift posterior AND towards g1
+        idx = both_idx(i);
+        plot([us(idx),us(idx)], [-0.5,0.5], 'c-');
+    end
+
+    set(gcf,'Position',[100 100 500 500]);
+    set(gcf,'color','w');
+    xlabel("$u \in [-\pi, \pi]$", 'Interpreter','latex');
+    ylabel("$\dot{P}_t(g_1)$", 'Interpreter','latex');
+    xlim([-pi, pi]);
+    ylim([-0.5,0.5]);
+    grid on
+    title("(Continuous-time) Posterior for G1")
     hold off
 end
