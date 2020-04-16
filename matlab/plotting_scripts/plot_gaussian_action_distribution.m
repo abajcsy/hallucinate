@@ -1,5 +1,5 @@
 clear all
-close all
+%close all
 clf
 
 % control bounds.
@@ -52,13 +52,13 @@ for i=1:num_ctrls
 end
 
 % Likley control threshold. 
-uThresh = 0.03;
+uThresh = 0.00;
 
 % Prior.
 prior = [0.9, 0.1];
 
 % If we should save figure.
-saveFig = true;
+saveFig = false;
 
 %% Plot state-dependant action probabilities: P(u|x)
 f1 = figure(1);
@@ -154,6 +154,22 @@ function h = plot_pu(angles, pug1, pug2, g1, g2, x0, uThresh, prior, saveFig)
     
     all_probs = pug1*prior(1) + pug2*prior(2);
     max_prob = max(all_probs);
+    
+    %% --- TESTING --- %%
+    [sorted_valid_data, u_idxs] = sort(all_probs, 'descend');
+
+    sum_p = 0.0;
+    likely_ctrl_idxs = [];
+    for i=1:length(sorted_valid_data)
+        sum_p = sum_p + sorted_valid_data(i);
+        if sum_p < (1-uThresh)
+            likely_ctrl_idxs(end+1) = u_idxs(i);
+        else
+            break;
+        end
+    end
+    %eps_index = find(cumsum(sorted_valid_data) >= uThresh, 1, 'first');
+    %opt_eps = sorted_valid_data(eps_index);
     
     norm = 1/max_prob;
     normalized_cmap = cmap/norm;
