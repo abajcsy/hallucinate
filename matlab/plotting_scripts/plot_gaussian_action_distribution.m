@@ -41,10 +41,15 @@ us_probs_g2_x0 = zeros(1,length(us));
 for i=1:num_ctrls
     u = us(i);
     
-    % x0
-    pu_g1 = compute_prob(u, uopt_g1_x0, us, ubounds, truncpd);
-    pu_g2 = compute_prob(u, uopt_g2_x0, us, ubounds, truncpd);
-    %fprintf(strcat("u: ", num2str(u), ", pu_g1=", num2str(pu_g1), "\n"));
+    % Compute probabilities for u and x0 with INTEGRATION scheme.
+    %pu_g1 = compute_prob(u, uopt_g1_x0, us, ubounds, truncpd);
+    %pu_g2 = compute_prob(u, uopt_g2_x0, us, ubounds, truncpd);
+    
+    % Compute probabilities for u and x0 with NORMALIZATION scheme.
+    pu_g1 = compute_prob_normalized(u, uopt_g1_x0, us, sigma, urange);
+    pu_g2 = compute_prob_normalized(u, uopt_g2_x0, us, sigma, urange);
+
+    fprintf(strcat("u: ", num2str(u), ", pu_g1=", num2str(pu_g1), "\n"));
     
     % plotting info...
     us_probs_g1_x0(i) = pu_g1;
@@ -52,10 +57,10 @@ for i=1:num_ctrls
 end
 
 % Likley control threshold. 
-uThresh = 0.00;
+uThresh = 0.03;
 
 % Prior.
-prior = [0.9, 0.1];
+prior = [0.5, 0.5];
 
 % If we should save figure.
 saveFig = false;
@@ -66,11 +71,11 @@ plot_pu(us, us_probs_g1_x0, us_probs_g2_x0, g1, g2, ...
     x0, uThresh, prior, saveFig);
 
 %% Plot action probabilities: P(u|x,g1)
-% figure(2)
-% plot_pu_given_g(us, us_probs_g1, g1, g2, x);
-% title("P(u|x,g1)");
+figure(2)
+plot_pu_given_g(us, us_probs_g1_x0, g1, g2, x0);
+title("P(u|x,g1)");
 
-%% Compute probability.
+%% Compute probability by integrating on control bounds.
 function pu = compute_prob(u, uopt, us, ubounds, truncpd)
 
     % minimum angular distance between current control (u) and uopt
@@ -114,8 +119,26 @@ function pu = compute_prob(u, uopt, us, ubounds, truncpd)
             p = cdf(truncpd, [low_bound, up_bound]);
             pu = abs(p(2) - p(1));
         end
+    end 
+end
+
+%% Computes probabilit by querying Gaussian distribution and normalizes. 
+function pu = compute_prob_normalized(u, uopt, us, sigma, urange)
+
+    pd = makedist('Normal', 'mu', uopt, 'sigma', sigma);
+    truncpd_g = truncate(pd, urange(1), urange(2));
+   
+    % Get probability of this action under gaussian
+    pu_g = pdf(truncpd_g, u);
+    
+    % Compute normalizer. 
+    normalizer_g = 0.0;
+    for i=1:length(us)
+        ucurr = us(i);
+        normalizer_g = normalizer_g + pdf(truncpd_g, ucurr);
     end
     
+    pu = pu_g/normalizer_g;
 end
 
 %% Gets the control bounds for integration. 
@@ -177,8 +200,8 @@ function h = plot_pu(angles, pug1, pug2, g1, g2, x0, uThresh, prior, saveFig)
     
     colormap(cmap_smaller);
     cbar = colorbar;
-    %caxis([0, max_prob]);
-    caxis([0, 0.2]);
+    caxis([0, max_prob]);
+    %caxis([0, 0.2]);
     
     for i=1:length(angles)
         th = angles(i);
@@ -189,20 +212,20 @@ function h = plot_pu(angles, pug1, pug2, g1, g2, x0, uThresh, prior, saveFig)
         prob = pug1(i)*prior(1) + pug2(i)*prior(2);
         
         if prob >= uThresh
-%             if xunit > 0 && yunit <= 0
-%                 t = text(xunit+0.2, yunit-0.1, num2str(prob, 2));
-%             elseif xunit >= 0 && yunit > 0
-%                 t= text(xunit+0.2, yunit+0.1, num2str(prob, 2));
-%             elseif xunit < 0 && yunit <= 0
-%                 t= text(xunit-0.4, yunit-0.1, num2str(prob, 2));
-%             elseif xunit <= 0 && yunit > 0
-%                 t= text(xunit-0.4, yunit+0.1, num2str(prob, 2));
-%             end
-%             c = min(0.92,prob*10);
-%             c = abs(0.92-c);
-%             t.FontSize = 10;
-%             t.Interpreter = 'Latex';
-%             t.Color = [c,c,c];
+            if xunit > 0 && yunit <= 0
+                t = text(xunit+0.2, yunit-0.1, num2str(prob, 2));
+            elseif xunit >= 0 && yunit > 0
+                t= text(xunit+0.2, yunit+0.1, num2str(prob, 2));
+            elseif xunit < 0 && yunit <= 0
+                t= text(xunit-0.4, yunit-0.1, num2str(prob, 2));
+            elseif xunit <= 0 && yunit > 0
+                t= text(xunit-0.4, yunit+0.1, num2str(prob, 2));
+            end
+            c = min(0.92,prob*10);
+            c = abs(0.92-c);
+            t.FontSize = 10;
+            t.Interpreter = 'Latex';
+            t.Color = [c,c,c];
             
             inverted_prob = (max_prob-prob);
             [minDistance, indexOfMin] = min(abs(normalized_cmap(:,1) - inverted_prob));
