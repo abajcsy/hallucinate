@@ -14,7 +14,7 @@ gridMin = [-4,-4];
 gridMax = [4,4];
 
 % Set the prior over goal 1 and goal 2.
-prior = [0.5, 0.5];
+prior = [0.9, 0.1];
 
 % Grid cell size.
 r = 0.1;
@@ -41,7 +41,7 @@ tEnd = toc(tStart);
 fprintf(strcat("Static param pred time: ", num2str(tEnd), " s\n"));
 
 % Reachability threshold.
-delta = 0.01;
+delta = 0.0;
 
 figure(2);
 hold on
@@ -120,7 +120,11 @@ function [opt_eps, P, X, Y] = compute_likely_states(preds, predictor, ...
     for r = 1:predictor.rows
         for c = 1:predictor.cols
             linIdx = sub2ind([predictor.rows,predictor.cols],r,c);
-            P(r, c) = 1*(preds(linIdx) >= opt_eps) + 0*(preds(linIdx) < opt_eps);
+            if delta_reachability > 0.0
+                P(r, c) = 1*(preds(linIdx) >= opt_eps) + 0*(preds(linIdx) < opt_eps);
+            else
+                P(r, c) = 1*(preds(linIdx) > 0.0);
+            end
         end
     end
 end

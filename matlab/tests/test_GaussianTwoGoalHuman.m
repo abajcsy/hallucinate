@@ -18,7 +18,7 @@ numCtrls = 31;
 % Threshold to determine likely controls
 uThresh = 0.03; 
 
-% Variance in normal distributions
+% Standard dev in normal distributions
 sigma = pi/4;
 
 % Known human goal locations. 

@@ -17,13 +17,13 @@ gridMax = [4,4];
 r = 0.1;
 
 % Set the prior over goal 1 and goal 2.
-prior = [0.5, 0.5];
+prior = [0.9, 0.1];
 
 % Discrete distribution over two goals: \delta{1,2}.
 Delta = [0.5, 0.5];
 
 % Probability of staying in same goal (in HMM model).
-hmmParam = 0.5;
+hmmParam = 0.8;
 
 % Create the predictor. 
 predictor = DynamicLatticeBayesPredictor(prior, goals, sigma1, sigma2, ...

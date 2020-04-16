@@ -22,6 +22,15 @@ else
 	hamValue = max(pdot_f, [], 4);
 end
 
+% Find if there are some states where *no* controls are allowed. 
+noCtrlStateIdxs = find(isnan(hamValue));
+
+% Sanity check!
+result = sum(isnan(hamValue(:)));
+if result ~= 0
+    error("We have NaNs in the optimized hamiltonian!");
+end
+
 if strcmp(schemeData.tMode, 'backward')
     hamValue = -hamValue;
 end

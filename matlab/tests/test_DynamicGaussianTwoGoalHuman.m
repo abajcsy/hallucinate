@@ -7,7 +7,7 @@ clear all
 v = 0.6;
 
 % Control bounds
-uRange = [-pi+1e-2; pi];
+uRange = [-pi; pi];
 
 % gamma in continuous-time P(beta = 0) dynamics
 gamma = 0.01;
@@ -31,10 +31,10 @@ betaModel = 'dynamic';
 % Dynamic beta parameters
 %extraArgs = [];
 extraArgs.DeltaB0 = 0.5; % beta = 0 <==> goal = 1
-extraArgs.alpha = 0.5;
+extraArgs.alpha = 0.8;
 
 % Setup dynamical system
-Pgoal1 = 0.5; 
+Pgoal1 = 0.9; 
 x0 = [0; 0; Pgoal1];
 human = GaussianTwoGoalHuman(x0, v, uRange, gamma, goals, sigma, uThresh, numCtrls, ...
     betaModel, extraArgs);

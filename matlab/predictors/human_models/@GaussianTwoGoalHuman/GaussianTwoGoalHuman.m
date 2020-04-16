@@ -186,6 +186,13 @@ classdef GaussianTwoGoalHuman < DynSys
             zero_tol = -1e-7; 
             % find indicies of all controls in the positive [0, pi] range.
             pos_idxs = find(obj.us >= zero_tol);
+%             % Need to make sure we grab bounds around zero.
+%             for i=1:length(obj.us)
+%                 bound = obj.ubounds{i};
+%                 if bound(2) >= 0 && bound(1) <= 0
+%                     pos_idxs(end+1) = i;
+%                 end
+%             end
             %note: need to include -pi in positive controls since its = pi
             %      -pi is always first in the controls.
             pos_idxs(end+1) = 1; 
@@ -254,25 +261,23 @@ classdef GaussianTwoGoalHuman < DynSys
                 % marginalized over goals. 
                 PuGivenX = (PuGivenG1 .* PG1) + (PuGivenG2 .* PG2);
                 
-              
                 % Pick out the controls at the states where P >= epsilon
                 likelyMasks(num2str(u)) = (PuGivenX >= obj.uThresh);
                 
-%                 tmp = (PuGivenG >= obj.uThresh) * 1;
+%                 % ------ DEBUGGING ------ %
+%                 tmp = (PuGivenX >= obj.uThresh) * 1;
 %                 figure(3);
-%                 pcolor(obj.grid.xs{1}(:,:,1), obj.grid.xs{2}(:,:,1), tmp(:,:,1));
+%                 pcolor(obj.grid.xs{1}(:,:,1), obj.grid.xs{2}(:,:,1), tmp(:,:,10));
 %                 title('Opt control to get to goal1');
 %                 colormap('bone')
 %                 colorbar
+%                 % ------ DEBUGGING ------ %
                 
                 likelyCtrls{i} = uarr;
             end
 
         end
                 
-        
-        
-        
         %% Gets the control bounds for integration. 
         % Returns cell array containing a vector of lower and upper
         % integration bounds for each u in us.
