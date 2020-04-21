@@ -14,7 +14,7 @@ K = [0, 0];
 m = 0;
 
 % Number of discrete controls
-numCtrls = 10;
+numCtrls = 21;
 
 delta_t = 1;
 
@@ -22,7 +22,7 @@ delta_t = 1;
 gamma = 1/delta_t;
 
 % Threshold to determine likely controls
-uThresh = 0.0;
+uThresh = 0.05;
 
 % Are we using dynamic of static beta model?
 betaModel = 'static';
@@ -34,7 +34,7 @@ extraArgs.alpha = 0.5;
 extraArgs.DeltaB0 = 0.5; 
 
 % Setup dynamical system
-Pbeta0 = 0.5; 
+Pbeta0 = 0.9; 
 x0 = [0; 0; Pbeta0];
 human = BoltzmannHuman(x0, v, uRange, gamma, K, m, theta, delta_t, uThresh, ...
     numCtrls, betaModel, extraArgs);
@@ -92,7 +92,7 @@ HJIextraArgs.visualize.fontSize = 15;
 HJIextraArgs.ignoreBoundary = 0; 
 
 %uncomment if you want to see a 2D slice
-HJIextraArgs.visualize.plotData.plotDims = [1 1 1]; %plot x, y
+HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
 HJIextraArgs.visualize.plotData.projpt = {'min'}; %project pt
 HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
 
@@ -106,3 +106,5 @@ minWith = 'zero';
 [data, tau2, ~] = ...
   HJIPDE_solve_pred(data0, tau, schemeData, minWith, HJIextraArgs);
 
+save('data_folder/boltzmannBeta1_0_e_005_n_21.mat', 'data')
+save('grid_folder/boltzmannBeta1_0_e_005_n_21.mat', 'g')

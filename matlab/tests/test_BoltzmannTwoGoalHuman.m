@@ -17,12 +17,12 @@ K = [0, 0];
 m = 0;
 
 % Number of discrete controls
-numCtrls = 11;
+numCtrls = 21;
 
 delta_t = 1;
 
 % Threshold to determine likely controls
-uThresh = 0.1;
+uThresh = 0.05;
 
 % Are we using dynamic of static beta model?
 betaModel = 'static';
@@ -34,7 +34,7 @@ extraArgs.alpha = 0.5;
 extraArgs.DeltaB0 = 0.5; 
 
 % Setup dynamical system
-Pbeta0 = 0.5; 
+Pbeta0 = 0.1; 
 x0 = [0; 0; Pbeta0];
 human = BoltzmannTwoGoalHuman(x0, v, uRange, gamma, ...
                 goals, delta_t, uThresh, numCtrls, betaModel, extraArgs);
@@ -58,7 +58,7 @@ data0 = shapeSphere(g, x0, R);
 
 %% time vector
 t0 = 0;
-tMax = 5;
+tMax = 2;
 dt = 0.1;
 tau = t0:dt:tMax;
 uMode = 'max';
@@ -92,7 +92,7 @@ HJIextraArgs.visualize.fontSize = 15;
 HJIextraArgs.ignoreBoundary = 0; 
 
 %uncomment if you want to see a 2D slice
-HJIextraArgs.visualize.plotData.plotDims = [1 1 1]; %plot x, y
+HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
 HJIextraArgs.visualize.plotData.projpt = {'min'}; %project pt
 HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
 

@@ -26,27 +26,39 @@ function dx = dynamics(obj, t, x, u)
 %     end
         
     for i = 1:length(obj.dims)
-        
+        sumPrior = 0.0;
+        for j=1:length(obj.betas)-1
+            sumPrior = sumPrior + x{j+2};
+        end
+        validProb = (sumPrior >= 0) .* (sumPrior <= 1);
+        for j=1:length(obj.betas)-1
+            validProb = validProb .* (x{j+2} >= 0) .* (x{j+2} <= 1);
+        end
         if i == 1
             % NOTE: we need to "freeze" the dynamics when we have invalid
             % probabilities. 
-            dx{i} = obj.v .* cos(u) .* (x{3} >= 0) .* (x{3} <= 1); %.* likelyMasks; % see how to incorporate quick sum across priors
+            dx{i} = obj.v .* cos(u) .* validProb; %.* likelyMasks; % see how to incorporate quick sum across priors
         elseif i == 2
-            dx{i} = obj.v .* sin(u) .* (x{3} >= 0) .* (x{3} <= 1); %.* likelyMasks;
-        elseif i >= 3
-            if strcmp(obj.betaModel, 'static')
-                % NOTE: These dynamics are for a STATIONARY beta model. 
-                % TODO: check how to do beta update for multiple beta
-                dx{i} = obj.gamma * (obj.betaPosterior(x, u, i - 2) - x{i}) .* ... 
-                    (x{i} >= 0) .* (x{i} <= 1); %.* likelyMasks;
-            else
-                % NOTE: These dynamics are for a DYNAMIC beta model. 
-                dx{i} = obj.gamma * ((obj.betaPosterior(x, u, i - 2) - x{i}) + ...
-                    (obj.alpha * x{i} + (1 - obj.alpha) * obj.DeltaB0 - x{i})).* ...
-                    (x{i} >= 0) .* (x{u} <= 1); %.* likelyMasks;
+            dx{i} = obj.v .* sin(u) .* validProb; %.* likelyMasks;
+        elseif i == 3
+            betaPosteriors = obj.betaPosterior(x, u);
+            % NOTE: These dynamics are for a STATIONARY beta model. 
+            % TODO: check how to do beta update for multiple beta
+            for j=1:length(obj.betas)-1
+                dx{j+2} = obj.gamma * (betaPosteriors{j} - x{j+2}) .* ... 
+                    validProb;
             end
-        else
-            error('Only dimension 1-3 are defined for dynamics of GaussianHuman!')    
+%             if strcmp(obj.betaModel, 'static')
+%                 % NOTE: These dynamics are for a STATIONARY beta model. 
+%                 % TODO: check how to do beta update for multiple beta
+%                 dx{i} = obj.gamma * (obj.betaPosterior(x, u, i - 2) - x{i}) .* ... 
+%                     (x{i} >= 0) .* (x{i} <= 1); %.* likelyMasks;
+%             else
+%                 % NOTE: These dynamics are for a DYNAMIC beta model. 
+%                 dx{i} = obj.gamma * ((obj.betaPosterior(x, u, i - 2) - x{i}) + ...
+%                     (obj.alpha * x{i} + (1 - obj.alpha) * obj.DeltaB0 - x{i})).* ...
+%                     (x{i} >= 0) .* (x{u} <= 1); %.* likelyMasks;
+%             end  
         end
         
     end

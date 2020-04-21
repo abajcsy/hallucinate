@@ -1,4 +1,4 @@
-classdef BoltzmannHuman < DynSys
+ classdef BoltzmannHuman < DynSys
     properties
     	% Fixed human speed
         v
