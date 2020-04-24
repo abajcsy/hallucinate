@@ -57,7 +57,17 @@ for i=1:num_ctrls
 end
 
 % Likley control threshold. 
-uThresh = 0.03;
+threshByPercentile = true;
+% uThresh = 0.03;
+% uThresh = 0.1;
+% uThresh = 0.2;
+% uThresh = 0.3;
+% uThresh = 0.4;
+% uThresh = 0.5;
+% uThresh = 0.6;
+% uThresh = 0.7;
+% uThresh = 0.8;
+uThresh = 0.9;
 
 % Prior.
 prior = [0.5, 0.5];
@@ -68,7 +78,7 @@ saveFig = false;
 %% Plot state-dependant action probabilities: P(u|x)
 f1 = figure(1);
 plot_pu(us, us_probs_g1_x0, us_probs_g2_x0, g1, g2, ...
-    x0, uThresh, prior, saveFig);
+    x0, uThresh, prior, saveFig, threshByPercentile);
 
 %% Plot action probabilities: P(u|x,g1)
 figure(2)
@@ -162,8 +172,24 @@ function us = gen_controls(urange, num_ctrls)
     end
 end
 
+%% Return the indices of the controls of a given percentile of likelihood.
+function u_idxs = threshold_to_percentile(u_probs, thresh)
+    [sorted_u_probs, all_u_idxs] = sort(u_probs, 'descend');
+
+    prob_so_far = 0.0;
+    u_idxs = [];
+    for i=1:length(sorted_u_probs)
+        prob_so_far = prob_so_far + sorted_u_probs(i);
+        if prob_so_far < thresh
+            u_idxs(end+1) = all_u_idxs(i);
+        else
+            break;
+        end
+    end
+end
+
 %% Plotting function: P(u | x) = P(u | x, g1)P(g1) + P(u | x, g2)P(g2)
-function h = plot_pu(angles, pug1, pug2, g1, g2, x0, uThresh, prior, saveFig)
+function h = plot_pu(angles, pug1, pug2, g1, g2, x0, uThresh, prior, saveFig, threshByPercentile)
     hold on
     
     %rectangle('Position',[x0(1)-1 x0(2)-1 2 2],...
@@ -175,24 +201,19 @@ function h = plot_pu(angles, pug1, pug2, g1, g2, x0, uThresh, prior, saveFig)
     cmap = colormap(flipud(gray));
     cmap_smaller = cmap(offset:end-offset, :);
     
-    all_probs = pug1*prior(1) + pug2*prior(2);
-    max_prob = max(all_probs);
+    pug1_thresholded = pug1;
+    pug2_thresholded = pug2;
     
-    %% --- TESTING --- %%
-    [sorted_valid_data, u_idxs] = sort(all_probs, 'descend');
-
-    sum_p = 0.0;
-    likely_ctrl_idxs = [];
-    for i=1:length(sorted_valid_data)
-        sum_p = sum_p + sorted_valid_data(i);
-        if sum_p < (1-uThresh)
-            likely_ctrl_idxs(end+1) = u_idxs(i);
-        else
-            break;
-        end
+    if threshByPercentile
+        pug1_thresholded_uidxs = threshold_to_percentile(pug1, 1 - uThresh);
+        pug2_thresholded_uidxs = threshold_to_percentile(pug2, 1 - uThresh);
+    
+        pug1_thresholded(setdiff(1:length(pug1), pug1_thresholded_uidxs)) = 0;    
+        pug2_thresholded(setdiff(1:length(pug2), pug2_thresholded_uidxs)) = 0;
     end
-    %eps_index = find(cumsum(sorted_valid_data) >= uThresh, 1, 'first');
-    %opt_eps = sorted_valid_data(eps_index);
+    
+    all_probs = pug1_thresholded*prior(1) + pug2_thresholded*prior(2);
+    max_prob = max(all_probs);
     
     norm = 1/max_prob;
     normalized_cmap = cmap/norm;
@@ -209,9 +230,11 @@ function h = plot_pu(angles, pug1, pug2, g1, g2, x0, uThresh, prior, saveFig)
         yunit = x0(2) + sin(th);
         
         % Compute: P(u | x) = P(u | x, g1)P(g1) + P(u | x, g2)P(g2)
-        prob = pug1(i)*prior(1) + pug2(i)*prior(2);
+%         prob = pug1(i)*prior(1) + pug2(i)*prior(2);
+        prob = pug1_thresholded(i)*prior(1) + pug2_thresholded(i)*prior(2);
         
-        if prob >= uThresh
+        if (threshByPercentile && prob > 0) || ...
+           (~threshByPercentile && prob >= uThresh)
             if xunit > 0 && yunit <= 0
                 t = text(xunit+0.2, yunit-0.1, num2str(prob, 2));
             elseif xunit >= 0 && yunit > 0
