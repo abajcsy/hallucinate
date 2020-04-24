@@ -14,7 +14,7 @@ gridMin = [-4,-4];
 gridMax = [4,4];
 
 % Set the prior over goal 1 and goal 2.
-prior = [0.9, 0.1];
+prior = [0.5, 0.5];
 
 % Grid cell size.
 r = 0.1;
@@ -41,7 +41,7 @@ tEnd = toc(tStart);
 fprintf(strcat("Static param pred time: ", num2str(tEnd), " s\n"));
 
 % Reachability threshold.
-delta = 0.0;
+delta = 0.01;
 
 figure(2);
 hold on

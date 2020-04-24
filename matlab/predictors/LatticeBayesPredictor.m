@@ -19,9 +19,9 @@ classdef LatticeBayesPredictor
         usIdxs      % (cell arr) index of each control
         ubounds     % (cell arr) integration bounds for each control.
         
-        %truncG1
-        %truncG2
-        truncpd     % truncated zero-mean gaussian.
+        truncG1
+        truncG2
+        %truncpd     % truncated zero-mean gaussian.
         
         rows
         cols
@@ -57,13 +57,13 @@ classdef LatticeBayesPredictor
                 end
             end
                         
-%             pd1 = makedist('Normal','mu',0,'sigma',obj.sigma1);
-%             pd2 = makedist('Normal','mu',0,'sigma',obj.sigma2);
-%             obj.truncG1 = truncate(pd1, -pi, pi);
-%             obj.truncG2 = truncate(pd2, -pi, pi);
+            pd1 = makedist('Normal','mu',0,'sigma',obj.sigma1);
+            pd2 = makedist('Normal','mu',0,'sigma',obj.sigma2);
+            obj.truncG1 = truncate(pd1, -pi, pi);
+            obj.truncG2 = truncate(pd2, -pi, pi);
 
-            pd = makedist('Normal','mu',0,'sigma',obj.sigma1);
-            obj.truncpd = truncate(pd, -pi, pi);
+%             pd = makedist('Normal','mu',0,'sigma',obj.sigma1);
+%             obj.truncpd = truncate(pd, -pi, pi);
             
             % Enumerate all the controls for a lattice predictor.
             %   UP_RIGHT = 1
@@ -122,9 +122,9 @@ classdef LatticeBayesPredictor
                             % world
                             if isValid
                                 ureal = obj.us(uid);
-                                pug = obj.Pu_given_x_g(ureal, s, g);
+                                pug = obj.Pu_given_x_g_normalized(ureal, s, g);
 
-                                % P(u|x,g) * P(g) * P(x)
+                                % P(x'|x, g) = \sum_u P(x'|x,u) * P(u|x,g) * P(x)
                                 preds{t}(snext(1), snext(2)) = ...
                                     preds{t}(snext(1), snext(2)) + ...
                                     pug *  preds{t-1}(s(1), s(2));
@@ -169,8 +169,10 @@ classdef LatticeBayesPredictor
                 grid = zeros(obj.gridDims);
                 for scurr = obj.states
                     s = scurr{1};
-                    pug1 = obj.Pu_given_x_g(u, s, 1);
-                    pug2 = obj.Pu_given_x_g(u, s, 2);
+                    %pug1 = obj.Pu_given_x_g(u, s, 1);
+                    %pug2 = obj.Pu_given_x_g(u, s, 2);
+                    pug1 = obj.Pu_given_x_g_normalized(u, s, 1);
+                    pug2 = obj.Pu_given_x_g_normalized(u, s, 2);
                     grid(s(1), s(2)) = pug1*obj.prior(1) + pug2*obj.prior(2);
                 end
                 pcolor(gString.xs{2}, gString.xs{1}, grid);
@@ -233,6 +235,49 @@ classdef LatticeBayesPredictor
                 end
             end
         end
+        
+        
+        %% Compute the probability of a specific action given a state and beta value.
+        %  Gaussian observation model:
+        %
+        %       P(u | x0; g1) = N(atan2(g1(y) - y, g1(x) - x), sigma_1^2)
+        %
+        %  and 
+        % 
+        %       P(u | x0; g2) = N(atan2(g2(y) - y, g2(x) - x), sigma_2^2)
+        %
+        function prob = Pu_given_x_g_normalized(obj, u, s0, goalIdx)
+            % Get the lower and upper bounds to integrate the Gaussian 
+            % PDF over.
+            [x, y] = obj.simToReal(s0);    
+            uopt = atan2(obj.goals{goalIdx}(2)- y, obj.goals{goalIdx}(1) - x);
+            
+            % minimum angular distance between current control (u) and uopt
+            diff = abs(angdiff(u, uopt));
+
+            truncpd = [];
+            if goalIdx == 1
+                truncpd = obj.truncG1;
+            elseif goalIdx == 2
+                truncpd = obj.truncG2;
+            else
+                error("Goal idx is not valid in Pugiveng.");
+            end
+            
+            % Get all the probabilities
+            unnormalized_probs = pdf(truncpd, diff);
+            
+            % normalize.
+            norm = zeros(size(u));
+            for otheru=obj.us
+                otheru_arr = otheru * ones(size(u));
+                otherdiff = abs(angdiff(otheru_arr, uopt));
+                new_prob = pdf(truncpd, otherdiff);
+                norm = norm + new_prob;
+            end
+            
+            prob = unnormalized_probs ./ norm;
+        end        
         
         %% Converts from real state (m) to coordinate (i,j)
         function  [i, j] = realToSim(obj, x)

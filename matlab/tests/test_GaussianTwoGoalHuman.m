@@ -7,7 +7,7 @@ clear all
 v = 0.6;
 
 % Control bounds
-uRange = [-pi+1e-2; pi];
+uRange = [-pi; pi];
 
 % gamma in continuous-time P(beta = 0) dynamics
 gamma = 0.01;
@@ -22,7 +22,7 @@ uThresh = 0.03;
 sigma = pi/4;
 
 % Known human goal locations. 
-goals = {[2, -2], [2, 2]}; 
+goals = {[2, 2], [2, -2]}; 
 
 % Are we using dynamic of static beta model?
 betaModel = 'static';
@@ -46,9 +46,11 @@ g = createGrid(grid_min, grid_max, N);
 human.setGrid(g);
 
 %% Pre-compute the optimal control over the entire state-space.
+fprintf("Pre-computing opt control for each goal over all states...\n");
 human.computeUOptGoals(g.xs);
 
 %% Pre-compute the likely controls and dynamics over the entire state-space.
+fprintf("Pre-computing dynamics for each state and control...\n");
 human.computeUAndXDot(g.xs);
 
 %% target set

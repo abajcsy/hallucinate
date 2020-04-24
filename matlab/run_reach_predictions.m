@@ -15,7 +15,7 @@ uRange = [-pi; pi];
 human_sigma = 0.0;
 
 % Known human goal locations. 
-goals = {[2, -2], [2, 2]}; 
+goals = {[2, 2], [2, -2]}; 
 
 % True goal that human is going to.
 %trueIdx = 1;
@@ -121,7 +121,7 @@ minWith = 'set';
 %% Simulation params. 
 
 % Number of simulation steps. (real sim time = T*dt)
-T = 50;
+simT = 36;
 
 dimsToRemove = [0 0 1];
 xcurr = x0;
@@ -129,16 +129,16 @@ xcurr = x0;
 % Color setup.
 start_color = [97, 17, 90]/255.;
 end_color = [235, 19, 216]/255.;
-red = linspace(start_color(1), end_color(1), T+1);
-green = linspace(start_color(2), end_color(2), T+1);
-blue = linspace(start_color(3), end_color(3), T+1);
-hcolor = linspace(0.3, 1, T+1);
+red = linspace(start_color(1), end_color(1), simT+1);
+green = linspace(start_color(2), end_color(2), simT+1);
+blue = linspace(start_color(3), end_color(3), simT+1);
+hcolor = linspace(0.3, 1, simT+1);
 
 posterior_times = [];
 posteriors = [];
 
 hold on;
-for t=1:T+1
+for t=1:simT+1
     % Store time and posterior.
     posterior_times(end+1) = t*dt;
     posteriors(end+1) = Pgoal1;
@@ -191,8 +191,8 @@ for t=1:T+1
     
     %% Update Posterior.
     xcurr_cell = {xcurr(1), xcurr(2)}; 
-    pu_goal1 = predictor.PuGivenGoal(ucurr, xcurr_cell, 1);
-    pu_goal2 = predictor.PuGivenGoal(ucurr, xcurr_cell, 2);
+    pu_goal1 = predictor.PuGivenGoal_normalized(ucurr, xcurr_cell, 1);
+    pu_goal2 = predictor.PuGivenGoal_normalized(ucurr, xcurr_cell, 2);
     Pgoal1 = (pu_goal1*Pgoal1)/(pu_goal1*Pgoal1 + pu_goal2*(1-Pgoal1));
     
     %% Update initial set. 

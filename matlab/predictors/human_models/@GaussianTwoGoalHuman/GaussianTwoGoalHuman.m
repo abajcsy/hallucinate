@@ -136,8 +136,8 @@ classdef GaussianTwoGoalHuman < DynSys
             %  Note that our third state is x(3) = P(goal=g1 | xt-1, ut-1)
             
             % Get probability of u under each goal.
-            PuGivenG1 = obj.PuGivenGoal(u, x, 1);
-            PuGivenG2 = obj.PuGivenGoal(u, x, 2);
+            PuGivenG1 = obj.PuGivenGoal_normalized(u, x, 1);
+            PuGivenG2 = obj.PuGivenGoal_normalized(u, x, 2);
             
             % Get the probabilities of each goal.
             PG1 = x{3};
@@ -229,6 +229,47 @@ classdef GaussianTwoGoalHuman < DynSys
            
         end
         
+        %% Computes P(u | x, goal) where goal=g1 or g2
+        %  The observation models are:
+        %   
+        %       P(u | x, goal = g1) = N(atan2(g1_y - y, g1_x - x), sigma^2)
+        % 
+        %  and 
+        % 
+        %       P(u | x, goal = g2) = N(atan2(g2_y - y, g2_x - x), sigma^2)
+        % 
+        %  where N stands for the normal distribution. 
+        function pu = PuGivenGoal_normalized(obj, u, x, goalIdx)
+            if isempty(obj.uOptG1) || isempty(obj.uOptG2)
+               error('Optimal controls for the observation model have not been precomputed!\n');
+               error('Make sure to first run computeUOptGoals(x).\n');
+            end
+           
+            % get optimal control towards curr goal. 
+            if goalIdx == 1
+                uopt = obj.uOptG1;
+            elseif goalIdx == 2
+                uopt = obj.uOptG2;
+            else
+                error("PuGivenGoal_normalized: goalIdx is invalid!");
+            end
+            
+            % compute probability of each action.
+            diff = abs(angdiff(u, uopt));
+            unnormalized_probs = pdf(obj.truncpd, diff);
+            
+            % normalize.
+            norm = zeros(size(u));
+            for otheru=obj.us
+                otheru_arr = otheru * ones(size(u));
+                otherdiff = abs(angdiff(otheru_arr, uopt));
+                new_prob = pdf(obj.truncpd, otherdiff);
+                norm = norm + new_prob;
+            end
+
+            pu = unnormalized_probs ./ norm;
+        end
+        
         function [likelyCtrls, likelyMasks] = getLikelyControls(obj, x)
             %% Gets the set of controls that are more likely than uThresh
             %                   P(u_t | x_t) >= uThresh
@@ -248,10 +289,9 @@ classdef GaussianTwoGoalHuman < DynSys
                 % Make array of this control the size of our statespace. 
                 uarr = u * ones(size(x{1}));
                 
-                
                 % Get probability of u under each goal.
-                PuGivenG1 = obj.PuGivenGoal(uarr, x, 1);
-                PuGivenG2 = obj.PuGivenGoal(uarr, x, 2);
+                PuGivenG1 = obj.PuGivenGoal_normalized(uarr, x, 1);
+                PuGivenG2 = obj.PuGivenGoal_normalized(uarr, x, 2);
                 
                 % Get the probabilities of each goal.
                 PG1 = x{3};
