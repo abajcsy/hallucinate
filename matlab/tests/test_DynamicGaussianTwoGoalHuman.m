@@ -16,7 +16,7 @@ gamma = 0.01;
 numCtrls = 31;
 
 % Threshold to determine likely controls
-uThresh = 0.01; 
+uThresh = 0.01;
 
 % Variance in normal distributions
 sigma = pi/4;
@@ -38,6 +38,11 @@ Pgoal1 = 0.9;
 x0 = [0; 0; Pgoal1];
 human = GaussianTwoGoalHuman(x0, v, uRange, gamma, goals, sigma, uThresh, numCtrls, ...
     betaModel, extraArgs);
+
+human.debugMode = false;
+human.percentileThresh = 0.99;
+% human.percentileThresh = 0.10;
+human.usePercentileThresh = true;
 
 %% Grid
 grid_min = [-4; -4; -0.1];  % Lower corner of computation domain

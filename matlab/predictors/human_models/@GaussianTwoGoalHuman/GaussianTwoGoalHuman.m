@@ -11,6 +11,10 @@ classdef GaussianTwoGoalHuman < DynSys
 
         % Probability threshold for determining likely controls
         uThresh
+        
+        % Percentile of controls to keep as likely controls
+        percentileThresh
+        usePercentileThresh
 
         % HMM model parameter
         gamma
@@ -53,6 +57,8 @@ classdef GaussianTwoGoalHuman < DynSys
         betaModel
         
         grid
+        
+        debugMode
     end
     
     methods
@@ -101,6 +107,8 @@ classdef GaussianTwoGoalHuman < DynSys
           obj.uOptG1 = [];
           obj.uOptG2 = [];
           obj.grid = [];
+          
+          obj.debugMode = false;
           
           % Generate numCtrls equally spaced controls in uRange.
           obj.us = obj.genControls();
@@ -270,7 +278,93 @@ classdef GaussianTwoGoalHuman < DynSys
             pu = unnormalized_probs ./ norm;
         end
         
+        function u_idxs = thresholdToPercentile(obj, u_probs)
+            %% Return the indices of the controls of a given percentile of likelihood.
+            [sorted_u_probs, all_u_idxs] = sort(u_probs, 'descend');
+            
+            prob_so_far = 0.0;
+            u_idxs = [];
+            for i=1:length(sorted_u_probs)
+                prob_so_far = prob_so_far + sorted_u_probs(i);
+                if prob_so_far < obj.percentileThresh
+                    u_idxs(end+1) = all_u_idxs(i);
+                else
+                    break;
+                end
+            end
+        end
+        
+        function [likelyCtrls, likelyMasks] = getLikelyControlsPercentile(obj, x)
+            likelyCtrls = cell(1, obj.numCtrls);
+            likelyMasks = containers.Map;
+            
+            if obj.debugMode
+                fprintf('Computing control likelihoods for each state...\n');
+            end
+            
+            % Compute the control likelihoods for each state.
+            probCtrl = zeros(obj.grid.N(1), obj.grid.N(2), obj.grid.N(3), obj.numCtrls);
+            for i=1:obj.numCtrls
+                u = obj.us(i);
+                uarr = u * ones(size(x{1}));
+                
+                PuGivenG1 = obj.PuGivenGoal_normalized(uarr, x, 1);
+                PuGivenG2 = obj.PuGivenGoal_normalized(uarr, x, 2);
+                PG1 = x{3};
+                PG2 = 1 - x{3};
+                probCtrl(:, :, :, i) = (PuGivenG1 .* PG1) + (PuGivenG2 .* PG2);
+                likelyCtrls{i} = uarr;
+            end
+            
+            if obj.debugMode
+                fprintf('Thresholding to percentile...');
+            end
+                            
+            for x_idx=1:obj.grid.N(1)
+                for y_idx=1:obj.grid.N(2)
+                    for p_idx=1:obj.grid.N(3)
+                        u_probs = reshape(probCtrl(x_idx, y_idx, p_idx, :), obj.numCtrls, 1);
+                        u_idxs = obj.thresholdToPercentile(u_probs);
+                        
+                        % Apply the percentile threshold.
+                        u_probs(setdiff(1:length(u_probs), u_idxs)) = 0;
+                        probCtrl(x_idx, y_idx, p_idx, :) = reshape(u_probs, 1, 1, 1, obj.numCtrls);
+                    end
+                end
+            end
+            
+            if obj.debugMode
+                fprintf('...done');
+            end            
+            
+            for i=1:obj.numCtrls
+                u = obj.us(i);
+                likelyMasks(num2str(u)) = (probCtrl(:, :, :, i) > 0);
+                
+                if obj.debugMode
+                    % ------ DEBUGGING ------ %
+                    tmp = (probCtrl(:, :, :, i) > 0) * 1;
+                    figure(3);
+                    pcolor(obj.grid.xs{1}(:,:,1), obj.grid.xs{2}(:,:,1), tmp(:,:,10));
+                    title(['Opt control to get to goal1 (u = ' num2str(u) ')']);
+                    colormap('bone')
+                    colorbar
+                    % ------ DEBUGGING ------ %
+                end
+                
+                likelyCtrls{i} = uarr;                
+            end
+        end
+        
         function [likelyCtrls, likelyMasks] = getLikelyControls(obj, x)
+            if obj.usePercentileThresh
+                [likelyCtrls, likelyMasks] = obj.getLikelyControlsPercentile(x);
+            else
+                [likelyCtrls, likelyMasks] = obj.getLikelyControlsThreshold(x);
+            end
+        end
+        
+        function [likelyCtrls, likelyMasks] = getLikelyControlsThreshold(obj, x)
             %% Gets the set of controls that are more likely than uThresh
             %                   P(u_t | x_t) >= uThresh
             %  Input: 
@@ -304,14 +398,17 @@ classdef GaussianTwoGoalHuman < DynSys
                 % Pick out the controls at the states where P >= epsilon
                 likelyMasks(num2str(u)) = (PuGivenX >= obj.uThresh);
                 
-%                 % ------ DEBUGGING ------ %
-%                 tmp = (PuGivenX >= obj.uThresh) * 1;
-%                 figure(3);
-%                 pcolor(obj.grid.xs{1}(:,:,1), obj.grid.xs{2}(:,:,1), tmp(:,:,10));
-%                 title('Opt control to get to goal1');
-%                 colormap('bone')
-%                 colorbar
-%                 % ------ DEBUGGING ------ %
+                if obj.debugMode
+                    % ------ DEBUGGING ------ %
+                    tmp = (PuGivenX >= obj.uThresh) * 1;
+                    figure(3);
+                    pcolor(obj.grid.xs{1}(:,:,1), obj.grid.xs{2}(:,:,1), tmp(:,:,10));
+                    
+                    title(['Opt control to get to goal1' num2str(u)]);
+                    colormap('bone')
+                    colorbar
+                    % ------ DEBUGGING ------ %
+                end
                 
                 likelyCtrls{i} = uarr;
             end
