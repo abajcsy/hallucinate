@@ -352,7 +352,7 @@ classdef GaussianTwoGoalHuman < DynSys
                     % ------ DEBUGGING ------ %
                 end
                 
-                likelyCtrls{i} = uarr;                
+%                 likelyCtrls{i} = uarr;                
             end
         end
         

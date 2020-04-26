@@ -34,13 +34,16 @@ extraArgs.DeltaB0 = 0.5; % beta = 0 <==> goal = 1
 extraArgs.alpha = 0.8;
 
 % Setup dynamical system
-Pgoal1 = 0.9; 
+% Pgoal1 = 0.9; 
+Pgoal1 = 0.5;
 x0 = [0; 0; Pgoal1];
 human = GaussianTwoGoalHuman(x0, v, uRange, gamma, goals, sigma, uThresh, numCtrls, ...
     betaModel, extraArgs);
 
 human.debugMode = false;
-human.percentileThresh = 0.99;
+% human.percentileThresh = 0.99;
+human.percentileThresh = 0.3;
+% human.percentileThresh = 0.5;
 % human.percentileThresh = 0.10;
 human.usePercentileThresh = true;
 

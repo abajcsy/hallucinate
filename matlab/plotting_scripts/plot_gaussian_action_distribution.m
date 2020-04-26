@@ -205,6 +205,7 @@ function h = plot_pu(angles, pug1, pug2, g1, g2, x0, uThresh, prior, saveFig, th
     pug2_thresholded = pug2;
     
     if threshByPercentile
+        % TODO Fix this to threshold on Pugivenx not Pugivenxg
         pug1_thresholded_uidxs = threshold_to_percentile(pug1, 1 - uThresh);
         pug2_thresholded_uidxs = threshold_to_percentile(pug2, 1 - uThresh);
     
