@@ -35,6 +35,16 @@ Pgoal1 = 0.5;
 x0 = [0; 0; Pgoal1];
 human = GaussianTwoGoalHuman(x0, v, uRange, gamma, goals, sigma, uThresh, numCtrls, ...
     betaModel, extraArgs);
+human.debugMode = false;
+human.usePercentileThresh = true;
+
+% Get the controls which make up the top percentileThresh% of controls.
+if human.usePercentileThresh
+    % human.percentileThresh = 0.99;
+    %human.percentileThresh = 0.6;
+     human.percentileThresh = 0.3;
+    % human.percentileThresh = 0.10;
+end 
 
 %% Grid
 grid_min = [-4; -4; -0.1];  % Lower corner of computation domain
@@ -98,10 +108,10 @@ HJIextraArgs.visualize.fontSize = 15;
 % trust values near the boundary of grid
 HJIextraArgs.ignoreBoundary = 0; 
 
-%uncomment if you want to see a 2D slice
-HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
-HJIextraArgs.visualize.plotData.projpt = {'min'}; %project pt
-HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
+% %uncomment if you want to see a 2D slice
+% HJIextraArgs.visualize.plotData.plotDims = [1 1 0]; %plot x, y
+% HJIextraArgs.visualize.plotData.projpt = {'min'}; %project pt
+% HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
 
 minWith = 'set';
 %minWith = 'zero';
@@ -149,7 +159,7 @@ for t=1:length(tau2)
     ylim([grid_min(2), grid_max(2)]);
     set(gcf,'Position',[100 100 700 700]);
     set(gcf,'color','w');
-    whitebg('k');
+    whitebg('w');
     grid on
     pause(0.1);
 end

@@ -254,12 +254,17 @@ classdef GaussianTwoGoalHuman < DynSys
             end
            
             % get optimal control towards curr goal. 
-            if goalIdx == 1
-                uopt = obj.uOptG1;
-            elseif goalIdx == 2
-                uopt = obj.uOptG2;
-            else
-                error("PuGivenGoal_normalized: goalIdx is invalid!");
+            if length(u) == 1
+                uopt = atan2(obj.goals{goalIdx}(2)- x{2}, ...
+                             obj.goals{goalIdx}(1) - x{1});
+            else 
+                if goalIdx == 1
+                    uopt = obj.uOptG1;
+                elseif goalIdx == 2
+                    uopt = obj.uOptG2;
+                else
+                    error("PuGivenGoal_normalized: goalIdx is invalid!");
+                end
             end
             
             % compute probability of each action.
@@ -282,19 +287,27 @@ classdef GaussianTwoGoalHuman < DynSys
             %% Return the indices of the controls of a given percentile of likelihood.
             [sorted_u_probs, all_u_idxs] = sort(u_probs, 'descend');
             
+%             eps_index = find(cumsum(sorted_u_probs) > obj.percentileThresh, 1, 'first');
+%     
+%             if isempty(eps_index)
+%                 % if we can't find likely enough states, then we should take max. 
+%                 eps_index = find(max(cumsum(sorted_valid_data)), 1, 'first');
+%             end
+            
             prob_so_far = 0.0;
             u_idxs = [];
             for i=1:length(sorted_u_probs)
-                prob_so_far = prob_so_far + sorted_u_probs(i);
                 if prob_so_far < obj.percentileThresh
                     u_idxs(end+1) = all_u_idxs(i);
                 else
                     break;
                 end
+                prob_so_far = prob_so_far + sorted_u_probs(i);
             end
         end
         
         function [likelyCtrls, likelyMasks] = getLikelyControlsPercentile(obj, x)
+            %% Gets likely controls based on percentiles.
             likelyCtrls = cell(1, obj.numCtrls);
             likelyMasks = containers.Map;
             
@@ -357,9 +370,12 @@ classdef GaussianTwoGoalHuman < DynSys
         end
         
         function [likelyCtrls, likelyMasks] = getLikelyControls(obj, x)
+            %% Switch between different methods of getting likely controls. 
             if obj.usePercentileThresh
+                fprintf('----> Thresholding by percentile.');
                 [likelyCtrls, likelyMasks] = obj.getLikelyControlsPercentile(x);
             else
+                fprintf('----> Thresholding by value.');
                 [likelyCtrls, likelyMasks] = obj.getLikelyControlsThreshold(x);
             end
         end

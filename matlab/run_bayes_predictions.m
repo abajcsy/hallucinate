@@ -80,6 +80,7 @@ dt = r / v;
 % dt = gString.dx(1)/v;
 T = 1.8;        %3              % horizon in (seconds)
 H = floor(T/dt);                % horizon in (timesteps)
+discrete_times = 0:1:H+1;       % (used for data storing and plotting)
 
 %% Simulation params. 
 
@@ -102,6 +103,7 @@ human_states = {};
 times = [];
 posteriors = [];
 all_preds = {};
+all_pred_times = {};
 
 %% Save data? Plot?
 saveData = true;
@@ -120,6 +122,7 @@ for t=1:simT+1
     % Predict the human.
     preds = predictor.predict(xcurr, H);
     all_preds{end+1} = preds; 
+    all_pred_times{end+1} = discrete_times*dt;
 
     %% Plotting. 
     if plotData
@@ -185,7 +188,8 @@ if saveData
     repo = what('hallucinate');
     filename = strcat('bayesian_', type_of_pred, '_pg1', num2str(prior(1)), '.mat');
     save(strcat(repo.path, '/ral_data/', filename), ...
-        'human_states', 'times', 'posteriors', 'all_preds', 'predictor', 'prior');
+        'human_states', 'times', 'posteriors', 'all_preds', ...
+        'all_pred_times', 'predictor', 'prior');
 end
 
 %% Grab all the likely-enough predicted states.
