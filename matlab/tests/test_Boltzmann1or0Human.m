@@ -5,7 +5,7 @@ clear all
 %% Grid
 grid_min = [-8; -8; -0.1];  % Lower corner of computation domain
 grid_max = [8; 8; 1.1];     % Upper corner of computation domain
-N = [31; 31; 31];           % Number of grid points per dimension
+N = [51; 51; 51];           % Number of grid points per dimension
 g = createGrid(grid_min, grid_max, N);
 
 %% Create human dynamical system
@@ -19,7 +19,7 @@ g = createGrid(grid_min, grid_max, N);
 %                       realize human is going towards ground truth goal
 
 % Velocity
-v = 0.6;
+v = 0.2;
 
 % Control bounds
 uRange = [-pi+1e-2; pi];
@@ -28,16 +28,18 @@ uRange = [-pi+1e-2; pi];
 gamma = 1;
 
 % Number of discrete controls
-numCtrls = 6;
+numCtrls = 51;
 
 % Timestep in discretized dynamics (for Q-function computation).
-delta_t = 1; % 0.1;
+delta_t = 1/gamma; % 0.1;
 
 % Human's goal location.
-goals = {[1, -1],[1, 1]};
+goals = {[1, 0],[1, 1]};
+theta = [1, 0];
 
 % Threshold to determine likely controls
-uThresh = 0.3;
+uThresh = 0.05;
+% uThresh = 0.035;
 
 % Are we using dynamic of static beta model?
 betaModel = 'static';
@@ -50,10 +52,10 @@ tol = 0.1;
 
 % ---- Setup for Computation ---- %
 % start with high prior on beta=1, but true is goal = 1 
-Pgoal1 = 0.5; 
-trueGoalIdx = 1; %2;
+Pgoal1 = 0.1; 
+beta = 1; %1;
 goalSetRad = 0.5;
-centerPgoal1 = 1; %0;
+centerPgoal1 = 0.9; %1;
 
 % Choose what kind of target set we are using.
 compType = 'conf';
@@ -75,11 +77,10 @@ extraPltArgs.saveFigs = false;
 % ---- Plotting info --- %
 
 % Setup dynamical system
-x0 = [0; 0; Pgoal1];
-human = BoltzmannG1orG2Human(x0, v, uRange, gamma, ...
-                trueGoalIdx, goals, delta_t, uThresh, ...
-                numCtrls, betaModel, extraArgs);
-
+x0 = [-5; 0; Pgoal1];
+human = Boltzmann1or0Human(x0, v, beta, uRange, gamma, ...
+                theta, delta_t, uThresh, numCtrls, betaModel, extraArgs);
+            
 %% Setup target set
 xyoffset = 0.1;
 poffset = 0.01;
@@ -125,8 +126,8 @@ schemeData.dynSys = human;
 schemeData.accuracy = 'medium'; %set accuracy
 schemeData.uMode = uMode;
 schemeData.tMode = 'backward';
-schemeData.hamFunc = @boltzmannG1orG2Human_ham;
-schemeData.partialFunc = @boltzmannG1orG2Human_partial;
+schemeData.hamFunc = @boltzmann1or0Human_ham;
+schemeData.partialFunc = @boltzmann1or0Human_partial;
 
 %% Setup value function computation params.
 % HJIextraArgs.visualize = true; %show plot
@@ -155,7 +156,7 @@ minWith = 'zero';
 
 %% Debugging
 fprintf('------ Boltzmann 2 Goal Prediction Analysis Setup -------\n');
-fprintf('   true human goal: %d\n', trueGoalIdx);
+fprintf('   true human beta: %d\n', beta);
 fprintf('   [x, y, P(g=g1)]: [%d, %d, %d]\n', x0(1), x0(2), x0(3));
 fprintf('   uMode: %s\n', uMode);
 fprintf('--------------------------------------\n');
@@ -197,14 +198,15 @@ valueFuns = flip(valueFuns,4);
 tmin = times(end);
 tminIdx = length(times);
 
+extraArgs.uMode = uMode;
 %% Get the optimal trajectory.
 [traj, traj_tau] = computeOptTraj(g, valueFuns, times, human, extraArgs);
 
-fprintf("Minimum time it takes to realize goal=%d is %f\n", ...
-    trueGoalIdx, traj_tau(end));
+fprintf("Minimum time it takes to realize beta=%d is %f\n", ...
+    beta, traj_tau(end));
         
 %% Plot the trajectory.
-plotTraj(traj, traj_tau, goals, trueGoalIdx, ...
+plotTraj(traj, traj_tau, goals, 1, ...
     grid_min, grid_max, goalSetRad, extraPltArgs);
 
 % save('uopt_09thresh.mat', 'uopt', 'human', 'times', 'tminIdx', 'goals', 'trueGoalIdx', 'grid_min', 'grid_max', 'goalSetRad', 'dt');
@@ -292,26 +294,26 @@ function plotTraj(traj, traj_tau, goals, trueGoalIdx, ...
     t1.Color = g1Color;
 
     % Plot GOAL 2
-    if strcmp(extraPltArgs.compType, 'conf_and_goal') || ...
-            strcmp(extraPltArgs.compType, 'goal')
-        rectangle('Position',[goals{2}(1)-goalSetRad ...
-                  goals{2}(2)-goalSetRad ...
-                  goalSetRad*2 ...
-                  goalSetRad*2],...
-                  'Curvature',1, ...
-                  'FaceColor',[0.7098, 0.8980, 1.0000],...
-                  'EdgeColor',[0.7098, 0.8980, 1.0000],...
-                  'LineWidth',1);
-    end
-    plot3(goals{2}(1), goals{2}(2), 0.5, '-o', ...
-                'Color', g2Color, ...
-                'markeredgecolor', g2Color, ...
-                'markerfacecolor', g2Color);
-            
-    g2Txt = 'g2';
-    t2 = text(goals{2}(1)+0.3, goals{2}(2), 0.55, g2Txt);
-    t2.FontSize = 12;
-    t2.Color = g2Color;
+%     if strcmp(extraPltArgs.compType, 'conf_and_goal') || ...
+%             strcmp(extraPltArgs.compType, 'goal')
+%         rectangle('Position',[goals{2}(1)-goalSetRad ...
+%                   goals{2}(2)-goalSetRad ...
+%                   goalSetRad*2 ...
+%                   goalSetRad*2],...
+%                   'Curvature',1, ...
+%                   'FaceColor',[0.7098, 0.8980, 1.0000],...
+%                   'EdgeColor',[0.7098, 0.8980, 1.0000],...
+%                   'LineWidth',1);
+%     end
+%     plot3(goals{2}(1), goals{2}(2), 0.5, '-o', ...
+%                 'Color', g2Color, ...
+%                 'markeredgecolor', g2Color, ...
+%                 'markerfacecolor', g2Color);
+%             
+%     g2Txt = 'g2';
+%     t2 = text(goals{2}(1)+0.3, goals{2}(2), 0.55, g2Txt);
+%     t2.FontSize = 12;
+%     t2.Color = g2Color;
     
     grid on;
     xticks([grid_min(1), -3, -2, -1, 0, 1, 2, 3, grid_max(1)]);

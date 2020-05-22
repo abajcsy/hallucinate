@@ -22,7 +22,7 @@ delta_t = 1;
 gamma = 1/delta_t;
 
 % Threshold to determine likely controls
-uThresh = 0.00;
+uThresh = 0.00; % 0.00
 
 % Are we using dynamic of static beta model?
 betaModel = 'static';
@@ -36,8 +36,11 @@ extraArgs.DeltaB0 = 0.5;
 % Setup dynamical system
 Pbeta0 = 0.5; 
 x0 = [0; 0; Pbeta0];
-human = BoltzmannHuman(x0, v, uRange, gamma, K, m, theta, delta_t, uThresh, ...
-    numCtrls, betaModel, extraArgs);
+% human = BoltzmannHuman(x0, v, uRange, gamma, K, m, theta, delta_t, uThresh, ...
+%     numCtrls, betaModel, extraArgs);
+beta = 0;
+human = Boltzmann1or0Human(x0, v, beta, uRange, gamma, ...
+                theta, delta_t, uThresh, numCtrls, betaModel, extraArgs);
 
 %% Grid
 grid_min = [-2; -2; -0.1];  % Lower corner of computation domain
@@ -70,8 +73,8 @@ schemeData.dynSys = human;
 schemeData.accuracy = 'high'; %set accuracy
 schemeData.uMode = uMode;
 schemeData.tMode = 'forward';
-schemeData.hamFunc = @boltzmannHuman_ham;
-schemeData.partialFunc = @boltzmannHuman_partial;
+schemeData.hamFunc = @boltzmann1or0Human_ham;
+schemeData.partialFunc = @boltzmann1or0Human_partial;
 
 %% Compute value function
 % HJIextraArgs.visualize = true; %show plot
@@ -80,10 +83,12 @@ HJIextraArgs.visualize.initialValueSet = 0;
 HJIextraArgs.visualize.figNum = 1; %set figure number
 HJIextraArgs.visualize.deleteLastPlot = true; %delete previous plot as you update
 HJIextraArgs.visualize.viewGrid = true;
-HJIextraArgs.visualize.viewAxis = [-2 2 -2 2 -0.1 1.1];
+HJIextraArgs.visualize.viewAxis = [grid_min(1) grid_max(1) ...
+                                   grid_min(2) grid_max(2) ...
+                                   -0.1 1.1];
 HJIextraArgs.visualize.xTitle = '$p^x$';
 HJIextraArgs.visualize.yTitle = '$p^y$';
-HJIextraArgs.visualize.zTitle = '$P(\beta = 0)$';
+HJIextraArgs.visualize.zTitle = '$P(\beta = 1)$';
 HJIextraArgs.visualize.fontSize = 15;
 %HJIextraArgs.visualize.camlightPosition = [0 0 0];
 

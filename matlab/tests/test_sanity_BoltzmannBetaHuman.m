@@ -22,21 +22,25 @@ delta_t = 1;
 gamma = 1/delta_t;
 
 % Threshold to determine likely controls
-uThresh = 0.00;
+uThresh = 0.04;
 
 % Are we using dynamic of static beta model?
 betaModel = 'static';
 
-theta = [2 0];
+theta = [1 1];
+
+betas = {1, 0};
 
 % Dynamic beta parameters
 extraArgs.alpha = 0.5;
 extraArgs.DeltaB0 = 0.5; 
 
 % Setup dynamical system
-Pbeta0 = 0.5; 
-x0 = [0; 0; Pbeta0];
-human = BoltzmannHuman(x0, v, uRange, gamma, K, m, theta, delta_t, uThresh, ...
+Pbeta1 = 0.5; 
+x0 = [0; 0; Pbeta1];
+% Pbeta01 = 1.0/3; 
+% x0 = [0; 0; Pbeta1; Pbeta01];
+human = BoltzmannBetaHuman(x0, v, uRange, gamma, betas, theta, delta_t, uThresh, ...
     numCtrls, betaModel, extraArgs);
 
 %% Grid
@@ -58,7 +62,7 @@ data0 = shapeSphere(g, x0, R);
 
 %% time vector
 t0 = 0;
-tMax = 2;
+tMax = 2.0;
 dt = 0.1;
 tau = t0:dt:tMax;
 uMode = 'max';
@@ -70,8 +74,8 @@ schemeData.dynSys = human;
 schemeData.accuracy = 'high'; %set accuracy
 schemeData.uMode = uMode;
 schemeData.tMode = 'forward';
-schemeData.hamFunc = @boltzmannHuman_ham;
-schemeData.partialFunc = @boltzmannHuman_partial;
+schemeData.hamFunc = @boltzmannBetaHuman_ham;
+schemeData.partialFunc = @boltzmannBetaHuman_partial;
 
 %% Compute value function
 % HJIextraArgs.visualize = true; %show plot
@@ -83,7 +87,7 @@ HJIextraArgs.visualize.viewGrid = true;
 HJIextraArgs.visualize.viewAxis = [-2 2 -2 2 -0.1 1.1];
 HJIextraArgs.visualize.xTitle = '$p^x$';
 HJIextraArgs.visualize.yTitle = '$p^y$';
-HJIextraArgs.visualize.zTitle = '$P(\beta = 0)$';
+HJIextraArgs.visualize.zTitle = string(['$P(\beta = $' string(betas{1}) ')']);
 HJIextraArgs.visualize.fontSize = 15;
 %HJIextraArgs.visualize.camlightPosition = [0 0 0];
 
@@ -106,5 +110,5 @@ minWith = 'zero';
 [data, tau2, ~] = ...
   HJIPDE_solve_pred(data0, tau, schemeData, minWith, HJIextraArgs);
 
-save('data_folder/boltzmannBeta1_0_e_005_n_21.mat', 'data')
-save('grid_folder/boltzmannBeta1_0_e_005_n_21.mat', 'g')
+save('data_folder/boltzmannBeta1_0.mat', 'data')
+save('grid_folder/boltzmannBeta1_0.mat', 'g')
