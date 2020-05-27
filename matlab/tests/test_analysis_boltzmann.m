@@ -3,9 +3,9 @@ clf
 clear all
 
 %% Grid
-grid_min = [-5; -5; -0.1];  % Lower corner of computation domain
-grid_max = [5; 5; 1.1];     % Upper corner of computation domain
-N = [51; 51; 51];           % Number of grid points per dimension
+grid_min = [-8; -8; -0.1];  % Lower corner of computation domain
+grid_max = [8; 8; 1.1];     % Upper corner of computation domain
+N = [51; 51; 41];           % Number of grid points per dimension
 g = createGrid(grid_min, grid_max, N);
 
 %% Create human dynamical system
@@ -35,7 +35,7 @@ uRange = [-pi+1e-2; pi];
 gamma = 1;
 
 % Number of discrete controls
-numCtrls = 50;
+numCtrls = 31;
 
 % Threshold to determine likely controls
 uThresh = 0.0;
@@ -44,7 +44,7 @@ uThresh = 0.0;
 betaModel = 'static';
 
 % Human's goal location.
-theta = [1, 1];
+theta = [1, 0];
 
 % Timestep in discretized dynamics (for Q-function computation).
 delta_t = 0.1;
@@ -57,9 +57,10 @@ tol = 0.2;
 
 % ---- Setup for Case 1 ---- %
 % start with high prior on beta=0, but true is beta=1 (boltzmann)
-Pbeta1 = 0.5; 
-trueBeta = 1;
-centerPBeta = 1;
+Pbeta1 = 0.8; 
+trueBeta = 0;
+centerPBeta = 0.1;
+%centerPBeta = 1;
 
 % For Analysis 1.1 (min time)
 uMode = 'min';
@@ -85,7 +86,7 @@ uMode = 'min';
 % % -------------------------- %
 
 % Setup dynamical system
-x0 = [-2; 0; Pbeta1];
+x0 = [-3; 3; Pbeta1];
 human = Boltzmann1or0Human(x0, v, trueBeta, uRange, gamma, theta, ...
     delta_t, uThresh, numCtrls, betaModel, extraArgs);
 
@@ -95,10 +96,13 @@ xyoffset = 0.1;
 poffset = 0.01;
 goalSetRad = 1.5;
 
-center = [0; 0; 0.9];
-widths = [(grid_max(1) - grid_min(1)) - xyoffset; ...
-          (grid_max(2) - grid_min(2)) - xyoffset; 
+center = [0; 0; centerPBeta];
+widths = [10 - xyoffset; ...
+          10 - xyoffset; 
           tol - poffset];
+% widths = [(grid_max(1) - grid_min(1)) - xyoffset; ...
+%           (grid_max(2) - grid_min(2)) - xyoffset; 
+%           tol - poffset];
 
 % center = [theta(1); theta(2); 0.9];
 % widths = [1; ...
@@ -219,6 +223,7 @@ tmin = times(end);
 tminIdx = length(times);
 
 %% Get the optimal trajectory.
+extraArgs.uMode = uMode;
 [traj, traj_tau] = computeOptTraj(g, valueFuns, times, human, extraArgs);
 
 fprintf("Minimum time it takes to realize goal is %f\n", ...
@@ -227,7 +232,11 @@ fprintf("Minimum time it takes to realize goal is %f\n", ...
 %% Plot the trajectory.
 plotTraj(traj, traj_tau, theta, ...
     grid_min, grid_max, goalSetRad);
-% save('uopt_09thresh.mat', 'uopt', 'human', 'times', 'tminIdx', 'goals', 'trueGoalIdx', 'grid_min', 'grid_max', 'goalSetRad', 'dt');
+
+%% SAVE data!
+save('beta_1_to_0_brs.mat', 'human', 'times', 'valueFuns', ...
+    'traj', 'traj_tau', 'theta', 'g', ...
+    'grid_min', 'grid_max', 'x0');
 
 %% Plots the state trajectory.
 function plotTraj(traj, traj_tau, theta, ...
