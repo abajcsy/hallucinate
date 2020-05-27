@@ -6,82 +6,93 @@ clf
 urange = [-pi, pi];
 
 % goal locations (meters).
-g1 = [1; -1];
-g2 = [1; 1];
+g1 = [1; 0];
 
 % initial state.
-x = [0; 0];
+x = [-4; 0];
 
-v = 0.6;
-deltaT =1;
+v = 0.2;
+deltaT = 1;
 
 % number of discrete controls.
-num_ctrls = 5;
+num_ctrls = 51;
 
 % get discretized controls.
 us = gen_controls(urange, num_ctrls);
 
 % 50/50 prior on each goal.
-priorg1 = 0.5;
+prior_0 = 0.9;
+prior_0_1 = 0;
+prior_1 = 0.1;
 
 % action probabilities
-us_probs_g1 = zeros(1,length(us));
-us_probs_g2 = zeros(1,length(us));
+us_probs_0 = zeros(1,length(us));
+us_probs_0_1 = zeros(1,length(us));
+us_probs_1 = zeros(1,length(us));
+us_probs = zeros(1,length(us));
 
 % posteriors
-posteriors = zeros(1,length(us));
+posteriors_0 = zeros(1,length(us));
+posteriors_0_1 = zeros(1,length(us));
+posteriors_1 = zeros(1,length(us));
 
 % get the probability of each action.
 for i=1:num_ctrls
     u = us(i);
     
-    pu_g1 = pu_goal(u,x,g1,us,v,deltaT);
-    pu_g2 = pu_goal(u,x,g2,us,v,deltaT);
-%     pu_g2 = 1/(num_ctrls);
-    fprintf(strcat("u: ", num2str(u), ", pu_g1=", num2str(pu_g1), "\n"));
+    pu_0 = pu_beta(u,x,0,us,v,deltaT,g1);
+    pu_0_1 = pu_beta(u,x,0.1,us,v,deltaT,g1);
+    pu_1 = pu_beta(u,x,1,us,v,deltaT,g1);
+    pu = pu_0 .* prior_0 + pu_0_1 .* prior_0_1 + pu_1 .* prior_1;
     
     % compute P(g1|u,x) \propto P(u|x,g1)*P(g1)
-    posteriorpug1 = (pu_g1 * priorg1)/(pu_g1 * priorg1 + pu_g2 *(1-priorg1));
+    posterior_0 = (pu_0 * prior_0)/((pu_0 * prior_0) + (pu_0_1 * prior_0_1) + (pu_1 * prior_1));
+    posterior_0_1 = (pu_0_1 * prior_0_1)/((pu_0 * prior_0) + (pu_0_1 * prior_0_1) + (pu_1 * prior_1));
     
     % plotting info...
-    us_probs_g1(i) = pu_g1;
-    us_probs_g2(i) = pu_g2;
-    posteriors(i) = posteriorpug1;
+    us_probs_0(i) = pu_0;
+    us_probs_0_1(i) = pu_0_1;
+    us_probs_1(i) = pu_1;
+    us_probs(i) = pu;
+    posteriors_0(i) = posterior_0;
+    posteriors_0_1(i) = posterior_0_1;
 end
 
-% Tolerance for when computing the argmax_u Posterior(g1 | u). 
-tol = 1e-3;
-
-% Plot action probabilities: P(u|x,g1)
 figure(1)
-plot_circle(us, us_probs_g1, g1, g2, x, posteriors, tol);
-title("P(u|x,g1)");
+plot_prob(us_probs_0,us,"P(u|x,b=0)");
 
-% Plot posterior: P(g1|u,x)
 figure(2)
-plot_posterior(posteriors, us, g1, x, priorg1, us_probs_g1, tol);
+plot_prob(us_probs_0_1,us,"P(u|x,b=0.1)");
 
-% Plot "continuous-time" posterior: 
-%   (1/dt)*(P(g1|u,x) - P(g1))
 figure(3)
-cont_time_posteriors = (1/deltaT)*(posteriors - priorg1);
-plot_cont_time_posterior(cont_time_posteriors, us, g1, x, priorg1, us_probs_g1, tol);
+plot_prob(us_probs_1,us,"P(u|x,b=1)");
 
 figure(4)
-plot_prob(us_probs_g1,us,"P(u|x,g1)");
+plot_prob(us_probs,us,"P(u|x)");
 
-function plot_prob(pu,us,name)
-    hold on
-    plot(us, pu, 'mo-');
-    title(name)
-end
+% % Tolerance for when computing the argmax_u Posterior(g1 | u). 
+% tol = 1e-3;
+% 
+% % Plot action probabilities: P(u|x,g1)
+% figure(1)
+% plot_circle(us, us_probs_g1, g1, g2, x, posteriors, tol);
+% title("P(u|x,g1)");
+% 
+% % Plot posterior: P(g1|u,x)
+% figure(2)
+% plot_posterior(posteriors, us, g1, x, priorg1, us_probs_g1, tol);
+% 
+% % Plot "continuous-time" posterior: 
+% %   (1/dt)*(P(g1|u,x) - P(g1))
+% figure(3)
+% cont_time_posteriors = (1/deltaT)*(posteriors - priorg1);
+% plot_cont_time_posterior(cont_time_posteriors, us, g1, x, priorg1, us_probs_g1, tol);
 
 %% Compute probability (boltzmann)
-function pu = pu_goal(u,x,goal,us,v,deltaT)
+function pu = pu_beta(u,x,beta,us,v,deltaT,goal)
     us_shape = size(us);
     % Calculta sum of 
     sumControls = 0.0;
-    u_val = 0;
     for i = 1:us_shape(2)
 
         % Get discrete control.
@@ -92,16 +103,12 @@ function pu = pu_goal(u,x,goal,us,v,deltaT)
 
         % Calculate value in summation: 
         %   e^{-||(x_t + \Deltat t f(x_t,u_t)) - \theta||_2}
-        u_i_val = exp(-1 .* qval);
-        
-        if u_i == u
-            u_val = u_i_val;
-        end
+        u_i_val = exp(beta .* qval);
 
         % Add to running value of summation
         sumControls = sumControls + u_i_val; 
     end
-    
+    u_val = exp(beta .* qFunction(x, u, goal, v, deltaT));
     pu = u_val ./ sumControls;
 end
 
@@ -111,7 +118,7 @@ function qval = qFunction(x, u, theta, v, deltaT)
     x2 = x(2) + deltaT * v * sin(u);
 
     % Evaluate distance of next x to goal theta under L2 norm
-    qval = ((x1 - theta(1))^2 + (x2 - theta(2))^2)^(1./2.);
+    qval = -1*((x1 - theta(1))^2 + (x2 - theta(2))^2)^(1.);
 end
 
 %% Generate discrete num_ctrls ranging from [urange(1), urange(2)) 
@@ -125,8 +132,14 @@ function us = gen_controls(urange, num_ctrls)
     end
 end
 
+function plot_prob(pu,us,name)
+    hold on
+    plot(us, pu, 'mo-');
+    title(name)
+end
+
 %% Plotting function.
-function h = plot_circle(angles, values, g1, g2, x0, posteriors, tol)
+function h = plot_circle(angles, values, g1, x0, posteriors, tol)
     hold on
     
     rectangle('Position',[x0(1)-1 x0(2)-1 2 2],'Curvature',1, 'EdgeColor',[0.5,0.5,0.5]);
@@ -170,10 +183,8 @@ function h = plot_circle(angles, values, g1, g2, x0, posteriors, tol)
         end
     end
     scatter(g1(1), g1(2), 100, 'r', 'filled');
-    scatter(g2(1), g2(2), 100, 'b', 'filled');
     scatter(x0(1), x0(2), 50, 'k');
     text(g1(1)+0.1, g1(2),'g1', 'Color', 'r');
-    text(g2(1)+0.1, g2(2),'g2', 'Color', 'b');
     
     xlim([-3,3]);
     ylim([-3,3]);

@@ -11,8 +11,11 @@ uMode = schemeData.uMode;
 
 %  Compute the Hamiltonian over all states and discretized controls.
 pdot_f = 0.0;
+rep_tile = ones(1,(2 + (length(human.betas) - 1)));
+rep_tile((2 + length(human.betas))) = human.numCtrls;
+
 parfor i=1:(2 + (length(human.betas) - 1))
-    p_i = repmat(deriv{i}, [1, 1, 1, human.numCtrls]);
+    p_i = repmat(deriv{i}, rep_tile);
     pdot_f = pdot_f + (p_i .* human.xdot{i});
 end
 % p1 = repmat(deriv{1}, [1, 1, 1, human.numCtrls]);
@@ -22,9 +25,9 @@ end
 
 % Maximize/minimize Hamiltonian.
 if strcmp(uMode, 'min')
-	hamValue = min(pdot_f, [], 4);
+	hamValue = min(pdot_f, [], (2 + length(human.betas)));
 else
-	hamValue = max(pdot_f, [], 4);
+	hamValue = max(pdot_f, [], (2 + length(human.betas)));
 end
 
 % Negate hamValue if backward reachable set.

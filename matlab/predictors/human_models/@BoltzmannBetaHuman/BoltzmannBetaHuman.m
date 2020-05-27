@@ -123,22 +123,52 @@ classdef BoltzmannBetaHuman < DynSys
 % 
 %         end
         
-        function pb = betaPosterior(obj, x, u, beta_index)
+%         function pb = betaPosterior(obj, x, u, beta_index)
+%             %% Computes posterior given x and u
+%             %       P(beta=1 | xt=x, ut=u) \propto P(u | x, beta=1) * P(beta=1)
+%             %
+%             %  Note that our third state is x(3) = P(\beta=1 | xt-1, ut-1)
+%             
+%             beta = obj.betas{beta_index};
+%             prior = x{2+beta_index};
+%             
+%             pb = (obj.PUGivenBeta(u,x,beta) .* prior) ./ obj.PUGivenX(u,x);
+%             pb = max(min(pb, 1.), 0.);
+%             
+%             % Account for the probability outside the valid range
+%             pb = (pb .* (x{2+beta_index} >= 0) .* (x{2+beta_index} <= 1)) + ...
+%                         (x{2+beta_index} .* (x{2+beta_index} < 0)) + ...
+%                         (x{2+beta_index} .* (x{2+beta_index} > 1));
+%         end
+        
+        function betaPosteriors = betaPosterior(obj, x, u)
             %% Computes posterior given x and u
             %       P(beta=1 | xt=x, ut=u) \propto P(u | x, beta=1) * P(beta=1)
             %
             %  Note that our third state is x(3) = P(\beta=1 | xt-1, ut-1)
+            betaPosteriors = cell(1,length(obj.betas));
+            sumPosteriors = 0.0;
+            for i=1:length(obj.betas)-1
+                beta = obj.betas{i};
+                prior = x{2+i};
+
+                pb = (obj.PUGivenBeta(u,x,beta) .* prior) ./ obj.PUGivenX(u,x);
+                pb = max(min(pb, 1.), 0.);
+
+                % Account for the probability outside the valid range
+                betaPosteriors{i} = (pb .* (x{2+i} >= 0) .* (x{2+i} <= 1)) + ...
+                        (x{2+i} .* (x{2+i} < 0)) + ...
+                        (x{2+i} .* (x{2+i} > 1));
+                    
+                sumPosteriors = sumPosteriors + betaPosteriors{i};
+            end
             
-            beta = obj.betas{beta_index};
-            prior = x{2+beta_index};
-            
-            pb = (obj.PUGivenBeta(u,x,beta) .* prior) ./ obj.PUGivenX(u,x);
-            pb = max(min(pb, 1.), 0.);
-            
-            % Account for the probability outside the valid range
-            pb = (pb .* (x{3} >= 0) .* (x{3} <= 1)) + ...
-                        (x{3} .* (x{3} < 0)) + ...
-                        (x{3} .* (x{3} > 1));
+            % Make sure that sum of probabilites are inside the valid range
+            for i=1:length(obj.betas)-1
+                betaPosteriors{i} = (betaPosteriors{i} .* (sumPosteriors >= 0) .* (sumPosteriors <= 1)) + ...
+                        (x{2+i} .* (sumPosteriors < 0)) + ...
+                        (x{2+i} .* (sumPosteriors > 1));
+            end
         end
         
         function pb = PUGivenBeta(obj, u, x, beta)
@@ -170,7 +200,7 @@ classdef BoltzmannBetaHuman < DynSys
             for j=1:length(obj.betas)
                 beta = obj.betas{j};
                 if j < length(obj.betas)
-                    prior = x{j};
+                    prior = x{j+2};
                     prior_total = prior_total + prior;
                 else
                     prior = 1 - prior_total; % find efficient way of doing 1 - x{3} - ...
@@ -191,14 +221,12 @@ classdef BoltzmannBetaHuman < DynSys
             
             likelyCtrls = cell(1, obj.numCtrls); % Contain all likely controls
             likelyMasks = containers.Map; % Map for likely control (str) to boolean matrix
-            
             for i = 1:obj.numCtrls
                 % Grab current candidate control.
                 u = obj.discCtrls(i);
                 
                 % Find probability of u
                 pb = obj.PUGivenX(u,x);
-                
                 likelyMasks(num2str(u)) = pb >= obj.uThresh; % Mask of same dimension as x{1}, which is 1 if coordinate is likely, 0 otherwise
                 likelyCtrls{i} = u; % Consider all controls as likely controls
             end
@@ -239,7 +267,7 @@ classdef BoltzmannBetaHuman < DynSys
                     end
                 else
                     for j=1:(2 + (length(obj.betas) - 1))
-                        obj.xdot{j} = cat(4, obj.xdot{j}, f{j} .* currLikelyMask);
+                        obj.xdot{j} = cat((2 + length(obj.betas)), obj.xdot{j}, f{j} .* currLikelyMask);
                     end
                 end
             end

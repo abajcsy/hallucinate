@@ -14,7 +14,7 @@ K = [0, 0];
 m = 0;
 
 % Number of discrete controls
-numCtrls = 10;
+numCtrls = 21;
 
 delta_t = 1;
 
@@ -22,29 +22,30 @@ delta_t = 1;
 gamma = 1/delta_t;
 
 % Threshold to determine likely controls
-uThresh = 0.0;
+uThresh = 0.04;
 
 % Are we using dynamic of static beta model?
 betaModel = 'static';
 
 theta = [1 1];
 
-betas = {1, 0};
+betas = {1, 0.1, 0};
 
 % Dynamic beta parameters
 extraArgs.alpha = 0.5;
 extraArgs.DeltaB0 = 0.5; 
 
 % Setup dynamical system
-Pbeta0 = 0.5; 
-x0 = [0; 0; Pbeta0];
+Pbeta1 = 0.9; 
+Pbeta01 = 0.1; 
+x0 = [0; 0; Pbeta1; Pbeta01];
 human = BoltzmannBetaHuman(x0, v, uRange, gamma, betas, theta, delta_t, uThresh, ...
     numCtrls, betaModel, extraArgs);
 
 %% Grid
-grid_min = [-2; -2; -0.1];  % Lower corner of computation domain
-grid_max = [2; 2; 1.1];     % Upper corner of computation domain
-N = [41; 41; 41];           % Number of grid points per dimension
+grid_min = [-2; -2; -0.1; -0.1];  % Lower corner of computation domain
+grid_max = [2; 2; 1.1; 1.1];     % Upper corner of computation domain
+N = [41; 41; 41; 41];           % Number of grid points per dimension
 g = createGrid(grid_min, grid_max, N);
 
 %% Pre-compute the likely controls and dynamics over the entire state-space.
@@ -60,7 +61,7 @@ data0 = shapeSphere(g, x0, R);
 
 %% time vector
 t0 = 0;
-tMax = 2;
+tMax = 2.0;
 dt = 0.1;
 tau = t0:dt:tMax;
 uMode = 'max';
@@ -94,8 +95,8 @@ HJIextraArgs.visualize.fontSize = 15;
 HJIextraArgs.ignoreBoundary = 0; 
 
 %uncomment if you want to see a 2D slice
-HJIextraArgs.visualize.plotData.plotDims = [1 1 1]; %plot x, y
-HJIextraArgs.visualize.plotData.projpt = {'min'}; %project pt
+HJIextraArgs.visualize.plotData.plotDims = [1 1 0 0]; %plot x, y
+HJIextraArgs.visualize.plotData.projpt = {'min','min'}; %project pt
 HJIextraArgs.visualize.viewAngle = [0,90]; % view 2D
 
 %HJIextraArgs.targets = data0;
@@ -108,3 +109,5 @@ minWith = 'zero';
 [data, tau2, ~] = ...
   HJIPDE_solve_pred(data0, tau, schemeData, minWith, HJIextraArgs);
 
+save('data_folder/boltzmannBeta1_01_0_e_005_n_21.mat', 'data')
+save('grid_folder/boltzmannBeta1_01_0_e_005_n_21.mat', 'g')

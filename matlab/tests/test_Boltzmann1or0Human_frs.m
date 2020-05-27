@@ -9,9 +9,6 @@ v = 0.6;
 % Control bounds
 uRange = [-pi+1e-2; pi];
 
-% gamma in continuous-time P(beta = 0) dynamics
-gamma = 0.01;
-
 % Control gains
 K = [0, 0];
 m = 0;
@@ -21,28 +18,34 @@ numCtrls = 21;
 
 delta_t = 1;
 
+% gamma in continuous-time P(beta = 0) dynamics
+gamma = 1/delta_t;
+
 % Threshold to determine likely controls
-uThresh = 0.05;
+uThresh = 0.00; % 0.00
 
 % Are we using dynamic of static beta model?
 betaModel = 'static';
 
-goals = {[1 1], [1,-1]};
+theta = [2 0];
 
 % Dynamic beta parameters
 extraArgs.alpha = 0.5;
 extraArgs.DeltaB0 = 0.5; 
 
 % Setup dynamical system
-Pbeta0 = 0.1; 
+Pbeta0 = 0.5; 
 x0 = [0; 0; Pbeta0];
-human = BoltzmannTwoGoalHuman(x0, v, uRange, gamma, ...
-                goals, delta_t, uThresh, numCtrls, betaModel, extraArgs);
+% human = BoltzmannHuman(x0, v, uRange, gamma, K, m, theta, delta_t, uThresh, ...
+%     numCtrls, betaModel, extraArgs);
+beta = 0;
+human = Boltzmann1or0Human(x0, v, beta, uRange, gamma, ...
+                theta, delta_t, uThresh, numCtrls, betaModel, extraArgs);
 
 %% Grid
 grid_min = [-2; -2; -0.1];  % Lower corner of computation domain
 grid_max = [2; 2; 1.1];     % Upper corner of computation domain
-N = [81; 81; 41];           % Number of grid points per dimension
+N = [41; 41; 41];           % Number of grid points per dimension
 g = createGrid(grid_min, grid_max, N);
 
 %% Pre-compute the likely controls and dynamics over the entire state-space.
@@ -70,8 +73,8 @@ schemeData.dynSys = human;
 schemeData.accuracy = 'high'; %set accuracy
 schemeData.uMode = uMode;
 schemeData.tMode = 'forward';
-schemeData.hamFunc = @boltzmannTwoGoalHuman_ham;
-schemeData.partialFunc = @boltzmannTwoGoalHuman_partial;
+schemeData.hamFunc = @boltzmann1or0Human_ham;
+schemeData.partialFunc = @boltzmann1or0Human_partial;
 
 %% Compute value function
 % HJIextraArgs.visualize = true; %show plot
@@ -80,10 +83,12 @@ HJIextraArgs.visualize.initialValueSet = 0;
 HJIextraArgs.visualize.figNum = 1; %set figure number
 HJIextraArgs.visualize.deleteLastPlot = true; %delete previous plot as you update
 HJIextraArgs.visualize.viewGrid = true;
-HJIextraArgs.visualize.viewAxis = [-2 2 -2 2 -0.1 1.1];
+HJIextraArgs.visualize.viewAxis = [grid_min(1) grid_max(1) ...
+                                   grid_min(2) grid_max(2) ...
+                                   -0.1 1.1];
 HJIextraArgs.visualize.xTitle = '$p^x$';
 HJIextraArgs.visualize.yTitle = '$p^y$';
-HJIextraArgs.visualize.zTitle = '$P(\beta = 0)$';
+HJIextraArgs.visualize.zTitle = '$P(\beta = 1)$';
 HJIextraArgs.visualize.fontSize = 15;
 %HJIextraArgs.visualize.camlightPosition = [0 0 0];
 
@@ -106,3 +111,5 @@ minWith = 'zero';
 [data, tau2, ~] = ...
   HJIPDE_solve_pred(data0, tau, schemeData, minWith, HJIextraArgs);
 
+save('data_folder/boltzmannBeta1_0_e_005_n_21.mat', 'data')
+save('grid_folder/boltzmannBeta1_0_e_005_n_21.mat', 'g')
