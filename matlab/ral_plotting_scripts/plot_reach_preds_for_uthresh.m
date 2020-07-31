@@ -1,7 +1,7 @@
 % Setup which preds we wanna see.
 pg1 = 0.5;
 delta = 0.005; %0.005, 0.01, 0.03
-saveFig = true;
+saveFig = false;
 
 % Load data.
 repo = what('hallucinate');

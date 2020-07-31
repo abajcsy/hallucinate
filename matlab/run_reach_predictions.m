@@ -18,15 +18,18 @@ human_sigma = 0.0;
 goals = {[2, 2], [2, -2]}; 
 
 % True goal that human is going to.
-trueIdx = 1;
-trueGoal = goals(trueIdx);
-%trueGoal = {[3, 0]};
+%trueGoal = {[3; 0]};
+trueGoal = goals(1);
+%waypts = {[-0.5; 0.3], [0.; 0.4], [0.5; 0.3], [1.1; 0.1], ...
+%    [1.3; -0.1], [1.5; -0.5], [1.7; -1], [2; -2]};
 
 % Initial state of human.
-x0 = [0; 0];
+x0 = [-1; 0];
+%x0 = [0; 0];
 
 % Create simulated human.
 human = GaussianGoalHuman(x0, v, human_sigma, uRange, trueGoal);
+%human = SuboptimalGoalHuman(x0, v, uRange, trueGoal, waypts);
 
 %% (Reachability) Predictor params.
 
@@ -37,13 +40,14 @@ N = [81; 81; 41];           % Number of grid points per dimension
 g = createGrid(grid_min, grid_max, N);
 
 % gamma in continuous-time P(beta = 0) dynamics
-gamma = 0.5;
+gamma = 0.4;
 
 % Number of discrete controls
 numCtrls = 31;
 
 % Threshold to determine likely controls
-uThresh = 0.005; 
+%uThresh = 0.01; 
+uThresh = 0.02; 
 
 % Are we using dynamic of static beta model?
 type_of_pred = 'static';
@@ -92,7 +96,7 @@ data0 = shapeSphere(g, z0, R);
 
 % Time vector
 t0 = 0;
-tMax = 3; %1.8;
+tMax = 2; %1.8;  
 dt = 0.1667; %0.05;
 tau = t0:dt:tMax;
 uMode = 'max';
@@ -130,12 +134,12 @@ HJIextraArgs.visualize.fontSize = 15;
 HJIextraArgs.ignoreBoundary = 0; 
 
 % Compute FRS.
-minWith = 'set';
+minWith = 'zero'; %'set';
 
 %% Simulation params. 
 
 % Number of simulation steps. (real sim time = T*dt)
-simT = 0; %36;
+simT = 44; %0; %36; %44; 
 
 dimsToRemove = [0 0 1];
 xcurr = x0;
@@ -206,13 +210,13 @@ for t=1:simT+1
         grid on
 
         % Plot posterior. 
-        figure(3);
-        hold on
-        plot(times, posteriors, 'r-o', 'LineWidth', 3);
-        xlabel("$time$", 'Interpreter', 'Latex');
-        ylabel("$P(g_1)$", 'Interpreter', 'Latex');
-        ylim([0,1]);
-        grid on
+%         figure(3);
+%         hold on
+%         plot(times, posteriors, 'r-o', 'LineWidth', 3);
+%         xlabel("$time$", 'Interpreter', 'Latex');
+%         ylabel("$P(g_1)$", 'Interpreter', 'Latex');
+%         ylim([0,1]);
+%         grid on
     end
     
     %% Forward simulate human. 
@@ -236,8 +240,19 @@ end
 
 if saveData
     repo = what('hallucinate');
-    filename = strcat('reach_', type_of_pred, '_pg1', num2str(prior(1)), ...
-        '_gamma', num2str(gamma), '_delta', num2str(uThresh), '_1pred.mat');
+    
+    filename = strcat('reach_modelledg_', type_of_pred, '_pg1', num2str(prior(1)), ...
+        '_gamma', num2str(gamma), '_delta', num2str(uThresh), '.mat');    
+    
+%     filename = strcat('reach_unknowng_', type_of_pred, '_pg1', num2str(prior(1)), ...
+%         '_gamma', num2str(gamma), '_delta', num2str(uThresh), '.mat');
+    
+%     filename = strcat('reach_subopt_', type_of_pred, '_pg1', num2str(prior(1)), ...
+%         '_gamma', num2str(gamma), '_delta', num2str(uThresh), '.mat');
+    
+%     filename = strcat('reach_', type_of_pred, '_pg1', num2str(prior(1)), ...
+%         '_gamma', num2str(gamma), '_delta', num2str(uThresh), '_1pred.mat');
+    
     save(strcat(repo.path, '/ral_data/', filename), ...
         'human_states', 'times', 'posteriors', 'all_preds', ...
         'all_pred_times', 'predictor', 'prior', 'uThresh', 'g');

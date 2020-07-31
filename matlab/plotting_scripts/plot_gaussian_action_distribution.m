@@ -58,15 +58,15 @@ end
 
 % Likley control threshold. 
 threshByPercentile = false;
-uThresh = 0.005;
+%uThresh = 0.005;
 %uThresh = 0.01;
-%uThresh = 0.03;
+uThresh = 0.02;
 
 % Prior.
-prior = [0.5, 0.5];
+prior = [0.96, 0.04];
 
 % If we should save figure.
-saveFig = true;
+saveFig = false;
 
 %% Plot state-dependant action probabilities: P(u|x)
 f1 = figure(1);

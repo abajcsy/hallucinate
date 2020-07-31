@@ -5,7 +5,7 @@ clf
 %% Load data.
 repo = what('hallucinate');
 folder = '/ral_data/';
-savefilename = 'bayesian_pg10.5.mat';
+savefilename = 'bayesian_static_pg10.5_1pred.mat';
 
 load(strcat(repo.path, folder, savefilename));
 
@@ -113,7 +113,7 @@ g1_txt.FontSize = 14;
 scatter(xcurr(1), xcurr(2), szone, 'k', 'filled');
 
 %% Setup axes and title.
-t1 = title('$P(x^{t+1.8}_H \mid x^t_H)$', 'Interpreter', 'Latex');
+t1 = title('$P(x^{1.8}_H \mid x^0_H)$', 'Interpreter', 'Latex');
 t1.FontSize = titleSz;
 xlim(xlims);
 ylim(ylims);
@@ -158,7 +158,7 @@ g1_txt.FontSize = 14;
 scatter(xcurr(1), xcurr(2), szone, 'k', 'filled');
 
 % Setup axes and title.
-title_text = strcat('$P(x^{t+1.8}_H \mid x^t_H) >', num2str(delta), '$');
+title_text = strcat('$P(x^{1.8}_H \mid x^0_H) >', num2str(delta), '$');
 t1 = title(title_text, 'Interpreter', 'Latex');
 t1.FontSize = titleSz;
 xlim(xlims);
@@ -204,7 +204,7 @@ g1_txt.FontSize = 14;
 scatter(xcurr(1), xcurr(2), szone, 'k', 'filled');
 
 % Setup axes and title.
-title_text = strcat('$P(x^{t+1.8}_H \mid x^t_H) >', num2str(delta), '$');
+title_text = strcat('$P(x^{1.8}_H \mid x^0_H) >', num2str(delta), '$');
 t1 = title(title_text, 'Interpreter', 'Latex');
 t1.FontSize = titleSz;
 xlim(xlims);

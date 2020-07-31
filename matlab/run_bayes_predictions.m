@@ -15,18 +15,21 @@ uRange = [-pi; pi];
 human_sigma = 0.0;
 
 % Known human goal locations. 
-goals = {[2, 2], [2, -2]}; 
+goals = {[2; 2], [2; -2]}; 
 
 % True goal that human is going to.
-trueIdx = 1;
-trueGoal = goals(trueIdx);
-%trueGoal = {[3, 0]};
+%trueGoal = {[3; 0]};
+trueGoal = goals(1);
+waypts = {[-0.5; 0.3], [0.; 0.4], [0.5; 0.3], [1.1; 0.1], ...
+    [1.3; -0.1], [1.5; -0.5], [1.7; -1], [2; -2]};
 
-% Initial state of human.
+% Initial state of human (in m).
+%x0 = [-1; 0];
 x0 = [0; 0];
 
 % Create simulated human.
 human = GaussianGoalHuman(x0, v, human_sigma, uRange, trueGoal);
+%human = SuboptimalGoalHuman(x0, v, uRange, trueGoal, waypts);
 
 %% (Bayesian) Predictor params.
 
@@ -36,21 +39,21 @@ grid_max = [4; 4];     % Upper corner of computation domain
 
 % (reachablity) Threshold to determine likely controls -- used for
 % plotting.
-uThresh = 0.1; 
+uThresh = 0.03; 
 
 % Variance on Gaussian observation model.
 sigma1 = pi/4;
 sigma2 = pi/4;
 
 % Set the prior over goal 1 and goal 2.
-prior = [0.5, 0.5];
+prior = [0.9, 0.1];
 Pgoal1 = prior(1); 
 
 % Grid cell size.
 r = 0.1;
 
-type_of_pred = 'static';
-%type_of_pred = 'dynamic';
+%type_of_pred = 'static';
+type_of_pred = 'dynamic';
 
 % Create the predictor.
 if strcmp(type_of_pred, 'static')
@@ -70,22 +73,18 @@ else
     error("Illegal type of pred.");
 end
 
-% Initial human state (in m).
-x0 = [0,0];
-v = 0.6;
-dt = r / v;
-
 % Prediction horizon. 
 % gString = createGrid(gridMin, gridMax, gridDims);
 % dt = gString.dx(1)/v;
-T = 1.8;        %3              % horizon in (seconds)
+dt = r / v;
+T = 1.8; %2;                      % horizon in (seconds)
 H = floor(T/dt);                % horizon in (timesteps)
 discrete_times = 0:1:H+1;       % (used for data storing and plotting)
 
 %% Simulation params. 
 
 % Number of simulation steps. (real sim time = T*dt)
-simT = 36;
+simT = 0; %36; %44; 
 
 % State. 
 xcurr = x0;
@@ -127,7 +126,7 @@ for t=1:simT+1
     %% Plotting. 
     if plotData
         % Plot the predictions.
-        figure(2);
+        figure(1);
         hold on;
         for pt=1:length(preds)
             curr_pred = preds{pt};
@@ -144,7 +143,7 @@ for t=1:simT+1
         scatter(xcurr(1), xcurr(2), 60, [hcolor(t), hcolor(t), hcolor(t)], 'filled');
 
         % Plot goals.
-        figure(2);
+        figure(1);
         scatter(goals{1}(1), goals{1}(2), 100, 'r', 'filled');
         scatter(goals{2}(1), goals{2}(2), 100, 'b', 'filled');
 
@@ -159,13 +158,13 @@ for t=1:simT+1
         %pause(dt);
 
         % Plot posterior. 
-        figure(3);
-        hold on
-        plot(times, posteriors, 'r-o', 'LineWidth', 3);
-        xlabel("$time$", 'Interpreter', 'Latex');
-        ylabel("$P(g_1)$", 'Interpreter', 'Latex');
-        ylim([0,1]);
-        grid on
+%         figure(3);
+%         hold on
+%         plot(times, posteriors, 'r-o', 'LineWidth', 3);
+%         xlabel("$time$", 'Interpreter', 'Latex');
+%         ylabel("$P(g_1)$", 'Interpreter', 'Latex');
+%         ylim([0,1]);
+%         grid on
     end
     
     %% Update. 
@@ -186,7 +185,21 @@ end
 
 if saveData
     repo = what('hallucinate');
-    filename = strcat('bayesian_', type_of_pred, '_pg1', num2str(prior(1)), '.mat');
+
+    % suboptimal behavior.
+%     filename = strcat('bayesian_subopt_', type_of_pred, ....
+%         '_pg1', num2str(prior(1)), '_delta', num2str(uThresh), '.mat');
+
+    % unknown goal.
+%     filename = strcat('bayesian_unknowng_', type_of_pred, ....
+%         '_pg1', num2str(prior(1)), '_delta', num2str(uThresh), '.mat');
+    
+    % moving in modelled way.
+%     filename = strcat('bayesian_modelledg_', type_of_pred, ....
+%         '_pg1', num2str(prior(1)), '_delta', num2str(uThresh), '.mat');
+    
+    % 1 pred.
+    filename = strcat('bayesian_', type_of_pred, '_pg1', num2str(prior(1)), '_1pred.mat');
     save(strcat(repo.path, '/ral_data/', filename), ...
         'human_states', 'times', 'posteriors', 'all_preds', ...
         'all_pred_times', 'predictor', 'prior');

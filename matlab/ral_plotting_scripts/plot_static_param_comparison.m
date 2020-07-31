@@ -42,9 +42,9 @@ sfh1 = subplot(2,2,1);
 hold on;
 
 % Label title and yaxis.
-sft1 = title('Stochastic', 'Interpreter', 'Latex');
+sft1 = title('Intent-Driven Bayes', 'Interpreter', 'Latex');
 sft1.FontSize = 14;
-yt1 = ylabel('$P(\lambda^t = g_1) = 0.5$', 'Interpreter', 'Latex');
+yt1 = ylabel('$b^0(\lambda = g_1) = 0.5$', 'Interpreter', 'Latex');
 yt1.FontSize = 14;
 
 % Plot the predictions.
@@ -141,7 +141,7 @@ sfh2 = subplot(2,2,3);
 hold on;
 
 % Label y-axis.
-yt2 = ylabel('$P(\lambda^t = g_1) = 0.9$', 'Interpreter', 'Latex');
+yt2 = ylabel('$b^0(\lambda = g_1) = 0.9$', 'Interpreter', 'Latex');
 yt2.FontSize = 14;
 
 % Plot the predictions.
