@@ -40,8 +40,8 @@ classdef GaussianGoalHuman < SimHuman
             end
             
             % Figure out where the human would move in one timestep.
-            xdot = obj.dynamics(obj.xcurr, u);
-            xnext = obj.xcurr + dt*xdot;
+            xdot = obj.dynamics(x, u);
+            xnext = x + dt*xdot;
             obj.xcurr = xnext;
         end
     end

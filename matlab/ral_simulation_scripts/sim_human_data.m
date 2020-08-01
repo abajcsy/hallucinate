@@ -31,10 +31,10 @@ grid_max = [4; 4];     % Upper corner of computation domain
 r = 0.1;
 dt = r / v;
 
-% Plot for debugging?
-plot = true;
+%% Plot for debugging?
+plot = false;
 
-% Number of cells to divide x and y into.
+%% Number of cells to divide x and y into.
 num_init_cells = 4;
 init_res_x = (grid_max(1) - grid_min(1))/num_init_cells;
 init_res_y = (grid_max(2) - grid_min(2))/num_init_cells;
@@ -72,6 +72,7 @@ for i=1:length(cell_bounds)
         scatter(rx, ry, 'filled');
     end
 end
+
 if plot
     xlim([grid_min(1), grid_max(1)]);
     ylim([grid_min(2), grid_max(2)]);
@@ -83,11 +84,16 @@ end
 %% Setup simulation.
 
 % Number of simulation steps. (real sim time = T*dt)
-simT = 80;
+simT = 102; % (i.e. 17 seconds)
+
+% Create map to store for each sigma, for each initial condition the
+% trajectory the simulated human took:
+%       key: sigma, value: Map --> key: init_cond, value: trajectory
+all_trajs = containers.Map;
 
 %% Generate the simulated data!
 for sigma = human_sigmas
-    bla = 1;
+    traj_map = containers.Map;
     for init_state = human_init_conds
         x0 = init_state{1};
         
@@ -103,6 +109,7 @@ for sigma = human_sigmas
             figure
             hold on
         end
+        
         % Main simulation loop!
         for t=1:simT
             if plot
@@ -114,9 +121,17 @@ for sigma = human_sigmas
             times(end+1) = (t-1)*dt;
             
             % Forward simulate human. 
-            [xnext, ucurr] = human.simulate(xcurr, t*dt, dt);
+            [xnext, ~] = human.simulate(xcurr, t*dt, dt);
+            while xnext(1) < grid_min(1) || xnext(1) > grid_max(1) || ...
+                    xnext(2) < grid_min(2) || xnext(2) > grid_max(2)
+                % If the next state is outside the grid, resample.
+                [xnext, ~] = human.simulate(xcurr, t*dt, dt);
+            end
             xcurr = xnext;
         end
+        
+        % Save this trajectory.
+        traj_map(num2str(x0)) = human_states;
         
         if plot
             scatter(trueGoal{1}(1), trueGoal{1}(2), 'r');
@@ -128,4 +143,10 @@ for sigma = human_sigmas
             pause(0.5);
         end
     end
+    % Save the trajectories for all initial conditions for this sigma.
+    all_trajs(num2str(sigma)) = traj_map;
 end
+repo = what('hallucinate');
+filename = strcat('sigma_init_cond.mat');
+save(strcat(repo.path, '/ral_data_revise/human_traj_data/', filename), ...
+    'all_trajs', 'human_sigmas', 'human_init_conds', 'simT', 'dt');
