@@ -411,8 +411,15 @@ classdef GaussianTwoGoalHuman < DynSys
                 % marginalized over goals. 
                 PuGivenX = (PuGivenG1 .* PG1) + (PuGivenG2 .* PG2);
                 
+                % WE GOTTA CLIP THAT SHIT OR WE HAVE NEGATIVES!
+                PuGivenX = max(min(PuGivenX, 1), 0);
+                
                 % Pick out the controls at the states where P >= epsilon
                 likelyMasks(num2str(u)) = (PuGivenX >= obj.uThresh);
+                
+%                 if ~all(likelyMasks(num2str(u)), 'all')
+%                     bla = 1;
+%                 end
                 
                 if obj.debugMode
                     % ------ DEBUGGING ------ %

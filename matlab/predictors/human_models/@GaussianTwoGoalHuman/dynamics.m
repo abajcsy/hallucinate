@@ -17,13 +17,21 @@ function dx = dynamics(obj, t, x, u)
         if i == 1
             % NOTE: we need to "freeze" the dynamics when we have invalid
             % probabilities. 
-            dx{i} = obj.v .* cos(u) .* (x{3} >= 0) .* (x{3} <= 1);
+            dx{i} = obj.v .* cos(u); 
+            %dx{i} = obj.v .* cos(u) .* (x{3} >= 0) .* (x{3} <= 1);
         elseif i == 2
-            dx{i} = obj.v .* sin(u) .* (x{3} >= 0) .* (x{3} <= 1);
+            dx{i} = obj.v .* sin(u);
+            %dx{i} = obj.v .* sin(u) .* (x{3} >= 0) .* (x{3} <= 1);
         elseif i == 3
             if strcmp(obj.betaModel, 'static')
                 % NOTE: These dynamics are for a STATIONARY beta model. 
                 dx{i} = obj.gamma * (obj.betaPosterior(x, u) - x{3}) .* (x{3} >= 0) .* (x{3} <= 1);
+                %dx{i} = 0.0 .* x{3};
+                
+                % HACK:
+                % if x{3} > 0.8 or x{3} < 0.2, then beta dynamics do not
+                % propagate
+                %dx{i} = obj.gamma * (obj.betaPosterior(x, u) - x{3}) .* (x{3} >= 0.2) .* (x{3} <= 0.7);
             else
                 % NOTE: These dynamics are for a DYNAMIC beta model. 
                 dx{i} = obj.gamma * ((obj.betaPosterior(x, u) - x{3}) + ...

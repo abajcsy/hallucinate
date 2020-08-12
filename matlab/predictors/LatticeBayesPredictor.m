@@ -104,7 +104,7 @@ classdef LatticeBayesPredictor
             for g = 1:length(obj.goals)
                 preds = twoGoalPreds(num2str(g));
                 for t=2:H+1
-                    fprintf('Predicting for g=%d for t=%d\n', g, t);
+%                     fprintf('Predicting for g=%d for t=%d\n', g, t);
                     for scurr = obj.states
                         for uid = obj.usIdxs
                             % Unpack the [i,j] coords.
@@ -148,15 +148,15 @@ classdef LatticeBayesPredictor
             end
             
             % ---- debugging ----%
-            t=3; % time when to sanity check. 
-            linidxs = find(preds{t} > 0.0); 
-            for i =1:length(linidxs)
-                lidx = linidxs(i);
-                [row,col] = ind2sub([obj.rows, obj.cols],lidx);
-                [x,y] = obj.simToReal([row, col]);
-                fprintf(strcat("P(x(",num2str(t),")=", ...
-                    num2str(x), ",", num2str(y), ") =", num2str(fullPreds{t}(lidx)),"\n")); 
-            end
+%             t=3; % time when to sanity check. 
+%             linidxs = find(preds{t} > 0.0); 
+%             for i =1:length(linidxs)
+%                 lidx = linidxs(i);
+%                 [row,col] = ind2sub([obj.rows, obj.cols],lidx);
+%                 [x,y] = obj.simToReal([row, col]);
+%                 fprintf(strcat("P(x(",num2str(t),")=", ...
+%                     num2str(x), ",", num2str(y), ") =", num2str(fullPreds{t}(lidx)),"\n")); 
+%             end
             % ---- debugging ----%
         end
         

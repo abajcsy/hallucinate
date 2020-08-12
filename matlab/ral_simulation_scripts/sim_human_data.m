@@ -1,11 +1,6 @@
 clear all
 close all
 
-% TODO
-% -- make sure that the simulated human can't go outside of the compute
-% grid
-% -- add in saving functionality for data
-
 %% Random seed.
 rng(13);
 
@@ -89,6 +84,7 @@ simT = 102; % (i.e. 17 seconds)
 % Create map to store for each sigma, for each initial condition the
 % trajectory the simulated human took:
 %       key: sigma, value: Map --> key: init_cond, value: trajectory
+%                                                         [state, action]
 all_trajs = containers.Map;
 
 %% Generate the simulated data!
@@ -115,18 +111,21 @@ for sigma = human_sigmas
             if plot
                 scatter(xcurr(1), xcurr(2), 'filled');
             end 
-            
-            % Store current state.
-            human_states{end+1} = xcurr;
-            times(end+1) = (t-1)*dt;
+           
             
             % Forward simulate human. 
-            [xnext, ~] = human.simulate(xcurr, t*dt, dt);
+            [xnext, ucurr] = human.simulate(xcurr, t*dt, dt);
             while xnext(1) < grid_min(1) || xnext(1) > grid_max(1) || ...
                     xnext(2) < grid_min(2) || xnext(2) > grid_max(2)
                 % If the next state is outside the grid, resample.
-                [xnext, ~] = human.simulate(xcurr, t*dt, dt);
+                [xnext, ucurr] = human.simulate(xcurr, t*dt, dt);
             end
+            
+            % Store current state.
+            human_states{end+1} = {xcurr, ucurr};
+            times(end+1) = (t-1)*dt;
+            
+            % Update state.
             xcurr = xnext;
         end
         
